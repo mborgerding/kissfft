@@ -32,9 +32,10 @@ FILE * fout=NULL;
 
 int navg=20;
 float * valbuf=NULL;
+int remove_dc=1;
 
-png_bytepp row_pointers=NULL;
 size_t nrows=0;
+float * vals=NULL;
 
 void config(int argc,char** argv)
 {
@@ -82,24 +83,34 @@ typedef struct
     png_byte b;
 } rgb_t;
 
-png_bytep cpx2pixels(kiss_fft_cpx * fbuf,size_t nfreqs)
+
+rgb_t val2rgb(float x)
+{
+    const double pi = 3.14159265358979;
+    rgb_t p;
+
+    p.g = (int)(255*sin(x*pi));
+    p.r = (int)(255*abs(sin(x*pi*3/2)));
+    p.b = (int)(255*abs(sin(x*pi*5/2)));
+    return p;
+}
+
+
+void cpx2pixels(rgb_t * res,const float * fbuf,size_t nfreqs)
 {
     int i;
-    rgb_t * res = (rgb_t*)malloc(nfreqs*4 );
-    //TODO
+    float minval,maxval,valrange;
+    minval=maxval=fbuf[0];
 
     for (i = 0; i < nfreqs; ++i) {
-        float binpower = fbuf[i].r * fbuf[i].r + fbuf[i].i * fbuf[i].i;
-        res[i].r = 0;
-        res[i].g = 0;
-        res[i].b = 0;
-        if (i&1) {
-            res[i].r = i/2;
-        }
-        
-        //valbuf[(nrows - 1) * nfreqs + i] = 10 * log10 (binpower);
+        if (fbuf[i] > maxval) maxval = fbuf[i];
+        if (fbuf[i] < minval) minval = fbuf[i];
     }
-    return res;
+
+    valrange = maxval-minval;
+
+    for (i = 0; i < nfreqs; ++i)
+        res[i] = val2rgb( (fbuf[i] - minval)/valrange );
 }
 
 void transform_signal()
@@ -130,6 +141,11 @@ void transform_signal()
         // do FFT
         kiss_fftr(cfg,tbuf,fbuf);
 
+        if (remove_dc) {
+            fbuf[0].r = 0;
+            fbuf[0].i = 0;
+        }
+
         for (i=0;i<nfreqs;++i){
             avgbuf[i].r += fbuf[i].r;
             avgbuf[i].i += fbuf[i].i;
@@ -138,9 +154,13 @@ void transform_signal()
         if (++avgctr == navg) {
             avgctr=0;
             ++nrows;
+            vals = (float*)realloc(vals,sizeof(float)*nrows*nfreqs);
+            
+            for (i=0;i<nfreqs;++i) {
+                float binpower = fbuf[i].r * fbuf[i].r + fbuf[i].i * fbuf[i].i;
+                vals[(nrows - 1) * nfreqs + i] = 10 * log10 (binpower);
+            }
 
-            row_pointers = realloc(row_pointers, nrows*sizeof(png_bytep));
-            row_pointers[nrows-1] = cpx2pixels( avgbuf , nfreqs);
             memset(avgbuf,0,sizeof(avgbuf[0])*nfreqs);
         }
     }
@@ -154,6 +174,10 @@ void transform_signal()
 
 void make_png()
 {
+    png_bytepp row_pointers=NULL;
+    rgb_t * row_data=NULL;
+    size_t i;
+
     png_structp png_ptr=NULL;
     png_infop info_ptr=NULL;
     
@@ -163,9 +187,19 @@ void make_png()
 
     png_init_io(png_ptr, fout );
     png_set_IHDR(png_ptr, info_ptr ,nfreqs,nrows,8,PNG_COLOR_TYPE_RGB,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_DEFAULT,PNG_FILTER_TYPE_DEFAULT );
+    
+
+    row_data = (rgb_t*)malloc(sizeof(rgb_t) * nrows * nfreqs) ;
+    cpx2pixels(row_data, vals, nfreqs*nrows );
+
+    row_pointers = realloc(row_pointers, nrows*sizeof(png_bytep));
+    for (i=0;i<nrows;++i) {
+        row_pointers[i] = (png_bytep)(row_data + i*nfreqs);
+    }
     png_set_rows(png_ptr, info_ptr, row_pointers);
 
-    fprintf(stderr,"creating png with %d rows\n",nrows);
+
+    fprintf(stderr,"creating %dx%d png\n",nfreqs,nrows);
     fprintf(stderr,"bitdepth %d \n",png_get_bit_depth(png_ptr,info_ptr ) );
 
     png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY , NULL);
