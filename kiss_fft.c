@@ -95,7 +95,7 @@ void fft4work(
     kiss_fft_cpx * Fout1;
     kiss_fft_cpx * Fout2;
     kiss_fft_cpx * Fout3;
-    int m,q,u,k;
+    int m,q,u;
     kiss_fft_cpx t;
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
@@ -127,34 +127,31 @@ void fft4work(
         scratch[2]= *Fout2;
         scratch[3]= *Fout3;
 
-        k=u;
+        *Fout1 = scratch[0];
+        *Fout2 = scratch[0];
+        *Fout3 = scratch[0];
 
-            *Fout = scratch[0];
-            *Fout1 = scratch[0];
-            *Fout2 = scratch[0];
-            *Fout3 = scratch[0];
+        for (q=1;q<4;++q ) {
+            twidx = (fstride * (u+0*m) * q)%Norig;
+            C_MUL(t,scratch[q] , twiddles[twidx] );
+            C_ADDTO(*Fout,t);
 
-            for (q=1;q<4;++q ) {
-                twidx = (fstride * (u+0*m) * q)%Norig;
-                C_MUL(t,scratch[q] , twiddles[twidx] );
-                C_ADDTO(*Fout,t);
+            twidx = (fstride * (u+1*m) * q)%Norig;
+            C_MUL(t,scratch[q] , twiddles[twidx] );
+            C_ADDTO(*Fout1,t);
+            
+            twidx = (fstride * (u+2*m) * q)%Norig;
+            C_MUL(t,scratch[q] , twiddles[twidx] );
+            C_ADDTO(*Fout2,t);
 
-                twidx = (fstride * (u+1*m) * q)%Norig;
-                C_MUL(t,scratch[q] , twiddles[twidx] );
-                C_ADDTO(*Fout1,t);
-                
-                twidx = (fstride * (u+2*m) * q)%Norig;
-                C_MUL(t,scratch[q] , twiddles[twidx] );
-                C_ADDTO(*Fout2,t);
-
-                twidx = (fstride * (u+3*m) * q)%Norig;
-                C_MUL(t,scratch[q] , twiddles[twidx] );
-                C_ADDTO(*Fout3,t);
-            }
-            ++Fout;
-            ++Fout1;
-            ++Fout2;
-            ++Fout3;
+            twidx = (fstride * (u+3*m) * q)%Norig;
+            C_MUL(t,scratch[q] , twiddles[twidx] );
+            C_ADDTO(*Fout3,t);
+        }
+        ++Fout;
+        ++Fout1;
+        ++Fout2;
+        ++Fout3;
     }
 }
 // the heart of the fft
