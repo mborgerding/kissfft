@@ -1,4 +1,4 @@
-NFFT=1024
+NFFT=256
 ALLUTILS=kfft kifft kffts kiffts kfftd kifftd s2f s2d sigdiff sigdiffs sigdiffd scale scales scaled 
 NUMFFTS=1000
 UTILSRC=../kiss_fft.c fftutil.c
@@ -31,16 +31,16 @@ scaled: typeconvert.c
 	gcc -Wall -O3 -o $@ $^ -DTYPE1=double -DTYPE2=double 
 
 sigdiff: sigdiff.c
-	 gcc -Wall -O3 -o $@ $^ -DTYPE=float -lm
+	gcc -Wall -O3 -o $@ $^ -DTYPE=float -lm
 sigdiffs: sigdiff.c
-	 gcc -Wall -O3 -o $@ $^ -DTYPE=short -lm
+	gcc -Wall -O3 -o $@ $^ -DTYPE=short -lm
 sigdiffd: sigdiff.c
-	 gcc -Wall -O3 -o $@ $^ -DTYPE=double -lm
+	gcc -Wall -O3 -o $@ $^ -DTYPE=double -lm
 
 randshort.dat:
 	dd if=/dev/urandom bs=$$((4 * $(NFFT) )) count=$(NUMFFTS) of=randshort.dat
 randfloat.dat: randshort.dat s2f 
-	./s2f < $< > $
+	./s2f < $< > $@
 randdouble.dat: randshort.dat s2d 
 	./s2d < $< > $@
 
@@ -48,11 +48,11 @@ data: randshort.dat randfloat.dat randdouble.dat
 
 test: all data
 	@echo "####################Testing double fft|ifft"
-	@./kfftd < randdouble.dat | ./kifftd | ./scaled -d 1024 | ./sigdiffd randdouble.dat -
+	@./kfftd < randdouble.dat | ./kifftd | ./scaled -d $(NFFT) | ./sigdiffd randdouble.dat -
 	@echo "####################Testing float fft|ifft"
-	@./kfft < randfloat.dat | ./kifft | ./scale -d 1024 | ./sigdiff randfloat.dat -
+	./kfft < randfloat.dat | ./kifft | ./scale -d $(NFFT) | ./sigdiff randfloat.dat -
 	@echo "####################Testing short fft|ifft"
-	@./kffts < randshort.dat | ./kiffts | ./scales -m 1024 | ./sigdiffs randshort.dat -
+	./kffts < randshort.dat | ./kiffts | ./scales -m $(NFFT) | ./sigdiffs randshort.dat -
 
 clean:
 	rm -f $(ALLUTILS) *.dat *~
