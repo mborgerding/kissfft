@@ -44,9 +44,9 @@ def fastfilter(sig,h,nfft=None):
     return concatenate( res )
 
 def main():
-    siglen = 1e5
-    hlen = 500
-    nfft = 1024*4
+    siglen = 1e4
+    hlen = 50
+    nfft = 128
     print 'nfft=%d'%nfft
     # make a signal
     sig = make_random( siglen )
@@ -57,14 +57,28 @@ def main():
     # perform MAC filtering
     yslow = slowfilter(sig,h)
     #print '<YSLOW>',yslow,'</YSLOW>'
-    yfast = fastfilter(sig,h,nfft)
+    #yfast = fastfilter(sig,h,nfft)
+    yfast = utilfastfilter(sig,h,nfft)
     #print yfast
     print 'len(yslow)=%d'%len(yslow)
     print 'len(yfast)=%d'%len(yfast)
     diff = yslow-yfast
-    snr = 10*log10( vdot(yslow,yslow) / vdot(diff,diff) )
+    snr = 10*log10( abs( vdot(yslow,yslow) / vdot(diff,diff) ) )
     print 'snr=%s' % snr
+    if snr < 10.0:
+        print yslow[:5]
+        print yfast[:5]
 
+def utilfastfilter(sig,h,nfft):
+    import compfft
+    import os
+    open( 'sig.dat','w').write( compfft.dopack(sig,'f',1) )
+    open( 'h.dat','w').write( compfft.dopack(h,'f',1) )
+    cmd = './ff_float -n %d -i sig.dat -h h.dat -o out.dat' % nfft
+    print cmd
+    ec  = os.system(cmd)
+    print 'exited->',ec
+    return compfft.dounpack(open('out.dat').read(),'f',1)
 
 if __name__ == "__main__":
     main()
