@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2003, Mark Borgerding
+Copyright (c) 2003-2004, Mark Borgerding
 
 All rights reserved.
 
