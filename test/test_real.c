@@ -1,3 +1,4 @@
+#include "kiss_fftr.h"
 #include "_kiss_fft_guts.h"
 #include <sys/times.h>
 #include <time.h>

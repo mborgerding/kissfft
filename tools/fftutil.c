@@ -20,12 +20,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 #include "kiss_fft.h"
 
-#ifndef NFFT
-# define NFFT 1024
-#endif
-
-
-
 void fft_file(FILE * fin,FILE * fout,int nfft,int nrows,int isinverse,int useascii,int times)
 {
     int i;

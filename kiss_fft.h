@@ -6,11 +6,17 @@
 #include <math.h>
 #include <memory.h>
 
+/*
+ ATTENTION!
+ If you would like a real-only FFT, see sample_code/kiss_fftr.c and .h
+ If you would like a 2-dimensional FFT, see sample_code/kiss_fft2d.c and .h
+ */
 
 #ifdef FIXED_POINT
 # define kiss_fft_scalar short
 #else
 # ifndef kiss_fft_scalar
+/*  default is float */
 #   define kiss_fft_scalar float
 # endif
 #endif
@@ -57,28 +63,8 @@ void* kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem);
 void kiss_fft(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout);
 
 
-/* allocate a 2-dimensional FFT
-   the data should be stored rowwise,
-   in other words, an array made up of row[0], then row[1], etc
- */
-void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft,void * mem,size_t * lenmem);
-void kiss_fft2d(const void* cfg_from_alloc , const kiss_fft_cpx *fin,kiss_fft_cpx *fout );
-
-/* Real optimized version can save about 45% cpu time vs. complex fft of a real seq.
- */
-void * kiss_fftr_alloc(int nfft,int inverse_fft,void * mem, size_t * lenmem);
-void kiss_fftr(const void * cfg,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata);
-void kiss_fftri(const void * cfg,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata);
-
-/* 2d Real optimized version 
- */
-void * kiss_fftr2d_alloc(int nfft,int inverse_fft,void * mem, size_t * lenmem);
-void kiss_fftr2d(const void * cfg,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata);
-void kiss_fftr2di(const void * cfg,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata);
-
-
-
-/* when done with the cfg for a given fft size and direction, simply free it*/
+/* If kiss_fft_alloc allocated a buffer, it is one contiguous 
+   buffer and can be simply free()d when no longer needed*/
 #define kiss_fft_free free
 
 #endif

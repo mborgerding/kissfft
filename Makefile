@@ -1,5 +1,6 @@
 message:
-	@echo "Nothing to make here.  Move on down to sample_code for ... you guessed it! Sample Code!"
+	@echo "Nothing to make here.  Move on down to sample_code for ... "
+	@echo "real FFTs, 2-d FFTs and you guessed it! Sample Code!"
 
 tarball: clean
 	find | grep -i -v cvs | zip kiss_fft.zip -@

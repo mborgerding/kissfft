@@ -4,7 +4,6 @@ endif
 ifeq "$(NUMFFTS)" ""
  NUMFFTS=10000
 endif
-NROWS=30
 
 ifeq "$(DATATYPE)" ""
  DATATYPE=float
@@ -32,7 +31,7 @@ CFLAGS=-Wall -O3
 $(SELFTEST): ../kiss_fft.c $(SELFTESTSRC)
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
-$(TESTREAL): ../kiss_fft.c ../kiss_fftr.c test_real.c
+$(TESTREAL): ../kiss_fft.c kiss_fftr.c test_real.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
 $(BENCHKISS): benchkiss.c ../kiss_fft.c pstats.c
@@ -41,25 +40,19 @@ $(BENCHKISS): benchkiss.c ../kiss_fft.c pstats.c
 $(BENCHFFTW): benchfftw.c pstats.c
 	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) benchfftw.c pstats.c -lm -lfftw3f -lfftw3 -L /usr/local/lib/ || echo "FFTW not available for comparison"
 
-POW2=256 512 1024 2048 4096 8192
-POW3=243 729 2187
-POW5=25 125 625 3125
-
-mtime: all 
-	@for n in $(POW2) $(POW3) $(POW5) ;do \
-		echo ============================;\
-		./$(BENCHKISS) -x $(NUMFFTS) -n $$n;\
-		[ -x ./$(BENCHFFTW) ] && ./$(BENCHFFTW) -x $(NUMFFTS) -n $$n || true ; \
-	done
-
-test: all $(TESTREAL)
-	@echo "======SELF TEST"
+test: all
+	@echo "======SELF TEST $(DATATYPE)"
 	@./$(SELFTEST)
-	@echo "======REAL FFT TEST"
+	@echo "======REAL FFT TEST $(DATATYPE)"
 	@./$(TESTREAL)
-	@echo "======TIMING TEST"
+	@echo "======TIMING TEST $(DATATYPE)"
 	@./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT) 
 	@[ -x ./$(BENCHFFTW) ] && ./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT) ||true
+
+testall:
+	@(export DATATYPE=double && make test )
+	@(export DATATYPE=float && make test )
+	@(export DATATYPE=short && make test )
 
 selftest.c:
 	./mk_test.py 10 12 14 > selftest.c
@@ -67,4 +60,4 @@ selftest_short.c:
 	./mk_test.py -s 10 12 14 > selftest_short.c
 
 clean:
-	rm -f *~ bm_* st_* tr_* *.dat
+	rm -f *~ bm_* st_* tr_*
