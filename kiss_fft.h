@@ -14,13 +14,14 @@ extern "C" {
  ATTENTION!
  If you would like a :
  -- a utility that will handle the caching of fft objects
- -- real-only FFT
+ -- real-only (no imaginary time component ) FFT
  -- a multi-dimensional FFT
  -- a command-line utility to perform ffts
  -- a command-line utility to perform fast-convolution filtering
 
- then see tools/
- */
+ Then see kfc.h kiss_fftr.h kiss_fftnd.h fftutil.c kiss_fastfir.c
+  in the tools/ directory.
+*/
 
 #ifdef FIXED_POINT
 # define kiss_fft_scalar short
@@ -75,6 +76,9 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem)
  * */
 void kiss_fft(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout);
 
+/*
+ A more generic version of the above function. It reads its input from every Nth sample.
+ * */
 void kiss_fft_stride(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,int fin_stride);
 
 /* If kiss_fft_alloc allocated a buffer, it is one contiguous 
