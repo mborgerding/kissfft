@@ -17,19 +17,15 @@ def fft(f,inv):
     else:
         raise Exception('%s not factorable ' % n)
 
-    #print 'n=%d,p=%d' % (n,p)
-    #print f,' << fin'
     m = n/p
     Fout=[]
     for q in range(p): # 0,1
         fp = f[q::p]
-        #print fp,'<< fp'
         Fp = fft( fp ,inv)
         Fout.extend( Fp )
 
     for u in range(m):
         scratch = Fout[u::m] # u to end in strides of m
-        #print scratch
         for q1 in range(p):
             k = q1*m + u  # indices to Fout above that became scratch
             Fout[ k ] = scratch[0] # cuz e**0==1 in loop below
@@ -50,8 +46,6 @@ def rifft(F):
         Fok = ( F[k] - F[-k-1].conjugate() ) * e ** (j*pi*k/N)
         Z[k] = Fek + j*Fok
 
-    #print 'Z', Z
-
     fp = fft(Z , 1)
 
     f = []
@@ -71,7 +65,6 @@ def real_fft( f,inv ):
 
     fp = [ complex(r,i) for r,i in zip(res,ims) ]
     Fp = fft( fp ,0 )
-    #print 'F=',Fp
 
     F = []
     for k in range(N):
@@ -82,14 +75,6 @@ def real_fft( f,inv ):
 
     F.append( complex( Fp[0].real - Fp[0].imag , 0 ) )
     return F
-
-def test(f=range(1024),ntimes=10):
-    import time
-    t0 = time.time()
-    for i in range(ntimes):
-        fft(f,0)
-    t1 = time.time()
-    print '%ss'% (t1-t0)
 
 def main():
     #fft_func = fft
