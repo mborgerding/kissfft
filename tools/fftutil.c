@@ -22,6 +22,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "kiss_fftnd.h"
 #include "kiss_fftr.h"
 
+static
 void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
 {
     kiss_fft_cfg st;
@@ -41,9 +42,10 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
     free(bufout);
 }
 
+static
 void fft_filend(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
 {
-    void *st;
+    kiss_fftnd_cfg st;
     kiss_fft_cpx *buf;
     int dimprod=1,i;
     for (i=0;i<ndims;++i) 
@@ -60,6 +62,7 @@ void fft_filend(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
     free (buf);
 }
 
+static
 void fft_file_real(FILE * fin,FILE * fout,int nfft,int isinverse)
 {
     kiss_fftr_cfg st;
@@ -86,6 +89,7 @@ void fft_file_real(FILE * fin,FILE * fout,int nfft,int isinverse)
     free(cbuf);
 }
 
+static
 int get_dims(char * arg,int * dims)
 {
     char *p0;

@@ -62,8 +62,8 @@ int main(void)
     kiss_fft_cpx cout[NFFT];
     kiss_fft_cpx sout[NFFT];
     
-    void * kiss_fft_state;
-    void * kiss_fftr_state;
+    kiss_fft_cfg  kiss_fft_state;
+    kiss_fftr_cfg  kiss_fftr_state;
     
     srand(time(0));
 

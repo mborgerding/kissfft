@@ -37,7 +37,7 @@ void kfc_fft(int nfft, const kiss_fft_cpx * fin,kiss_fft_cpx * fout);
 void kfc_ifft(int nfft, const kiss_fft_cpx * fin,kiss_fft_cpx * fout);
 
 /*free all cached objects*/
-void kfc_cleanup();
+void kfc_cleanup(void);
 
 #ifdef __cplusplus
 }

@@ -27,7 +27,7 @@
 #endif
 
 #ifndef CPXTYPE
-int main()
+int main(void)
 {
     fprintf(stderr,"Datatype not available in FFTW\n" );
     return 0;

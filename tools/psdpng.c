@@ -22,8 +22,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "kiss_fft.h"
 #include "kiss_fftr.h"
 
-int nfft=1024;
-int nfreqs=0;
+size_t nfft=1024;
+size_t nfreqs=0;
 int repeat=0;
 int window=0;
 int colors=256;
@@ -37,6 +37,7 @@ int remove_dc=1;
 size_t nrows=0;
 float * vals=NULL;
 
+static
 void config(int argc,char** argv)
 {
     while (1) {
@@ -45,7 +46,7 @@ void config(int argc,char** argv)
             break;
         switch (c) {
         case 'n':
-            nfft=atoi(optarg);
+            nfft=(size_t)atoi(optarg);
         case '?':
             fprintf (stderr, "usage options:\n"
                      "\t-n d: fft dimension(s) default = 1024\n"
@@ -83,45 +84,43 @@ typedef struct
     png_byte b;
 } rgb_t;
 
-
-rgb_t val2rgb(float x)
+static 
+void val2rgb(float x,rgb_t *p)
 {
     const double pi = 3.14159265358979;
-    rgb_t p;
-
-    p.g = (int)(255*sin(x*pi));
-    p.r = (int)(255*abs(sin(x*pi*3/2)));
-    p.b = (int)(255*abs(sin(x*pi*5/2)));
-    return p;
+    p->g = (int)(255*sin(x*pi));
+    p->r = (int)(255*abs(sin(x*pi*3/2)));
+    p->b = (int)(255*abs(sin(x*pi*5/2)));
 }
 
-
-void cpx2pixels(rgb_t * res,const float * fbuf,size_t nfreqs)
+static
+void cpx2pixels(rgb_t * res,const float * fbuf,size_t n)
 {
-    int i;
+    size_t i;
     float minval,maxval,valrange;
     minval=maxval=fbuf[0];
 
-    for (i = 0; i < nfreqs; ++i) {
+    for (i = 0; i < n; ++i) {
         if (fbuf[i] > maxval) maxval = fbuf[i];
         if (fbuf[i] < minval) minval = fbuf[i];
     }
 
     valrange = maxval-minval;
 
-    for (i = 0; i < nfreqs; ++i)
-        res[i] = val2rgb( (fbuf[i] - minval)/valrange );
+    for (i = 0; i < n; ++i)
+        val2rgb( (fbuf[i] - minval)/valrange , res+i );
 }
 
-void transform_signal()
+static
+void transform_signal(void)
 {
     short *inbuf;
-    void * cfg=NULL;
+    kiss_fftr_cfg cfg=NULL;
     kiss_fft_scalar *tbuf;
     kiss_fft_cpx *fbuf;
     kiss_fft_cpx *avgbuf;
     size_t i;
-    int n;
+    size_t n;
     int avgctr=0;
 
     nfreqs=nfft/2+1;
@@ -132,7 +131,11 @@ void transform_signal()
     CHECKNULL( fbuf=(kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx)*nfreqs ) );
     CHECKNULL( avgbuf=(kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx)*nfreqs ) );
 
-    while ( ( n = fread(inbuf,sizeof(short)*2,nfft,fin) ) == nfft ) {
+    while (1){
+        n = fread(inbuf,sizeof(short)*2,nfft,fin);
+        if (n != nfft ) 
+            break;
+
         /* pack the shorts */
         for (i=0;i<nfft;++i){
             tbuf[i] = inbuf[2*i] + inbuf[2*i+1];
@@ -172,7 +175,8 @@ void transform_signal()
     free(avgbuf);
 }
 
-void make_png()
+static
+void make_png(void)
 {
     png_bytepp row_pointers=NULL;
     rgb_t * row_data=NULL;

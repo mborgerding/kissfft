@@ -43,7 +43,19 @@ int can_do(struct problem *p)
     }
 }
 
-static void *WORK=NULL;
+static kiss_fft_cfg cfg=NULL;
+static kiss_fftr_cfg cfgr=NULL;
+static kiss_fftnd_cfg cfgnd=NULL;
+
+#define FAILIF( c ) \
+    if (  c ) do {\
+    fprintf(stderr,\
+    "kissfft: " #c " (file=%s:%d errno=%d %s)\n",\
+        __FILE__,__LINE__ , errno,strerror( errno ) ) ;\
+    exit(1);\
+    }while(0)
+
+
 
 void setup(struct problem *p)
 {
@@ -57,9 +69,11 @@ void setup(struct problem *p)
     */
     if (p->rank == 1) {
         if (p->kind == PROBLEM_COMPLEX) {
-            WORK = kiss_fft_alloc (p->n[0], (p->sign == 1), 0, 0);
+            cfg = kiss_fft_alloc (p->n[0], (p->sign == 1), 0, 0);
+            FAILIF(cfg==NULL);
         }else{
-            WORK = kiss_fftr_alloc (p->n[0], (p->sign == 1), 0, 0);
+            cfgr = kiss_fftr_alloc (p->n[0], (p->sign == 1), 0, 0);
+            FAILIF(cfgr==NULL);
         }
     }else{
         int dims[5];
@@ -68,20 +82,10 @@ void setup(struct problem *p)
         }
         /* multi-dimensional */
         if (p->kind == PROBLEM_COMPLEX) {
-            WORK = kiss_fftnd_alloc( dims , p->rank, (p->sign == 1), 0, 0 );
+            cfgnd = kiss_fftnd_alloc( dims , p->rank, (p->sign == 1), 0, 0 );
+            FAILIF(cfgnd==NULL);
         }
     }
-    if (WORK == NULL ){
-        fprintf(stderr,"alloc failed\n");
-        exit(1);
-    }
-
-    /*
-    for (i=0;i<p->rank;++i){
-        fprintf(stderr," d%d = %d",i,p->n[i] );
-    }
-    fprintf(stderr," allocated\n");
-    */
 }
 
 void doit(int iter, struct problem *p)
@@ -96,26 +100,30 @@ void doit(int iter, struct problem *p)
     if (p->rank == 1) {
         if (p->kind == PROBLEM_COMPLEX){
             for (i = 0; i < iter; ++i)
-                kiss_fft (WORK, in, out);
+                kiss_fft (cfg, in, out);
         } else {
             /* PROBLEM_REAL */
             if (p->sign == -1)   /* FORWARD */
                 for (i = 0; i < iter; ++i)
-                    kiss_fftr (WORK, in, out);
+                    kiss_fftr (cfgr, in, out);
             else
                 for (i = 0; i < iter; ++i)
-                    kiss_fftri (WORK, in, out);
+                    kiss_fftri (cfgr, in, out);
         }
     }else{
         /* multi-dimensional */
         for (i = 0; i < iter; ++i)
-            kiss_fftnd(WORK,in,out);
+            kiss_fftnd(cfgnd,in,out);
     }
 }
 
 void done(struct problem *p)
 {
-     free(WORK);
-     WORK=NULL;
+     free(cfg);
+     cfg=NULL;
+     free(cfgr);
+     cfgr=NULL;
+     free(cfgnd);
+     cfgnd=NULL;
      UNUSED(p);
 }

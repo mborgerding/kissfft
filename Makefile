@@ -4,6 +4,9 @@ DISTDIR=kiss_fft_v$(KFVER)
 TARBALL=kiss_fft_v$(KFVER).tar.gz
 ZIPFILE=kiss_fft_v$(KFVER).zip
 
+WARNINGS=-W -Wall -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return \
+     -Wcast-align -Wcast-qual -Wnested-externs -Wshadow -Wbad-function-cast \
+     -Wwrite-strings 
 
 testall:
 	export DATATYPE=short && cd test && make test

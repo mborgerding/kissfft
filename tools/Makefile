@@ -1,3 +1,7 @@
+WARNINGS=-W -Wall -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return \
+    -Wcast-align -Wcast-qual -Wnested-externs -Wshadow -Wbad-function-cast \
+    -Wwrite-strings
+
 ifeq "$(DATATYPE)" ""
  DATATYPE=float
 endif
@@ -23,7 +27,7 @@ endif
 
 all: $(FFTUTIL) $(FASTFILT) $(FASTFILTREAL) $(PSDPNG)
 
-CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer 
+CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer $(WARNINGS)
 # If the above flags do not work, try the following
 #CFLAGS=-Wall -O3
 

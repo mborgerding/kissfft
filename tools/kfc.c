@@ -14,32 +14,35 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-typedef struct
+
+typedef struct cached_fft *kfc_cfg;
+
+struct cached_fft
 {
     int nfft;
     int inverse;
     kiss_fft_cfg cfg;
-    void * next;
-} cached_fft;
+    kfc_cfg next;
+};
 
-static cached_fft *cache_root=NULL;
+static kfc_cfg cache_root=NULL;
 static int ncached=0;
 
 static kiss_fft_cfg find_cached_fft(int nfft,int inverse)
 {
     size_t len;
-    cached_fft * cur=cache_root;
-    cached_fft * prev=NULL;
+    kfc_cfg  cur=cache_root;
+    kfc_cfg  prev=NULL;
     while ( cur ) {
         if ( cur->nfft == nfft && inverse == cur->inverse )
             break;/*found the right node*/
         prev = cur;
-        cur = (cached_fft*)prev->next;
+        cur = prev->next;
     }
     if (cur== NULL) {
         /* no cached node found, need to create a new one*/
         kiss_fft_alloc(nfft,inverse,0,&len);
-        cur = (cached_fft*)malloc(sizeof(cached_fft) + len );
+        cur = (kfc_cfg)malloc(sizeof(struct cached_fft) + len );
         if (cur == NULL)
             return NULL;
         cur->cfg = (kiss_fft_cfg)(cur+1);
@@ -56,14 +59,14 @@ static kiss_fft_cfg find_cached_fft(int nfft,int inverse)
     return cur->cfg;
 }
 
-void kfc_cleanup()
+void kfc_cleanup(void)
 {
-    cached_fft * cur=cache_root;
-    cached_fft * next=NULL;
+    kfc_cfg  cur=cache_root;
+    kfc_cfg  next=NULL;
     while (cur){
-        next = (cached_fft*)cur->next;
+        next = cur->next;
         free(cur);
-        cur=(cached_fft*)next;
+        cur=next;
     }
     ncached=0;
     cache_root = NULL;
@@ -87,7 +90,7 @@ static void check(int nc)
     }
 }
 
-int main(int argc,char ** argv)
+int main(void)
 {
     kiss_fft_cpx buf1[1024],buf2[1024];
     memset(buf1,0,sizeof(buf1));

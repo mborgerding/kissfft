@@ -13,7 +13,7 @@ int main(int argc,char ** argv)
     int numffts=1000,i;
     kiss_fft_cpx * buf;
     kiss_fft_cpx * bufout;
-    void *st;
+    kiss_fft_cfg st;
 
     while (1) {
       int c = getopt (argc, argv, "n:ix:");
