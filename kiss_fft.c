@@ -18,11 +18,19 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
 
-/* the max length of the sequence of factors of nfft , 
- MAXFACTORS==32 this should be good up to more 1e15 samples
- ( 2 * 3**31 )
- */
-#define MAXFACTORS 32
+static kiss_fft_cpx *scratchbuf=NULL;
+static size_t nscratchbuf=0;
+static kiss_fft_cpx *tmpbuf=NULL;
+static size_t ntmpbuf=0;
+
+#define CHECKBUF(buf,nbuf,n) \
+    do { \
+        if ( nbuf < (size_t)(n) ) {\
+            buf = (kiss_fft_cpx*)realloc(buf,sizeof(kiss_fft_cpx)*(n)); \
+            nbuf = (size_t)(n); \
+        } \
+   }while(0)
+
 
 static void kf_bfly2(
         kiss_fft_cpx * Fout,
@@ -209,27 +217,28 @@ static void kf_bfly_generic(
         )
 {
     int u,k,q1,q;
-    kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
     kiss_fft_cpx t;
     int Norig = st->nfft;
 
+    CHECKBUF(scratchbuf,nscratchbuf,p);
+
     for ( u=0; u<m; ++u ) {
         k=u;
         for ( q1=0 ; q1<p ; ++q1 ) {
-            scratch[q1] = Fout[ k  ];
-            C_FIXDIV(scratch[q1],p);
+            scratchbuf[q1] = Fout[ k  ];
+            C_FIXDIV(scratchbuf[q1],p);
             k += m;
         }
 
         k=u;
         for ( q1=0 ; q1<p ; ++q1 ) {
             int twidx=0;
-            Fout[ k ] = scratch[0];
+            Fout[ k ] = scratchbuf[0];
             for (q=1;q<p;++q ) {
                 twidx += fstride * k;
                 if (twidx>=Norig) twidx-=Norig;
-                C_MUL(t,scratch[q] , twiddles[twidx] );
+                C_MUL(t,scratchbuf[q] , twiddles[twidx] );
                 C_ADDTO( Fout[ k ] ,t);
             }
             k += m;
@@ -305,7 +314,7 @@ void kf_factor(int n,int * facbuf)
 
 /*
  *
- * User-callable function to allocate all necessary scratch space for the fft.
+ * User-callable function to allocate all necessary storage space for the fft.
  *
  * The return value is a contiguous block of memory, allocated with malloc.  As such,
  * It can be freed with free(), rather than a kiss_fft-specific function.
@@ -314,10 +323,7 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
 {
     kiss_fft_cfg st=NULL;
     size_t memneeded = sizeof(struct kiss_fft_state)
-        + sizeof(kiss_fft_cpx)*nfft /* twiddle factors*/
-        + sizeof(kiss_fft_cpx)*nfft /* tmpbuf*/
-        + sizeof(int)*2*MAXFACTORS /* factors*/
-        + sizeof(kiss_fft_cpx)*nfft; /* scratch*/
+        + sizeof(kiss_fft_cpx)*(nfft-1); /* twiddle factors*/
 
     if ( lenmem==NULL ) {
         st = ( kiss_fft_cfg)malloc( memneeded );
@@ -330,10 +336,6 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
         int i;
         st->nfft=nfft;
         st->inverse = inverse_fft;
-        st->twiddles = (kiss_fft_cpx*)(st+1); /* just beyond struct*/
-        st->tmpbuf = (kiss_fft_cpx*)(st->twiddles + nfft);/*  just after twiddles*/
-        st->scratch = (kiss_fft_cpx*)(st->tmpbuf + nfft);
-        st->factors = (int*)(st->scratch + nfft);
 
         for (i=0;i<nfft;++i) {
             const double pi=3.14159265358979323846264338327;
@@ -348,11 +350,15 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
     return st;
 }
 
+
+
+    
 void kiss_fft_stride(kiss_fft_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,int in_stride)
 {
     if (fin == fout) {
-        kf_work(st->tmpbuf,fin,1,in_stride, st->factors,st);
-        memcpy(fout,st->tmpbuf,sizeof(kiss_fft_cpx)*st->nfft);
+        CHECKBUF(tmpbuf,ntmpbuf,st->nfft);
+        kf_work(tmpbuf,fin,1,in_stride, st->factors,st);
+        memcpy(fout,tmpbuf,sizeof(kiss_fft_cpx)*st->nfft);
     }else{
         kf_work( fout, fin, 1,in_stride, st->factors,st );
     }
