@@ -42,7 +42,7 @@ typedef struct {
    C_ADDTO( res , a)    : res += a
  * */
 #ifdef FIXED_POINT
-
+#   define S_MUL(a,b) ( ( (a)*(b) + (1<<14) )>>15 )
 #   define C_MUL(m,a,b) \
       do{ (m).r = ( ( (a).r*(b).r - (a).i*(b).i)  + (1<<14) ) >> 15;\
           (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (1<<14) ) >> 15;\
@@ -56,6 +56,7 @@ typedef struct {
 
 #else  /* not FIXED_POINT*/
 
+#   define S_MUL(a,b) ( (a)*(b) )
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
@@ -74,15 +75,15 @@ typedef struct {
 #define C_SUBFROM( res , a)\
     do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
 
-kiss_fft_cpx cexp(double phase)
+kiss_fft_cpx cexp(double phase) /* returns e ** (j*phase)   */
 {
     kiss_fft_cpx x;
 #ifdef FIXED_POINT    
     x.r = (kiss_fft_scalar) ( 32767*cos(phase) );
-    x.i = (kiss_fft_scalar) ( -32767*sin(phase) );
+    x.i = (kiss_fft_scalar) ( 32767*sin(phase) );
 #else
     x.r = cos(phase);
-    x.i = -sin(phase);
+    x.i = sin(phase);
 #endif
     return x;
 }
@@ -160,6 +161,7 @@ void bfly4(
     }while(--m);
 }
 
+/* bfly3 is a optimization of bfly_generic for p==3 */
 void bfly3(
          kiss_fft_cpx * Fout,
          int fstride,
@@ -206,11 +208,7 @@ void bfly3(
      }while(--m);
 }
 
-void cprint(const char * desc,kiss_fft_cpx c)
-{
-    fprintf(stderr,"%s(%e,%e)",desc,c.r,c.i);
-}
-
+/* bfly5 is a optimization of bfly_generic for p==5 */
 void bfly5(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -220,7 +218,7 @@ void bfly5(
 {
     kiss_fft_cpx *Fout0,*Fout1,*Fout2,*Fout3,*Fout4;
     int u;
-    kiss_fft_cpx scratch[20];
+    kiss_fft_cpx scratch[13];
     kiss_fft_cpx * twiddles = st->twiddles;
     kiss_fft_cpx *tw1,*tw2,*tw3,*tw4;
     kiss_fft_cpx y1,y2;
@@ -233,7 +231,7 @@ void bfly5(
     Fout3=Fout0+3*m;
     Fout4=Fout0+4*m;
 
-    tw1=tw2=tw3=tw4 =  st->twiddles;
+    tw1=tw2=tw3=tw4 = st->twiddles;
     for ( u=0; u<m; ++u ) {
         C_FIXDIV( *Fout0,5); C_FIXDIV( *Fout1,5); C_FIXDIV( *Fout2,5); C_FIXDIV( *Fout3,5); C_FIXDIV( *Fout4,5);
         scratch[0] = *Fout0;
@@ -251,19 +249,19 @@ void bfly5(
         Fout0->r += scratch[7].r + scratch[8].r;
         Fout0->i += scratch[7].i + scratch[8].i;
 
-        scratch[5].r = scratch[0].r + scratch[7].r*y1.r + scratch[8].r*y2.r;
-        scratch[5].i = scratch[0].i + scratch[7].i*y1.r + scratch[8].i*y2.r;
+        scratch[5].r = scratch[0].r + S_MUL(scratch[7].r,y1.r) + S_MUL(scratch[8].r,y2.r);
+        scratch[5].i = scratch[0].i + S_MUL(scratch[7].i,y1.r) + S_MUL(scratch[8].i,y2.r);
 
-        scratch[6].r =  scratch[10].i*y1.i + scratch[9].i*y2.i;
-        scratch[6].i = -scratch[10].r*y1.i - scratch[9].r*y2.i;
+        scratch[6].r =  S_MUL(scratch[10].i,y1.i) + S_MUL(scratch[9].i,y2.i);
+        scratch[6].i = -S_MUL(scratch[10].r,y1.i) - S_MUL(scratch[9].r,y2.i);
 
         C_SUB(*Fout1,scratch[5],scratch[6]);
         C_ADD(*Fout4,scratch[5],scratch[6]);
  
-        scratch[11].r = scratch[0].r + scratch[7].r*y2.r + scratch[8].r*y1.r;
-        scratch[11].i = scratch[0].i + scratch[7].i*y2.r + scratch[8].i*y1.r;
-        scratch[12].r = - scratch[10].i*y2.i + scratch[9].i*y1.i;
-        scratch[12].i = scratch[10].r*y2.i - scratch[9].r*y1.i;
+        scratch[11].r = scratch[0].r + S_MUL(scratch[7].r,y2.r) + S_MUL(scratch[8].r,y1.r);
+        scratch[11].i = scratch[0].i + S_MUL(scratch[7].i,y2.r) + S_MUL(scratch[8].i,y1.r);
+        scratch[12].r = - S_MUL(scratch[10].i,y2.i) + S_MUL(scratch[9].i,y1.i);
+        scratch[12].i = S_MUL(scratch[10].r,y2.i) - S_MUL(scratch[9].r,y1.i);
 
         C_ADD(*Fout2,scratch[11],scratch[12]);
         C_SUB(*Fout3,scratch[11],scratch[12]);
@@ -373,11 +371,11 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     st->twiddles = (kiss_fft_cpx*)(st+1); /* just beyond struct*/
     st->tmpbuf = (kiss_fft_cpx*)(st->twiddles + nfft);/*  just after twiddles*/
     st->scratch = (kiss_fft_cpx*)(st->tmpbuf + nfft);
-    st->factors = (int*)(st->scratch + nfft); /* just after tmpbuf*/
+    st->factors = (int*)(st->scratch + nfft);
 
     for (i=0;i<nfft;++i) {
         const double pi=3.14159265358979323846264338327;
-        double phase = ( 2*pi /nfft ) * i;
+        double phase = ( -2*pi /nfft ) * i;
         if (st->inverse)
             phase *= -1;
         st->twiddles[i] = cexp( phase );
@@ -385,12 +383,15 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
 
     while (nfft>1) {
         /* If you want a new radix, don't forget to put it here */
-        const int primes[] = {4,2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,-1};
+        const int divisors[] = {
+		4,2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,
+		71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,
+		149,151,157,163,167,173,179,181,191,193,197,199,-1};
         int p=nfft;
         i=0;
-        while ( primes[i] != -1 ) {
-            if ( nfft %  primes[i] == 0){
-                p =  primes[i];
+        while ( divisors[i] != -1 ) {
+            if ( nfft %  divisors[i] == 0){
+                p =  divisors[i];
                 break;
             }
             ++i;
@@ -398,7 +399,6 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
         st->factors[2*nstages] = p;
         nfft /= p;
         st->factors[2*nstages+1] = nfft;
-        
         ++nstages;
     }
     return st;
