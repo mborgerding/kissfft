@@ -37,6 +37,10 @@ typedef struct {
 }kiss_fft_state;
 
 #ifdef FIXED_POINT
+#define  C_SUB( res, a,b)\
+    do {    (res).r=((a).r-b.r+1)>>1;  (res).i=((a).i-b.i+1)>>1;  }while(0)
+#define C_ADDTO( res , a)\
+    do {    (res).r=((res).r+(a).r+1)>>1;  (res).i=((res).i+(a).i+1)>>1;  }while(0)
     /*  We don't have to worry about overflow from multiplying by twiddle factors since they
      *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
      *  rounding. */
@@ -45,6 +49,11 @@ typedef struct {
           (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (1<<14) ) >> 15;\
       }while(0)
 #else  // not FIXED_POINT
+
+#define  C_SUB( res, a,b)\
+    do {    (res).r=(a).r-(b).r;  (res).i=(a).i-(b).i;  }while(0)
+#define C_ADDTO( res , a)\
+    do {    (res).r += (a).r;  (res).i += (a).i;  }while(0)
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
@@ -80,17 +89,21 @@ void fft2work(
         const kiss_fft_cpx * f,
         int fstride,
         int * factors,
-        const kiss_fft_state * st,
-        int m
+        const kiss_fft_state * st
         )
 {
-    int u;
+    kiss_fft_cpx * Fout2;
+    int u,m;
     kiss_fft_cpx t;
-    //kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
-    //int Norig = st->nfft;
 
-    if (m==1) {
+    factors++;// p==2
+    m=*factors++;
+
+    if (*factors == 2){
+        fft2work(Fout,f,fstride*2,factors,st);
+        fft2work(Fout+m,f+fstride,fstride*2,factors,st);
+    }else if (m==1) {
         Fout[0] = f[0];
         Fout[1] = f[fstride];
     } else {
@@ -98,12 +111,14 @@ void fft2work(
         fft_work( Fout + m, f+fstride, fstride*2,factors,st);
     }
 
+    Fout2 = Fout + m;
     for ( u=0; u<m; ++u ) {
-        C_MUL (t,  Fout[ u +m ] , twiddles[fstride * u]);
-        Fout[u+m].r = Fout[u].r - t.r;
-        Fout[u+m].i = Fout[u].i - t.i;
-        Fout[u].r += t.r;
-        Fout[u].i += t.i;
+        C_MUL (t,  *Fout2 , *twiddles);
+        twiddles += fstride;
+        C_SUB( *Fout2 ,  *Fout , t );
+        C_ADDTO( *Fout ,  t );
+        ++Fout2;
+        ++Fout;
     }
 }
 
@@ -122,18 +137,17 @@ void fft_work(
     kiss_fft_cpx * twiddles = st->twiddles;
     int Norig = st->nfft;
 
-    p=*factors++;
-    m=*factors++;
-
 #if 1    
     switch (*factors) {
         case 2:
-            fft2work(Fout,f,fstride,factors,st,m);
+            fft2work(Fout,f,fstride,factors,st);
             return;
         default:
             break;
     }
 #endif
+    p=*factors++;
+    m=*factors++;
 
     for (q=0;q<p;++q) {
         if (m==1) 
