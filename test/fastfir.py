@@ -89,9 +89,9 @@ def utilfastfilter(sig,h,nfft,usereal):
     open( 'sig.dat','w').write( compfft.dopack(sig,'f',not usereal) )
     open( 'h.dat','w').write( compfft.dopack(h,'f',not usereal) )
     if usereal: 
-        util = './ffr_float' 
+        util = './fastconvr' 
     else:
-        util = './ff_float'
+        util = './fastconv'
     cmd = 'time %s -n %d -i sig.dat -h h.dat -o out.dat' % (util, nfft)
     print cmd
     ec  = os.system(cmd)

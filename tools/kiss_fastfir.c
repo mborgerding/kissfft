@@ -320,6 +320,7 @@ void direct_file_filter(
     free (circbuf);
 }
 
+
 void do_file_filter(
         FILE * fin,
         FILE * fout,
@@ -327,6 +328,7 @@ void do_file_filter(
         size_t n_imp_resp,
         size_t nfft )
 {
+    int fdin,fdout;
     size_t n_samps_buf;
 
     void * cfg;
@@ -334,10 +336,15 @@ void do_file_filter(
     size_t nread,nwrite;
     size_t idx_inbuf;
 
+    fdout = fileno(fout);
+
     cfg=kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,0);
 
     /* use length to minimize buffer shift*/
-    n_samps_buf = nfft + 5*(nfft-n_imp_resp+1);
+    n_samps_buf = 8*4096/sizeof(kffsamp_t); 
+    n_samps_buf = nfft + 4*(nfft-n_imp_resp+1);
+
+    fprintf(stderr,"bufsize=%d\n",sizeof(kffsamp_t)*n_samps_buf );
 
     /*allocate space and initialize pointers */
     inbuf = (kffsamp_t*)malloc(sizeof(kffsamp_t)*n_samps_buf);
@@ -346,14 +353,14 @@ void do_file_filter(
     idx_inbuf=0;
     do{
         /* start reading at inbuf[idx_inbuf] */
-        nread = fread( inbuf + idx_inbuf, sizeof(kffsamp_t), n_samps_buf - idx_inbuf , fin );
+        nread = fread( inbuf + idx_inbuf, sizeof(kffsamp_t), n_samps_buf - idx_inbuf,fin );
 
         /* If nread==0, then this is a flush.
             The total number of samples in input is idx_inbuf + nread . */
-        nwrite = kiss_fastfir(cfg, inbuf, outbuf,nread,&idx_inbuf);
+        nwrite = kiss_fastfir(cfg, inbuf, outbuf,nread,&idx_inbuf) * sizeof(kffsamp_t);
         /* kiss_fastfir moved any unused samples to the front of inbuf and updated idx_inbuf */
 
-        if ( fwrite( outbuf, sizeof(outbuf[0]), nwrite, fout) != nwrite ) {
+        if ( write(fdout, outbuf, nwrite) != nwrite ) {
             perror("short write");
             exit(1);
         }
