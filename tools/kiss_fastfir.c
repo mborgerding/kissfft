@@ -191,15 +191,22 @@ size_t kff_nocopy(
 
 size_t kff_flush(void *vst,const kffsamp_t * inbuf,kffsamp_t * outbuf,size_t n)
 {
+    size_t zpad=0,ntmp;
     kiss_fastfir_state *st=(kiss_fastfir_state *)vst;
-    n -= kff_nocopy(vst,inbuf,outbuf,n);
-    if (n) {
-        memset(st->tmpbuf,0,sizeof(kffsamp_t)*st->nfft );
-        memcpy(st->tmpbuf,inbuf,sizeof(kffsamp_t)*n );
-        fastconv1buf(st,st->tmpbuf,st->tmpbuf);
-        memcpy(outbuf,st->tmpbuf,sizeof(kffsamp_t)*n);
-    }
-    return n;
+
+    ntmp = kff_nocopy(vst,inbuf,outbuf,n);
+    n -= ntmp;
+    inbuf += ntmp;
+    outbuf += ntmp;
+
+    zpad = st->nfft - n;
+    memset(st->tmpbuf,0,sizeof(kffsamp_t)*st->nfft );
+    memcpy(st->tmpbuf,inbuf,sizeof(kffsamp_t)*n );
+    
+    fastconv1buf(st,st->tmpbuf,st->tmpbuf);
+    
+    memcpy(outbuf,st->tmpbuf,sizeof(kffsamp_t)*( st->ngood - zpad ));
+    return ntmp + st->ngood - zpad;
 }
 
 #ifdef FAST_FILT_UTIL
@@ -210,7 +217,7 @@ size_t kff_flush(void *vst,const kffsamp_t * inbuf,kffsamp_t * outbuf,size_t n)
 int do_mmap_filter(int fd_src,int fd_dst,const kffsamp_t * imp_resp, size_t n_imp_resp, size_t nfft )
 {
     int error_code=1;
-    off_t src_len=0;
+    off_t src_len=0,dst_len=0;
     void *psrc=NULL;
     void *pdst=NULL;
 
@@ -234,14 +241,17 @@ int do_mmap_filter(int fd_src,int fd_dst,const kffsamp_t * imp_resp, size_t n_im
         
         noutbuf = kff_nocopy( cfg, (kffsamp_t*)psrc, (kffsamp_t*)pdst, nsamps_in );
 
-        kff_flush( cfg,inbuf+noutbuf,outbuf+noutbuf,nsamps_in-noutbuf);
-
+        noutbuf += kff_flush( cfg,inbuf+noutbuf,outbuf+noutbuf,nsamps_in-noutbuf);
+        dst_len = noutbuf* sizeof(kffsamp_t);
         free(cfg);
     }
     error_code=0;
 nommap:
     if (psrc) munmap(psrc,src_len);
-    if (pdst) munmap(pdst,src_len);
+    if (pdst) {
+        munmap(pdst,src_len);
+        ftruncate(fd_dst,dst_len);
+    }
     if (error_code)
         perror("mapping");
     return error_code;
@@ -261,43 +271,27 @@ void do_file_filter(
     kffsamp_t *outbuf = (kffsamp_t*)malloc(max_buf*sizeof(kffsamp_t));
     size_t ninbuf,noutbuf;
     size_t idx_inbuf=0;
-    int zpad=0;
 
     do{
         ninbuf = fread(&inbuf[idx_inbuf],sizeof(inbuf[0]),max_buf-idx_inbuf,fin );
-        if (ninbuf==0) {
-            /* zero pad the input to the fft size */
-            zpad = nfft - idx_inbuf;
-            if (verbose) fprintf(stderr,"zero padding %d samples\n",zpad);
-
-            /* We don't strictly need to do the zero padding,since the output samples
-             * will get thrown away anyway.  But the zeros should help keep the fft magnitudes in
-             * check and thus decrease errors.  */
-            memset(&inbuf[idx_inbuf],0,sizeof(inbuf[0])*zpad);
-            ninbuf = nfft;/* force an fft */
-        }else{
+        if (ninbuf) {
+            /* add new input to saved input */
             ninbuf += idx_inbuf;
+            noutbuf = kff_nocopy( cfg, inbuf, outbuf, ninbuf );
+
+            /* move the unconsumed input samples to the front of the input buffer */
+            idx_inbuf = ninbuf - noutbuf;
+            memmove( inbuf , &inbuf[noutbuf] , sizeof( inbuf[0] )*( ninbuf - noutbuf ) );
+        }else{
+            /* last read -- flush */
+            noutbuf = kff_flush(cfg, inbuf,outbuf,idx_inbuf);
         }
-
-        /*perform the fast convolution filtering*/
-        noutbuf = kff_nocopy( cfg, inbuf, outbuf, ninbuf );
-        if (verbose) fprintf(stderr,"kff_nocopy(,,,%d) -> %d\n",ninbuf,noutbuf);
-
-        /* move the unconsumed input samples to the front */
-        idx_inbuf = ninbuf - noutbuf;
-        memmove( inbuf , &inbuf[noutbuf] , sizeof(inbuf[0])*(ninbuf-noutbuf) );
-        if (verbose) fprintf(stderr,"moved %d samples to front of buffer\n",idx_inbuf);
-
-        /*whatever padding was done to get the size up to nfft, must now be ignored*/
-        noutbuf -= zpad;
 
         if ( fwrite( outbuf, sizeof(outbuf[0]), noutbuf, fout) != noutbuf ) {
-            fprintf(stderr,"short write %d \n",noutbuf);
-            fprintf(stderr,"zpad= %d \n",zpad);
+            perror("short write");
             exit(1);
         }
-    }while ( ! zpad );
-    fclose(fout);
+    }while ( ninbuf );
     free(cfg);
     free(inbuf);
     free(outbuf);
