@@ -1,10 +1,13 @@
 #ifndef KISS_FFT_H
 #define KISS_FFT_H
 
-#ifndef kiss_fft_scalar
-# ifdef FIXED_POINT
-#   define kiss_fft_scalar short
-# else
+#ifdef FIXED_POINT
+
+# define kiss_fft_scalar short
+# define FIXED_POINT_FRAC_BITS 15
+
+#else
+# ifndef kiss_fft_scalar
 #   define kiss_fft_scalar float
 # endif
 #endif

@@ -2,23 +2,23 @@
 
 # Compare the results of kiss_fft with those calculated by octave's fft routines
 
-nfft=1024;
+nfft=1024
 showdiff=0;
+use_inverse_fft = 1
 
+infile = 'fftin.dat'
+outfile = 'fftout.dat'
 for test_case =1:3
     printf( '====================================\n');
     if test_case == 1,
         prec = 'short'
         prog = './kiss_fft_s'
-        scale = nfft
     elseif test_case  == 2,
         prec = 'float'
         prog = './kiss_fft_f'
-        scale = 1
     else
         prec = 'double'
         prog = './kiss_fft_d'
-        scale = 1
     endif
 
     # create the input
@@ -26,24 +26,31 @@ for test_case =1:3
     input = floor( real(input)*32767 ) + j*floor(imag(input)*32767 );
 
     # write the input
-    f = fopen( "fftin.dat", "w", "native");
+    f = fopen( infile, "w", "native");
     to_write = [real(input);imag(input) ];
     fwrite(f,to_write,prec);
     fclose(f);
 
-    cmd = sprintf('%s %d < fftin.dat > fftout.dat',prog,nfft)
+    if use_inverse_fft,
+        cmd = sprintf('%s -s -i %d < %s > %s',prog,nfft,infile,outfile)
+        comp = ifft(input);
+    else        
+        cmd = sprintf('%s -s %d < %s > %s',prog,nfft,infile,outfile)
+        comp = fft(input);
+    endif
     system(cmd);
 
     # read the output
-    f = fopen("fftout.dat","r", "native");
+    f = fopen(outfile,"r", "native");
     from_read = fread(f,Inf,prec)';
-    output = (from_read(1:2:nfft*2) + j*from_read(2:2:nfft*2))        ;
+    output = (from_read(1:2:nfft*2) + j*from_read(2:2:nfft*2));
 
-    comp = fft(input)/scale;
-    if test_case == 1,
-        comp = floor( real(comp) +.5) + j*floor( imag(comp) +.5);
-    endif
-
+    diff = output - comp;
+    noise_pow =  sum( conj(diff).*diff );
+    sig_pow = sum( conj(comp).*comp );
+    snr = 10*log10( sig_pow / noise_pow )
+    avg_scale = mean(  abs(output) ./ abs(comp) )
+    var_scale = var(  abs(output) ./ abs(comp) )
     if showdiff,
         x=linspace(0,2*pi,nfft);
         figure(1);
@@ -53,12 +60,5 @@ for test_case =1:3
         figure(3);
         plot( x, abs(output-comp) );
         pause
-    else
-        diff = output - comp;
-        noise_pow =  sum( conj(diff).*diff );
-        sig_pow = sum( conj(comp).*comp );
-        snr = 10*log10( sig_pow / noise_pow )
-
-        avg_scale = mean(  abs(output) ./ abs(comp) )
     endif
 endfor

@@ -34,19 +34,29 @@ typedef struct {
 
 #ifdef FIXED_POINT
 
-#   define TWIDDLE_RANGE ( (1<<15) - 1 )
+#   define TWIDDLE_RANGE ( (1<<FIXED_POINT_FRAC_BITS) - 1 )
+
+    /* The fixed point versions of C_ADD and C_SUB divide by two
+     * after the add/sub.
+     * This is to prevent overflow.
+     * The cumulative effect is to multiply the sequence by 1/Nfft.
+     * */
 #   define C_ADD(x,a,b) \
      do{ (x).r = ( ( (a).r+(b).r +1) >> 1 );\
          (x).i = ( ( (a).i+(b).i +1) >> 1 ); }while(0)
 #   define C_SUB(x,a,b) \
      do{ (x).r = ( ( (a).r-(b).r +1) >> 1 );\
          (x).i = ( ( (a).i-(b).i +1) >> 1 ); }while(0)
-#   define C_MUL(m,a,b) \
-     do{ (m).r = ( ( (a).r*(b.r) - (a).i*(b).i)  + (1<<14) ) >> 15;\
-         (m).i = ( ( (a).r*(b.i) + (a).i*(b).r)  + (1<<14) ) >> 15;\
-         }while(0)
 
-#else // floating point
+    /*  We don't have to worry about overflow from multiplying by twiddle factors since they
+     *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
+     *  rounding.
+     * */
+#   define C_MUL(m,a,b) \
+     do{ (m).r = ( ( (a).r*(b).r - (a).i*(b).i)  + (TWIDDLE_RANGE>>1) ) >> FIXED_POINT_FRAC_BITS;\
+         (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (TWIDDLE_RANGE>>1) ) >> FIXED_POINT_FRAC_BITS;\
+         }while(0)
+#else // not FIXED_POINT
 
 #define C_ADD(x,a,b) \
     do{ (x).r = (a).r+(b).r;\
@@ -55,8 +65,8 @@ typedef struct {
     do{ (x).r = (a).r-(b).r;\
         (x).i = (a).i-(b).i;}while(0)
 #define C_MUL(m,a,b) \
-    do{ (m).r = (a).r*(b.r) - (a).i*(b).i;\
-        (m).i = (a).r*(b.i) + (a).i*(b).r; }while(0)
+    do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
+        (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
 
 #endif
 
@@ -69,12 +79,15 @@ void make_twiddles(kiss_fft_cpx * twiddle,int nfft,int inverse_fft)
     int n;
     for (n=0;n< (nfft>>1);++n) {
 #ifdef FIXED_POINT
+        // TODO: find another way to calculate these without so much floating point math
         twiddle[n].r =  (kiss_fft_scalar)(TWIDDLE_RANGE*cos(2*pi*n/nfft)+.5);
         twiddle[n].i = -(kiss_fft_scalar)(TWIDDLE_RANGE*sin(2*pi*n/nfft)+.5);
 #else
         twiddle[n].r = cos(2*pi*n/nfft);
         twiddle[n].i = -sin(2*pi*n/nfft);
 #endif
+
+        // inverse fft uses complex conjugate twiddle factors
         if (inverse_fft)
             twiddle[n].i *= -1;
     }
@@ -126,6 +139,8 @@ void undo_bit_rev( kiss_fft_cpx * f, const int * swap_indices,int nswap)
     }
 }
 
+
+#define OPT1
 // the heart of the fft
 static
 void fft_work(int N,kiss_fft_cpx *f,const kiss_fft_cpx * twid,int twid_step)
@@ -134,17 +149,36 @@ void fft_work(int N,kiss_fft_cpx *f,const kiss_fft_cpx * twid,int twid_step)
     {   // declare automatic variables in here to reduce stack usage
         int n;
         kiss_fft_cpx csum,cdiff;
- 
-        for (n=0;n<N;++n) {
-            C_ADD(csum,  f[n] , f[N+n] );
-            C_SUB(cdiff,  f[n] , f[N+n] );
-            f[n]=csum;
-            C_MUL(f[N+n], cdiff, twid[n*twid_step] );
+#ifdef OPT1
+        const kiss_fft_cpx * cur_twid = twid+twid_step;
+        kiss_fft_cpx *f1 = f;
+        kiss_fft_cpx *f2 = f+N;
+
+        C_SUB( cdiff, *f1 , *f2 );
+        C_ADD( csum,  *f1 , *f2 );
+        *f1++ = csum;
+        *f2++ = cdiff;
+
+        for (n=1;n<N;++n)
+#else
+        const kiss_fft_cpx * cur_twid = twid;
+        kiss_fft_cpx *f1 = f;
+        kiss_fft_cpx *f2 = f+N;
+        for (n=0;n<N;++n)
+#endif
+        {
+            C_ADD( csum,  *f1 , *f2 );
+            C_SUB( cdiff, *f1 , *f2 );
+            *f1++ = csum;
+            C_MUL(*f2, cdiff, *cur_twid);
+            ++f2;
+            cur_twid += twid_step;
         }
     }
     if (N==1) return;
-    fft_work(N,f,twid,twid_step*2); 
+    //twid_step *= 2;
     fft_work(N,f+N,twid,twid_step*2);
+    fft_work(N,f,twid,twid_step*2); 
 }
 
 
@@ -183,23 +217,54 @@ int main(int argc,char ** argv)
     void *st;
     int nfft=1024;
     int inverse_fft=0;
+    int scale=0;
+    kiss_fft_cpx scaling;
 
     fprintf(stderr,"sizeof(kiss_fft_cpx) == %d\n",sizeof(kiss_fft_cpx) );
-
-    if (argc>1 && 0==strcmp("-i",argv[1])) {
-        inverse_fft = 1;
+    
+    // parse args
+    while (argc>1 && argv[1][0]=='-'){
+        if (0==strcmp("-i",argv[1])) {
+            inverse_fft = 1;
+        }else if(0==strcmp("-s",argv[1])) {
+            scale = 1;
+        }
         --argc;++argv;
     }
-
     if (argc>1) {
         nfft = atoi(argv[1]);
     }
 
+    // do we need to scale?
+    if (scale) {
+#ifdef FIXED_POINT
+        if ( ! inverse_fft ) {
+            scaling.r = nfft;
+            scaling.i = nfft;
+            fprintf(stderr,"scaling by %d\n",scaling.r);
+        }
+#else
+        if (inverse_fft ){
+            scaling.r = 1.0/nfft;
+            scaling.i = 1.0/nfft;
+            fprintf(stderr,"scaling by %e\n",scaling.r);
+        }
+#endif
+        else
+            scale = 0; // no need
+    }
+
     buf=(kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx) * nfft );
     st = kiss_fft_alloc( nfft ,inverse_fft );
-
     while ( fread( buf , sizeof(kiss_fft_cpx) , nfft , stdin ) > 0 ) {
         kiss_fft( st , buf );
+        if (scale) {
+            int k;
+            for (k=0;k<nfft;++k) {
+                buf[k].r = buf[k].r * scaling.r;
+                buf[k].i = buf[k].i * scaling.i;
+            }
+        }
         fwrite( buf , sizeof(kiss_fft_cpx) , nfft , stdout );
     }
 
