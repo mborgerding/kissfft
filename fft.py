@@ -16,23 +16,20 @@ def fft(f):
         raise Exception('%s not factorable ' % n)
 
     m = n/p
-    Fm=[]
+    Fout=[]
     for q in range(p): # 0,1
         fp = f[q::p]
         Fp = fft( fp )
-        Fm.extend( Fp )
+        Fout.extend( Fp )
 
-    Fout = [ 0 ] * n
     for u in range(m):
-        scratch = Fm[u::m] # u to end in strides of m
+        scratch = Fout[u::m] # u to end in strides of m
         for q1 in range(p):
             k = q1*m + u  # indices to Fout above that became scratch
-            val = Fm[ u ]
+            Fout[ k ] = scratch[0]
             for q in range(1,p):
                 t = e ** ( j*2*pi*k*q/n )
-                #Fout[ k ] += scratch[q] * t
-                val += Fm[ q*m + u ] * t
-            Fout[ k ] = val
+                Fout[ k ] += scratch[q] * t
 
     return Fout
 
