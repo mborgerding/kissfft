@@ -32,6 +32,13 @@ typedef struct {
     kiss_fft_cpx * scratch;
 }kiss_fft_state;
 
+typedef struct {
+    int minus2; /*signify a 2-d transform*/
+    kiss_fft_state * rowst;
+    kiss_fft_state * colst;
+}kiss_fft2d_state;
+
+
 /*
   Explanation of macros dealing with complex math:
 
@@ -220,7 +227,7 @@ void bfly5(
     int u;
     kiss_fft_cpx scratch[13];
     kiss_fft_cpx * twiddles = st->twiddles;
-    kiss_fft_cpx *tw1,*tw2,*tw3,*tw4;
+    kiss_fft_cpx *tw;
     kiss_fft_cpx y1,y2;
     y1 = twiddles[fstride*m];
     y2 = twiddles[fstride*2*m];
@@ -231,20 +238,20 @@ void bfly5(
     Fout3=Fout0+3*m;
     Fout4=Fout0+4*m;
 
-    tw1=tw2=tw3=tw4 = st->twiddles;
+    tw=st->twiddles;
     for ( u=0; u<m; ++u ) {
         C_FIXDIV( *Fout0,5); C_FIXDIV( *Fout1,5); C_FIXDIV( *Fout2,5); C_FIXDIV( *Fout3,5); C_FIXDIV( *Fout4,5);
         scratch[0] = *Fout0;
 
-        C_MUL(scratch[1] ,*Fout1, *tw1);
-        C_MUL(scratch[2] ,*Fout2, *tw2);
-        C_MUL(scratch[3] ,*Fout3, *tw3);
-        C_MUL(scratch[4] ,*Fout4, *tw4);
+        C_MUL(scratch[1] ,*Fout1, tw[u*fstride]);
+        C_MUL(scratch[2] ,*Fout2, tw[2*u*fstride]);
+        C_MUL(scratch[3] ,*Fout3, tw[3*u*fstride]);
+        C_MUL(scratch[4] ,*Fout4, tw[4*u*fstride]);
 
         C_ADD( scratch[7],scratch[1],scratch[4]);
+        C_SUB( scratch[10],scratch[1],scratch[4]);
         C_ADD( scratch[8],scratch[2],scratch[3]);
         C_SUB( scratch[9],scratch[2],scratch[3]);
-        C_SUB( scratch[10],scratch[1],scratch[4]);
 
         Fout0->r += scratch[7].r + scratch[8].r;
         Fout0->i += scratch[7].i + scratch[8].i;
@@ -267,10 +274,6 @@ void bfly5(
         C_SUB(*Fout3,scratch[11],scratch[12]);
 
         ++Fout0;++Fout1;++Fout2;++Fout3;++Fout4;
-        tw1+=fstride;
-        tw2+=2*fstride;
-        tw3+=3*fstride;
-        tw4+=4*fstride;
     }
 }
 
@@ -341,31 +344,20 @@ void fft_work(
     }
 }
 
-/*
- *      void * kiss_fft_alloc(int nfft,int inverse_fft)
- *
- * User-callable function to allocate all necessary scratch space for the fft.
- *
- * The return value is a contiguous block of memory, allocated with malloc.  As such,
- * It can be freed with free(), rather than a kiss_fft-specific function.
- * */
-void * kiss_fft_alloc(int nfft,int inverse_fft)
+int allocsize(int nfft)
 {
-    int allocsize;
-    int nstages=0;
-    int i;
-    kiss_fft_state * st=NULL;
-
-    allocsize =  sizeof(kiss_fft_state)
+    int allocsize =  sizeof(kiss_fft_state)
         + sizeof(kiss_fft_cpx)*nfft /* twiddle factors*/
         + sizeof(kiss_fft_cpx)*nfft /* tmpbuf*/
         + sizeof(int)*nfft /* factors*/
         + sizeof(kiss_fft_cpx)*nfft; /* scratch*/
-    
-    st = ( kiss_fft_state *)malloc( allocsize );
-    if (!st)
-        return NULL;
+    return allocsize;   
+}
 
+void init_state(kiss_fft_state * st,int nfft,int inverse_fft)
+{
+    int nstages=0;
+    int i;
     st->nfft=nfft;
     st->inverse = inverse_fft;
     st->twiddles = (kiss_fft_cpx*)(st+1); /* just beyond struct*/
@@ -401,20 +393,81 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
         st->factors[2*nstages+1] = nfft;
         ++nstages;
     }
+}
+
+/*
+ *      void * kiss_fft_alloc(int nfft,int inverse_fft)
+ *
+ * User-callable function to allocate all necessary scratch space for the fft.
+ *
+ * The return value is a contiguous block of memory, allocated with malloc.  As such,
+ * It can be freed with free(), rather than a kiss_fft-specific function.
+ * */
+void * kiss_fft_alloc(int nfft,int inverse_fft)
+{
+    kiss_fft_state * st=NULL;
+
+    st = ( kiss_fft_state *)malloc( allocsize(nfft) );
+    if (!st)
+        return NULL;
+    init_state( st ,nfft,inverse_fft );
     return st;
+}
+
+void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft)
+{
+    kiss_fft2d_state *st = NULL;
+    int size1,size2;
+    size1 = allocsize(ncols);
+    size2 = allocsize(nrows);
+
+    st = (kiss_fft2d_state *) malloc ( sizeof(kiss_fft2d_state) + size1 + size2 );
+    if (!st)
+        return NULL;
+    
+    st->rowst = (kiss_fft_state *)(st+1); /*just beyond kiss_fft2d_state struct */
+    st->colst = (kiss_fft_state *)( (char*)(st->rowst) + size1 );
+    init_state (st->rowst, ncols, inverse_fft);
+    init_state (st->colst, nrows, inverse_fft);
+    return st;
+}
+
+void kiss_fft2d(const void * cfg,kiss_fft_cpx *f)
+{
+    /* 
+     f is stored row-wise
+     * */
+    fprintf(stderr,"not yet implemented\n");
+    exit(1);
+}
+
+void kiss_fft2d_io(const void * cfg,const kiss_fft_cpx * fin,kiss_fft_cpx * fout)
+{
+    /*just use the in-place version sinc the multi-dim needs two passes anyway*/
+    kiss_fft2d_state *st = (kiss_fft2d_state *)cfg;
+    memcpy(fout,fin,sizeof(kiss_fft_cpx) * st->rowst->nfft * st->colst->nfft );
+    kiss_fft2d(cfg,fout);
 }
 
 /* original form of processing function, first release of KISS FFT was in-place.  This maintains API. */
 void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
     const kiss_fft_state * st = cfg;
-    memcpy(st->tmpbuf,f,sizeof(kiss_fft_cpx)*st->nfft);
-    fft_work( f, st->tmpbuf, 1, st->factors,st );
+    if (st->nfft < 0) {
+        kiss_fft2d(cfg,f);
+    }else{
+        memcpy(st->tmpbuf,f,sizeof(kiss_fft_cpx)*st->nfft);
+        fft_work( f, st->tmpbuf, 1, st->factors,st );
+    }
 }
 
 /* two buffer version of above */
 void kiss_fft_io(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 {
     const kiss_fft_state * st = cfg;
-    fft_work( fout, fin, 1, st->factors,st );
+    if (st->nfft < 0) {
+        kiss_fft2d_io(cfg,fin,fout);
+    }else{
+        fft_work( fout, fin, 1, st->factors,st );
+    }
 }
