@@ -15,7 +15,7 @@ all: $(UTIL) $(BENCH)
 
 ifeq  "$(DATATYPE)" "short"
  TYPEFLAGS=-DFIXED_POINT -Dkiss_fft_scalar=short
-else	
+else
  TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
 endif
 
@@ -50,6 +50,7 @@ mtime: all bm_fftw
 snr: all
 	@echo "### testing SNR for $(NFFT) point $(DATATYPE) FFTs"
 	@echo "testkiss( $(NFFT) , '$(DATATYPE)' );" | octave -q
+
 
 ifeq "$(DATATYPE)" "double"
 test: snr time fftw
