@@ -162,6 +162,50 @@ void bfly2(
 
 static 
 inline
+void bfly3(
+        kiss_fft_cpx * Fout,
+        int fstride,
+        const kiss_fft_state * st,
+        int m
+        )
+{
+    const int p=3;
+    int u,k,q1,q;
+    kiss_fft_cpx * scratch = st->scratch;
+    kiss_fft_cpx * twiddles = st->twiddles;
+    kiss_fft_cpx t;
+
+    for ( u=0; u<m; ++u ) {
+        k=u;
+        for ( q1=0 ; q1<p ; ++q1 ) {
+            scratch[q1] = Fout[ k  ];
+#ifdef FIXED_POINT
+            scratch[q1].r /= p;
+            scratch[q1].i /= p;
+#endif            
+            k += m;
+        }
+
+        k=u;
+        for ( q1=0 ; q1<p ; ++q1 ) {
+            int twidx=0;
+            Fout[ k ] = scratch[0];
+            for (q=1;q<p;++q ) {
+                int Norig = st->nfft;
+                twidx += fstride * k;
+                if (twidx>=Norig) twidx-=Norig;
+                C_MUL(t,scratch[q] , twiddles[twidx] );
+                Fout[ k ].r += t.r;
+                Fout[ k ].i += t.i;
+            }
+            k += m;
+        }
+    }
+}
+
+        
+static 
+inline
 void bflyp(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -225,8 +269,9 @@ void fft_work(
     }
 
     switch (p) {
-        case 4: bfly4(Fout,fstride,st,m); break;
         case 2: bfly2(Fout,fstride,st,m); break;
+        case 3: bfly3(Fout,fstride,st,m); break;
+        case 4: bfly4(Fout,fstride,st,m); break;
         default: bflyp(Fout,fstride,st,m,p); break;
     }
 }
