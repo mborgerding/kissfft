@@ -1,3 +1,17 @@
+1.2.1 (April 4, 2004) 
+    compiles cleanly with just about every -W warning flag under the sun
+
+    reorganized kiss_fft_state so it could be read-only/const. This may be useful for embedded systems
+    that are willing to predeclare twiddle factors, factorization.
+
+    Fixed C_MUL,S_MUL on 16-bit platforms.
+
+    tmpbuf will only be allocated if input & output buffers are same
+    scratchbuf will only be allocated for ffts that are not multiples of 2,3,5
+ 
+    NOTE: The tmpbuf,scratchbuf changes may require synchronization code for multi-threaded apps.
+
+
 1.2 (Feb 23, 2004)
     interface change -- cfg object is forward declaration of struct instead of void*
     This maintains type saftey and lets the compiler warn/error about stupid mistakes.
