@@ -24,15 +24,16 @@ def fft(f):
 
     Fout=[0]*n
     for k in range(n):
-        val = 0
-        for q in range(p):
+        km = (k%m)
+        val = Fm[ km ]
+        for q in range(1,p):
             t = e ** ( j*2*pi*k*q/n )
-            val += Fm[ q*m + (k%m) ] * t
+            val += Fm[ q*m + km ] * t
         Fout[k] = val
 
     return Fout
 
-def test(f=range(256),ntimes=10):
+def test(f=range(1024),ntimes=10):
     import time
     t0 = time.time()
     for i in range(ntimes):
