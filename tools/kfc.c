@@ -4,7 +4,7 @@ typedef struct
 {
     int nfft;
     int inverse;
-    const void * cfg;
+    void * cfg;
     void * next;
 } cached_fft;
 

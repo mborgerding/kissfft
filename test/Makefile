@@ -13,7 +13,7 @@ BENCHKISS=bm_kiss_$(DATATYPE)
 BENCHFFTW=bm_fftw_$(DATATYPE)
 SELFTEST=st_$(DATATYPE)
 TESTREAL=tr_$(DATATYPE)
-TESTKFC=tc_$(DATATYPE)
+TESTKFC=tkfc_$(DATATYPE)
 FFTUTIL=kf_$(DATATYPE)
 
 ifeq  "$(DATATYPE)" "short"
@@ -44,8 +44,9 @@ $(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fft2d.c kiss_fftr.c
 $(SELFTEST): ../kiss_fft.c $(SELFTESTSRC)
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
-$(TESTKFC): ../kiss_fft.c kiss_fftr.c test_real.c
-	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
+$(TESTKFC): ../kiss_fft.c kfc.c
+	$(CC) -o $@ $(CFLAGS) -I.. -DKFC_TEST $(TYPEFLAGS) -lm $+
+	
 $(TESTREAL): ../kiss_fft.c kiss_fftr.c test_real.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
@@ -76,4 +77,4 @@ selftest_short.c:
 	./mk_test.py -s 10 12 14 > selftest_short.c
 
 clean:
-	rm -f *~ bm_* st_* tr_* kf_*
+	rm -f *~ bm_* st_* tr_* kf_* tkfc_*

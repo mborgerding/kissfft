@@ -36,8 +36,8 @@ def main():
         usage: compfft.py 
         -n nfft
         -u utilname : see sample_code/fftutil.c
-        -R : real-optimized version
-        """)
+        -R : real-optimized version\n""")
+        sys.exit(1)
 
     x = randbuf(n,cpx)
 
