@@ -1,4 +1,4 @@
-#!/usr/local/bin/python2.3
+#!/usr/bin/env python2.3
 
 # use FFTPACK as a baseline
 import FFT

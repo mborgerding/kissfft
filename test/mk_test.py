@@ -1,4 +1,5 @@
-#!/usr/local/bin/python2.3
+#!/usr/bin/env python2.3
+
 import FFT
 import sys
 import random
