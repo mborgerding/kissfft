@@ -28,25 +28,26 @@ endif
 $(UTIL): $(UTILSRC)
 	gcc -o $@ $(CFLAGS) $(TYPEFLAGS) $(UTILSRC)
 
-RANDDAT=rand_$(DATATYPE)_$(NUMFFTS)_$(NFFT).dat
+RANDDAT=rand_$(DATATYPE)_$(NFFT).dat
 $(RANDDAT):
-	./rand_fft_data.py -n $(NUMFFTS) -N $(NFFT) -t $(DATATYPE) > $(RANDDAT)
+	./rand_fft_data.py -n 1 -N $(NFFT) -t $(DATATYPE) > $(RANDDAT)
 
 time: all $(RANDDAT)
 	@echo
 	@echo -n "#### timing $(NUMFFTS) x $(NFFT) point FFTs.  "; factor $(NFFT)
 	@if [ -x ~/fftw/st ] && [ $(DATATYPE) == "double" ]; then \
 		echo "#### FFTW FFT $(DATATYPE)"; \
-		time ~/fftw/st -n $(NFFT) < $(RANDDAT) > /dev/null;\
+		time ~/fftw/st -x $(NUMFFTS) -n $(NFFT) < $(RANDDAT) > /dev/null;\
 	fi
 	@echo "#### KISS FFT $(DATATYPE)"
-	@time ./$(UTIL) -n $(NFFT) < $(RANDDAT) > /dev/null
+	@time ./$(UTIL) -x $(NUMFFTS) -n $(NFFT) < $(RANDDAT) > /dev/null
 	@rm $(RANDDAT)
 
 POW2=256 512 1024 2048
 POW3=243 729 2187
+POW5=25 125 625 
 mtime: all
-	@for n in $(POW2) ;do \
+	@for n in $(POW5) ;do \
 		export NFFT=$$n;make time; \
 		done
 

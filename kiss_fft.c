@@ -206,6 +206,43 @@ void bfly3(
      }while(--m);
 }
 
+void bfly5(
+        kiss_fft_cpx * Fout,
+        int fstride,
+        const kiss_fft_state * st,
+        int m
+        )
+{
+    int u,k,q1,q;
+    const int p=5;
+    kiss_fft_cpx * scratch = st->scratch;
+    kiss_fft_cpx * twiddles = st->twiddles;
+    kiss_fft_cpx t;
+    int Norig = st->nfft;
+
+    for ( u=0; u<m; ++u ) {
+        k=u;
+        for ( q1=0 ; q1<p ; ++q1 ) {
+            scratch[q1] = Fout[ k  ];
+            C_FIXDIV(scratch[q1],p);
+            k += m;
+        }
+
+        k=u;
+        for ( q1=0 ; q1<p ; ++q1 ) {
+            int twidx=0;
+            Fout[ k ] = scratch[0];
+            for (q=1;q<p;++q ) {
+                twidx += fstride * k;
+                if (twidx>=Norig) twidx-=Norig;
+                C_MUL(t,scratch[q] , twiddles[twidx] );
+                C_ADDTO( Fout[ k ] ,t);
+            }
+            k += m;
+        }
+    }
+}
+
 /* perform the butterfly for one stage of a mixed radix FFT */
 void bfly_generic(
         kiss_fft_cpx * Fout,
@@ -268,6 +305,7 @@ void fft_work(
         case 2: bfly2(Fout,fstride,st,m); break;
         case 3: bfly3(Fout,fstride,st,m); break;
         case 4: bfly4(Fout,fstride,st,m); break;
+        case 5: bfly5(Fout,fstride,st,m); break;
         default: bfly_generic(Fout,fstride,st,m,p); break;
     }
 }
@@ -303,7 +341,6 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     st->tmpbuf = (kiss_fft_cpx*)(st->twiddles + nfft);/*  just after twiddles*/
     st->scratch = (kiss_fft_cpx*)(st->tmpbuf + nfft);
     st->factors = (int*)(st->scratch + nfft); /* just after tmpbuf*/
-
 
     for (i=0;i<nfft;++i) {
         const double pi=3.14159265358979323846264338327;

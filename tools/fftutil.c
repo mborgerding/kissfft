@@ -26,16 +26,20 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
 
-void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse,int useascii)
+void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse,int useascii,int times)
 {
+    int i;
     void *st;
     kiss_fft_cpx * buf;
+    kiss_fft_cpx * bufout;
 
     buf = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft );
+    bufout = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft );
     st = kiss_fft_alloc( nfft ,isinverse );
 
     while ( fread( buf , sizeof(kiss_fft_cpx) * nfft ,1, fin ) > 0 ) {
-        kiss_fft( st , buf );
+        for (i=0;i<times;++i)
+            kiss_fft_io( st , buf ,bufout);
         if (useascii) {
             int i;
             for (i=0;i<nfft;++i) 
@@ -46,6 +50,7 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse,int useascii)
     }
     free(st);
     free(buf);
+    free(bufout);
 }
 
 int main(int argc,char ** argv)
@@ -55,14 +60,16 @@ int main(int argc,char ** argv)
     FILE *fin=stdin;
     FILE *fout=stdout;
     int useascii=0;
-        
+    int times=1;
+
     while (1) {
-        int c=getopt(argc,argv,"n:ia");
+        int c=getopt(argc,argv,"n:iax:");
         if (c==-1) break;
         switch (c) {
             case 'a':useascii=1;break;
             case 'n':nfft = atoi(optarg);break;
             case 'i':isinverse=1;break;
+            case 'x':times=atoi(optarg);break;
         }
     }
 
@@ -78,7 +85,7 @@ int main(int argc,char ** argv)
         ++optind;
     }
 
-    fft_file(fin,fout,nfft,isinverse,useascii);
+    fft_file(fin,fout,nfft,isinverse,useascii,times);
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);
