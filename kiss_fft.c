@@ -287,45 +287,63 @@ void bfly_generic(
         int p
         )
 {
-    int u,q,d;
+    int u,q,d,fsm,halfp,mp;
     kiss_fft_cpx * scratch = st->scratch;
+    kiss_fft_cpx * scratch2 = scratch + p;
     kiss_fft_cpx * tw = st->twiddles;
-    kiss_fft_cpx tlo,t1,t2,t3,t4;
+    kiss_fft_cpx tlo,t3,t4;
+    kiss_fft_cpx *Foutlo,*Fouthi;
+
+    fsm = fstride*m;
+    halfp=p/2;
+    mp=m*p;
+
+    for ( q=1; q<p ; ++q ) {
+        int twidx = q*fsm;
+        for ( d=1; d<=halfp;++d) {
+            tlo = tw[ twidx];
+            twidx += d*fsm;
+
+            if (twidx >=  st->nfft)
+                twidx -= st->nfft;
+            *scratch2++ = tlo;
+        }
+    }
 
     for ( u=0; u<m; ++u ) {
-        scratch[0] = Fout[u];
+        scratch[0] = Fout[0];
+        scratch2 = scratch + p;
 
         for ( q=1 ; q<p ; ++q ) {
-            C_MUL( scratch[q] , Fout[  m*q + u] ,  tw[u*fstride*q] );
-            Fout[  m*q + u] = scratch[0];
-            C_ADDTO(Fout[u] , scratch[q] );
+            C_MUL( scratch[q] , Fout[  m*q ] ,  tw[u*fstride*q] );
+            Fout[  m*q ] = scratch[0];
+            C_ADDTO(*Fout , scratch[q] );
         }
 
         for ( q=1; q<p ; ++q ) {
-            int twidx = q*fstride * m;
-            for ( d=1; d<=p/2;++d) {
+            int twidx = q*fsm;
 
-                tlo = tw[ twidx];
-                twidx += d*fstride*m;
+            Foutlo=Fout;
+            Fouthi=Fout + mp;
 
-                if (twidx >=  st->nfft)
-                    twidx -= st->nfft;
+            for ( d=1; d<=halfp;++d) {
+                Foutlo += m;
+                Fouthi -= m;
+
+                tlo = *scratch2++;
 
                 t3.r = scratch[q].r * tlo.r;
                 t3.i = scratch[q].r * tlo.i;
                 t4.r = scratch[q].i * tlo.i;
                 t4.i = - scratch[q].i * tlo.r;
 
-                t1.r = t3.r - t4.r;
-                t1.i = t3.i - t4.i;
-                
-                t2.r = t3.r + t4.r;
-                t2.i = - (t3.i + t4.i);
-                 
-                C_ADDTO( Fout[ m*d+u ] ,t1);
-                C_ADDTO( Fout[ m*(p-d)+u ] ,t2);
+                Foutlo->r += t3.r - t4.r;
+                Fouthi->r += t3.r + t4.r;
+                Foutlo->i += t3.i - t4.i;
+                Fouthi->i -= t3.i + t4.i;
             }
         }
+        ++Fout;
     }
 }
 
@@ -351,7 +369,7 @@ void fft_work(
 
     switch (p) {
         case 2: bfly2(Fout,fstride,st,m); break;
-#if 0                
+#if 0
         case 3: bfly3(Fout,fstride,st,m); break;
 #endif                
         case 4: bfly4(Fout,fstride,st,m); break;
