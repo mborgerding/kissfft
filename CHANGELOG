@@ -1,0 +1,9 @@
+
+
+0.4 : optimized for radix 2,3,4,5
+
+0.3 : woops, version 2 didn't actually factor out any radices other than 2
+
+0.2 : added mixed radix, only radix 2,4 optimized versions
+
+0.1 :  initial release, radix 2 only
