@@ -36,6 +36,5 @@ void pstats_report()
 {
     ps_report();
     tms_report();
-    fprintf(stderr,"\n");
 }
 

@@ -45,7 +45,7 @@ typedef struct {
 
    C_MUL(m,a,b)         : m = a*b
    C_FIXDIV( c , div )  : if a fixed point impl., c /= div. noop otherwise
-   C_SUB( res, a,b)     : res = a - b 
+   C_SUB( res, a,b)     : res = a - b
    C_SUBFROM( res , a)  : res -= a
    C_ADDTO( res , a)    : res += a
  * */
@@ -86,7 +86,7 @@ typedef struct {
 kiss_fft_cpx cexp(double phase) /* returns e ** (j*phase)   */
 {
     kiss_fft_cpx x;
-#ifdef FIXED_POINT    
+#ifdef FIXED_POINT
     x.r = (kiss_fft_scalar) ( 32767*cos(phase) );
     x.i = (kiss_fft_scalar) ( 32767*sin(phase) );
 #else
@@ -265,7 +265,7 @@ void bfly5(
 
         C_SUB(*Fout1,scratch[5],scratch[6]);
         C_ADD(*Fout4,scratch[5],scratch[6]);
- 
+
         scratch[11].r = scratch[0].r + S_MUL(scratch[7].r,y2.r) + S_MUL(scratch[8].r,y1.r);
         scratch[11].i = scratch[0].i + S_MUL(scratch[7].i,y2.r) + S_MUL(scratch[8].i,y1.r);
         scratch[12].r = - S_MUL(scratch[10].i,y2.i) + S_MUL(scratch[9].i,y1.i);
@@ -329,7 +329,7 @@ void fft_work(
     m=*factors++;
 
     for (q=0;q<p;++q) {
-        if (m==1) 
+        if (m==1)
             Fout[q] = *f;
         else
             fft_work( Fout + m*q, f, fstride*p,factors,st);
@@ -352,12 +352,51 @@ int allocsize(int nfft)
         + sizeof(kiss_fft_cpx)*nfft /* tmpbuf*/
         + sizeof(int)*nfft /* factors*/
         + sizeof(kiss_fft_cpx)*nfft; /* scratch*/
-    return allocsize;   
+    return allocsize;
+}
+
+/*  factors out powers of 4, powers of 2, then any remaining primes 
+ 
+    facbuf is populated by p1,m1,p2,m2, ...
+
+    where 
+    p[i] * m[i] = m[i-1]
+    m0 = n
+ 
+ *  */
+
+void factor(int n,int * facbuf)
+{
+    int p;
+
+    while ( n>1 && (n&1) == 0) {
+        if ( (n&3) == 0) 
+            p=4;
+        else
+            p=2;
+        n /= p;
+        *facbuf++ = p;
+        *facbuf++ = n;
+    }
+
+    if (n>1) {
+        int floor_sqrt = floor( sqrt( n ) );
+        p=3;
+        do{
+            while (n%p) {
+                p += 2;
+                if ( p>floor_sqrt )
+                    p=n;/* no more factors, skip to end*/
+            }
+            n /= p;
+            *facbuf++ = p;
+            *facbuf++ = n;
+        }while ( n >1);
+    }
 }
 
 void init_state(kiss_fft_state * st,int nfft,int inverse_fft)
 {
-    int nstages=0;
     int i;
     st->nfft=nfft;
     st->inverse = inverse_fft;
@@ -374,26 +413,7 @@ void init_state(kiss_fft_state * st,int nfft,int inverse_fft)
         st->twiddles[i] = cexp( phase );
     }
 
-    while (nfft>1) {
-        /* If you want a new radix, don't forget to put it here */
-        const int divisors[] = {
-		4,2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,
-		71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,
-		149,151,157,163,167,173,179,181,191,193,197,199,-1};
-        int p=nfft;
-        i=0;
-        while ( divisors[i] != -1 ) {
-            if ( nfft %  divisors[i] == 0){
-                p =  divisors[i];
-                break;
-            }
-            ++i;
-        }
-        st->factors[2*nstages] = p;
-        nfft /= p;
-        st->factors[2*nstages+1] = nfft;
-        ++nstages;
-    }
+    factor(nfft,st->factors);
 }
 
 /*
@@ -426,7 +446,7 @@ void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft)
     st = (kiss_fft2d_state *) malloc ( sizeof(kiss_fft2d_state) + size1 + size2 + sizetmp );
     if (!st)
         return NULL;
-    
+
     st->minus2 = -2;
     st->rowst = (kiss_fft_state *)(st+1); /*just beyond kiss_fft2d_state struct */
     st->colst = (kiss_fft_state *)( (char*)(st->rowst) + size1 );
@@ -447,7 +467,7 @@ void kiss_fft2d(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 
     /*fft each column*/
     for (col=0;col<ncols;++col) {
-        for (row=0;row< nrows ;++row) 
+        for (row=0;row< nrows ;++row)
             st->tmpbuf[row] = fin[row*ncols + col];
         kiss_fft(st->colst,st->tmpbuf);
         for (row=0;row< nrows ;++row) {
@@ -456,7 +476,7 @@ void kiss_fft2d(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
     }
 
     /*fft each row */
-    for (row=0;row< nrows ;++row) 
+    for (row=0;row< nrows ;++row)
         kiss_fft(st->rowst , fout + row*ncols );
 }
 

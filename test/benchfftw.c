@@ -4,15 +4,44 @@
 #include <getopt.h>
 #include "pstats.h"
 
+#ifdef DATATYPEdouble
+
+#define CPXTYPE fftw_complex
+#define PLAN fftw_plan
+#define FFTMALLOC fftw_malloc
+#define MAKEPLAN fftw_plan_dft_1d
+#define DOFFT fftw_execute
+#define DESTROYPLAN fftw_destroy_plan
+#define FFTFREE fftw_free
+
+#elif defined(DATATYPEfloat)
+
+#define CPXTYPE fftwf_complex
+#define PLAN fftwf_plan
+#define FFTMALLOC fftwf_malloc
+#define MAKEPLAN fftwf_plan_dft_1d
+#define DOFFT fftwf_execute
+#define DESTROYPLAN fftwf_destroy_plan
+#define FFTFREE fftwf_free
+
+#endif
+
+#ifndef CPXTYPE
+int main()
+{
+    fprintf(stderr,"Datatype not available in FFTW\n" );
+    return 0;
+}
+#else
 int main(int argc,char ** argv)
 {
     int nfft=1024;
     int isinverse=0;
     int numffts=1000,i;
 
-    fftw_complex * in=NULL;
-    fftw_complex * out=NULL;
-    fftw_plan p;
+    CPXTYPE * in=NULL;
+    CPXTYPE * out=NULL;
+    PLAN p;
 
     pstats_init();
 
@@ -33,28 +62,28 @@ int main(int argc,char ** argv)
       }
     }
 
-    in=fftw_malloc(sizeof(fftw_complex) * nfft);
-    out=fftw_malloc(sizeof(fftw_complex) * nfft);
+    in=FFTMALLOC(sizeof(CPXTYPE) * nfft);
+    out=FFTMALLOC(sizeof(CPXTYPE) * nfft);
     for (i=0;i<nfft;++i ) {
         in[i][0] = rand() - RAND_MAX/2;
         in[i][1] = rand() - RAND_MAX/2;
     }
 
     if ( isinverse )
-        p = fftw_plan_dft_1d(nfft, in, out, FFTW_BACKWARD, FFTW_ESTIMATE);
+        p = MAKEPLAN(nfft, in, out, FFTW_BACKWARD, FFTW_ESTIMATE);
     else    
-        p = fftw_plan_dft_1d(nfft, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+        p = MAKEPLAN(nfft, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
 
     for (i=0;i<numffts;++i)
-        fftw_execute(p);
+        DOFFT(p);
 
-    fftw_destroy_plan(p);
+    DESTROYPLAN(p);
 
-    fftw_free(in); fftw_free(out);
+    FFTFREE(in); FFTFREE(out);
 
     fprintf(stderr,"fftw\tnfft=%d\tnumffts=%d\n", nfft,numffts);
     pstats_report();
 
     return 0;
 }
-
+#endif

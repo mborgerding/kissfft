@@ -9,9 +9,10 @@ ifeq "$(DATATYPE)" ""
 endif
 
 UTIL=fftutil_$(DATATYPE)
-BENCH=bm_$(DATATYPE)
+BENCHKISS=bm_kiss_$(DATATYPE)
+BENCHFFTW=bm_fftw_$(DATATYPE)
 
-all: $(UTIL) $(BENCH)
+all: $(UTIL) $(BENCHKISS)
 
 ifeq  "$(DATATYPE)" "short"
  TYPEFLAGS=-DFIXED_POINT -Dkiss_fft_scalar=short
@@ -23,40 +24,34 @@ CFLAGS=-Wall -O3 -ansi -pedantic
 $(UTIL): ../kiss_fft.c fftutil.c 
 	gcc -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) ../kiss_fft.c fftutil.c -lm
 
-$(BENCH): benchkiss.c ../kiss_fft.c pstats.c
+$(BENCHKISS): benchkiss.c ../kiss_fft.c pstats.c
 	gcc -o $@ $(CFLAGS) -I.. benchkiss.c $(TYPEFLAGS) ../kiss_fft.c pstats.c -lm 
 
-fftw: bm_fftw
-	@[ -x ./bm_fftw ] && \
-		./bm_fftw -x $(NUMFFTS) -n $(NFFT)
+fftw: $(BENCHFFTW)
+	./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT)
 
-bm_fftw: benchfftw.c pstats.c
-	@gcc -o $@ $(CFLAGS) benchfftw.c pstats.c -lm -lfftw3 -L /usr/local/lib/ \
-	 || echo 'Cannot build FFTW test script'
+$(BENCHFFTW): benchfftw.c pstats.c
+	gcc -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) benchfftw.c pstats.c -lm -lfftw3f -lfftw3 -L /usr/local/lib/ 
 
 time: all
-	@./$(BENCH) -x $(NUMFFTS) -n $(NFFT) 
+	@./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT) 
 
-POW2=256 512 1024 2048
+POW2=256 512 1024 2048 4096 8192
 POW3=243 729 2187
 POW5=25 125 625 3125
 
-mtime: all bm_fftw
-	for n in $(POW3) ;do \
-		./$(BENCH) -x $(NUMFFTS) -n $$n;\
-		[ "$(DATATYPE)" == "double" ] && [ -x ./bm_fftw ] && ./bm_fftw -x $(NUMFFTS) -n $$n || true ; \
+mtime: all $(BENCHFFTW)
+	for n in $(POW2) $(POW3) $(POW5) ;do \
+		echo ============================;\
+		./$(BENCHKISS) -x $(NUMFFTS) -n $$n;\
+		[ -x ./$(BENCHFFTW) ] && ./$(BENCHFFTW) -x $(NUMFFTS) -n $$n || true ; \
 	done
 
 snr: all
 	@echo "### testing SNR for $(NFFT) point $(DATATYPE) FFTs"
 	@echo "testkiss( $(NFFT) , '$(DATATYPE)' );" | octave -q
 
-
-ifeq "$(DATATYPE)" "double"
 test: snr time fftw
-else
-test: snr time 
-endif
 
 clean:
-	rm -f *~ fftutil_* bm_*
+	rm -f *~ fftutil_* bm_* *.dat
