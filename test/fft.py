@@ -1,6 +1,7 @@
 #!/usr/local/bin/python2.3
 import math
 import sys
+import random
 
 pi=math.pi
 e=math.e
@@ -119,6 +120,69 @@ def main():
 
     print '%d errors in reverse fft' % nerrs
 
-    
+
+def make_random(dims=[1]):
+    import Numeric 
+    res = []
+    for i in range(dims[0]):
+        if len(dims)==1:
+            r=random.uniform(-1,1)
+            i=random.uniform(-1,1)
+            res.append( complex(r,i) )
+        else:
+            res.append( make_random( dims[1:] ) )
+    return Numeric.array(res)
+
+def flatten(x):
+    import Numeric
+    ntotal = Numeric.product(Numeric.shape(x))
+    return Numeric.reshape(x,(ntotal,))
+
+def randmat( ndims ):
+    dims=[]
+    for i in range( ndims ):
+        curdim = int( random.uniform(2,4) )
+        dims.append( curdim )
+    return make_random(dims )
+
+def test_fftnd(ndims=3):
+    import FFT
+    import Numeric
+
+    x=randmat( ndims )
+    xver = FFT.fftnd(x)
+    x2=myfftnd(x)
+    err = xver-x2
+    #print xver
+    #print x2
+    errf = flatten(err)
+    xverf = flatten(xver)
+    errpow = Numeric.vdot(errf,errf)+1e-10
+    sigpow = Numeric.vdot(xverf,xverf)+1e-10
+    print 'SNR=%sdB' % str(10*math.log10(abs(sigpow/errpow) ) )
+ 
+def myfftnd(x):
+    import Numeric
+    xf = flatten(x)
+    Xf = fftndwork( xf , Numeric.shape(x) )
+    return Numeric.reshape(Xf,Numeric.shape(x) )
+
+def fftndwork(x,dims):
+    import Numeric
+    if len(dims)==1:
+        return fft(x,0)
+    else:
+        samples_per_chunk = Numeric.product( dims[1:] )
+        precomp=[]
+        curfftlen = dims[0]
+        for i in range(curfftlen):
+            xslice = x[i*samples_per_chunk:(i+1)*samples_per_chunk]
+            precomp.extend( fftndwork(xslice,dims[1:] ) )
+
+        xout=[ complex(0,0) ] * samples_per_chunk * dims[0]
+        for i in range(samples_per_chunk):
+            xout[i::samples_per_chunk] = fft( precomp[i::samples_per_chunk],0 )
+        return xout    
+
 if __name__ == "__main__":
     main()
