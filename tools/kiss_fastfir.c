@@ -35,7 +35,7 @@ void * kiss_fastfir_alloc(const kffsamp_t * imp_resp,size_t n_imp_resp,
         size_t * nfft,void * mem,size_t*lenmem);
 
 /* see do_file_filter for usage */
-size_t kiss_fastfir( void * cfg, kffsamp_t * inbuf, kffsamp_t * outbuf, size_t n, int do_flush, size_t *offset);
+size_t kiss_fastfir( void * cfg, kffsamp_t * inbuf, kffsamp_t * outbuf, size_t n, size_t *offset);
 
 
 
@@ -212,18 +212,18 @@ size_t kiss_fastfir(
         void * vst,
         kffsamp_t * inbuf,
         kffsamp_t * outbuf,
-        size_t n,
-        int do_flush,
+        size_t n_new,
         size_t *offset)
 {
-    if (do_flush==0) {
-        size_t nwritten = kff_nocopy(vst,inbuf,outbuf,n);
-        *offset = n - nwritten;
+    size_t ntot = n_new + *offset;
+    if (n_new==0) {
+        return kff_flush(vst,inbuf,outbuf,ntot);
+    }else{
+        size_t nwritten = kff_nocopy(vst,inbuf,outbuf,ntot);
+        *offset = ntot - nwritten;
+        /*save the unused or underused samples at the front of the input buffer */
         memcpy( inbuf , inbuf+nwritten , *offset * sizeof(kffsamp_t) );
         return nwritten;
-    }else{
-        /*flush*/
-        return kff_flush(vst,inbuf,outbuf,n);
     }
 }
 
@@ -239,31 +239,44 @@ void do_file_filter(
         size_t n_imp_resp,
         size_t nfft )
 {
-    size_t memcfg,membuf;
+    size_t n_bytes_cfg;
+    size_t n_samps_buf;
+
     void * cfg;
-    size_t max_samps;
     kffsamp_t *inbuf,*outbuf;
-    size_t ninbuf,noutbuf;
-    size_t idx_inbuf=0;
+    size_t nread,nwrite;
+    size_t idx_inbuf;
 
-    kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,&memcfg);
-    max_samps = 4*nfft;
-    membuf = max_samps*sizeof(kffsamp_t);
-    cfg = malloc(membuf*2+memcfg);
-    kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,cfg,&memcfg);
-    inbuf = (kffsamp_t*)((char*)cfg+memcfg);
-    outbuf = (kffsamp_t*)((char*)cfg+memcfg+membuf);
+    /*Note this is probably more difficult than it needs to be since 
+      I like to only have one malloc if possible.  */
 
+    /*figure out how big cfg will be */
+    kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,&n_bytes_cfg);
+
+    /* how much space for the input & output buffers */
+    n_samps_buf = 4*nfft;
+
+    /*allocate space and initialize pointers */
+    cfg = malloc( n_samps_buf * sizeof(kffsamp_t) *2 + n_bytes_cfg );
+    kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,cfg,&n_bytes_cfg);
+    inbuf = (kffsamp_t*)((char*)cfg+n_bytes_cfg);
+    outbuf = inbuf + n_samps_buf;
+
+    idx_inbuf=0;
     do{
-        ninbuf = fread( &inbuf[idx_inbuf], sizeof(inbuf[0]), max_samps-idx_inbuf , fin );
+        /* start reading at inbuf[idx_inbuf] */
+        nread = fread( inbuf + idx_inbuf, sizeof(kffsamp_t), n_samps_buf - idx_inbuf , fin );
 
-        noutbuf = kiss_fastfir(cfg, inbuf, outbuf,idx_inbuf+ninbuf,ninbuf==0,&idx_inbuf);
+        /* If nread==0, then this is a flush.
+            The total number of samples in input is idx_inbuf + nread . */
+        nwrite = kiss_fastfir(cfg, inbuf, outbuf,nread,&idx_inbuf);
+        /* kiss_fastfir moved any unused samples to the front of inbuf and updated idx_inbuf */
 
-        if ( fwrite( outbuf, sizeof(outbuf[0]), noutbuf, fout) != noutbuf ) {
+        if ( fwrite( outbuf, sizeof(outbuf[0]), nwrite, fout) != nwrite ) {
             perror("short write");
             exit(1);
         }
-    }while ( ninbuf );
+    }while ( nread );
     free(cfg);
 }
 
