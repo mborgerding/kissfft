@@ -35,13 +35,13 @@ Code definitions for 1d complex FFTs are in kiss_fft.c.
 
 You can do other cool stuff with the extras you'll find in tools/
 
-    * arbitrary dimension FFTs (complex only currently, apologies to Steve DeKorte -- mebbe next time )
-    * real FFTs
-    * fast convolution filtering
+    * arbitrary dimension complex FFTs 
+    * 1-d real FFTs
+    * fast convolution FIR filtering
     * spectrum image creation
 
 The core fft and most tools/ code can be compiled to use float, double 
-or 16bit short samples. The default is float.
+or Q15 short samples. The default is float.
 
 
 BACKGROUND:
@@ -57,7 +57,7 @@ a well respected and highly optimized fft library.  I don't want to criticize
 this great library, so let's call it FFT_BRANDX.
 During this process, I learned:
 
-    1. FFT_BRANDX has more than 100K lines of code. The core  of kiss_fft is about 500 lines (cpx 1-d).
+    1. FFT_BRANDX has more than 100K lines of code. The core of kiss_fft is about 500 lines (cpx 1-d).
     2. It took me an embarrassingly long time to get FFT_BRANDX working.
     3. A simple program using FFT_BRANDX is 522KB. A similar program using kiss_fft is 18KB.
     4. FFT_BRANDX is roughly twice as fast as KISS FFT.
@@ -86,11 +86,10 @@ UNDER THE HOOD:
 No scaling is done.  Optimized butterflies are used for factors 2,3,4, and 5. 
 
     The real optimization code only works for even length ffts.  It does two half-length
-    FFTs in parallel (packed into real&imag) then twiddles.
+    FFTs in parallel (packed into real&imag), and then combines them via twiddling.
 
     The fast convolution filtering uses the overlap-scrap method, slightly 
     modified to put the scrap at the tail.
-    
 
 LICENSE:
     BSD, see COPYING for details. Basically, "free to use&change, give credit where due, no guarantees"
@@ -104,7 +103,6 @@ TODO:
     *) See if the fixed point code can be optimized a little without adding complexity.
     *) Make doc describing the overlap (tail) scrap fast convolution filtering in kiss_fastfir.c
     *) Test all the ./tools/ code with fixed point (kiss_fastfir.c doesn't work, maybe others)
-
 
 AUTHOR:
     Mark Borgerding
