@@ -240,6 +240,7 @@ static void kf_bfly_generic(
     }
 }
 
+static
 void kf_work(
         kiss_fft_cpx * Fout,
         const kiss_fft_cpx * f,
@@ -249,17 +250,21 @@ void kf_work(
         const kiss_fft_state * st
         )
 {
-    int m,p,q;
-    p=*factors++;
-    m=*factors++;
+    kiss_fft_cpx * tmpFout=Fout;
+    int m,p,r;
+    p=*factors++; /* the radix  */
+    m=*factors++; /* stage's fft length/p */
 
-    for (q=0;q<p;++q) {
+    for (r=0;r<p;++r) {
         if (m==1)
-            Fout[q] = *f;
+            *Fout = *f;
         else
-            kf_work( Fout + m*q, f, fstride*p, in_stride, factors,st);
+            kf_work( Fout , f, fstride*p, in_stride, factors,st);
+        Fout += m;
         f += fstride*in_stride;
     }
+
+    Fout=tmpFout;
 
     switch (p) {
         case 2: kf_bfly2(Fout,fstride,st,m); break;
