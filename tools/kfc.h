@@ -1,6 +1,11 @@
 #ifndef KFC_H
 #define KFC_H
 #include "kiss_fft.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
 KFC -- Kiss FFT Cache
 
@@ -33,5 +38,9 @@ void kfc_ifft(int nfft, const kiss_fft_cpx * fin,kiss_fft_cpx * fout);
 
 /*free all cached objects*/
 void kfc_cleanup();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -24,7 +24,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
 {
-    void *st;
+    kiss_fft_cfg st;
     kiss_fft_cpx * buf;
     kiss_fft_cpx * bufout;
 
@@ -62,7 +62,7 @@ void fft_filend(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
 
 void fft_file_real(FILE * fin,FILE * fout,int nfft,int isinverse)
 {
-    void *st;
+    kiss_fftr_cfg st;
     kiss_fft_scalar * rbuf;
     kiss_fft_cpx * cbuf;
 

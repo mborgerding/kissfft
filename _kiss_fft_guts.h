@@ -18,14 +18,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
    typedef struct { kiss_fft_scalar r; kiss_fft_scalar i; }kiss_fft_cpx; */
 #include "kiss_fft.h"
 
-typedef struct {
+struct kiss_fft_state{
     int nfft;
     int inverse;
     int *factors;
     kiss_fft_cpx * twiddles;
     kiss_fft_cpx * tmpbuf;
     kiss_fft_cpx * scratch;
-}kiss_fft_state;
+};
 
 /*
   Explanation of macros dealing with complex math:
@@ -70,7 +70,7 @@ typedef struct {
 #define C_SUBFROM( res , a)\
     do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
 
-static inline
+static 
 kiss_fft_cpx kf_cexp(double phase) /* returns e ** (j*phase)   */
 {
     kiss_fft_cpx x;

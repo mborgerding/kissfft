@@ -27,7 +27,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 static void kf_bfly2(
         kiss_fft_cpx * Fout,
         const int fstride,
-        const kiss_fft_state * st,
+        const kiss_fft_cfg st,
         int m
         )
 {
@@ -50,7 +50,7 @@ static void kf_bfly2(
 static void kf_bfly4(
         kiss_fft_cpx * Fout,
         const int fstride,
-        const kiss_fft_state * st,
+        const kiss_fft_cfg st,
         const size_t m
         )
 {
@@ -97,7 +97,7 @@ static void kf_bfly4(
 static void kf_bfly3(
          kiss_fft_cpx * Fout,
          const int fstride,
-         const kiss_fft_state * st,
+         const kiss_fft_cfg st,
          int m
          )
 {
@@ -143,7 +143,7 @@ static void kf_bfly3(
 static void kf_bfly5(
         kiss_fft_cpx * Fout,
         const int fstride,
-        const kiss_fft_state * st,
+        const kiss_fft_cfg st,
         int m
         )
 {
@@ -205,7 +205,7 @@ static void kf_bfly5(
 static void kf_bfly_generic(
         kiss_fft_cpx * Fout,
         const int fstride,
-        const kiss_fft_state * st,
+        const kiss_fft_cfg st,
         int m,
         int p
         )
@@ -246,7 +246,7 @@ void kf_work(
         const int fstride,
         int in_stride,
         int * factors,
-        const kiss_fft_state * st
+        const kiss_fft_cfg st
         )
 {
     kiss_fft_cpx * Fout_beg=Fout;
@@ -284,7 +284,7 @@ void kf_work(
 void kf_factor(int n,int * facbuf)
 {
     int p=4;
-    int floor_sqrt = floor (sqrt (n));
+    int floor_sqrt = (int)floor (sqrt (n));
 
     /*factor out powers of 4, powers of 2, then any remaining primes */
     do {
@@ -310,20 +310,20 @@ void kf_factor(int n,int * facbuf)
  * The return value is a contiguous block of memory, allocated with malloc.  As such,
  * It can be freed with free(), rather than a kiss_fft-specific function.
  * */
-void * kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem )
+kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem )
 {
-    kiss_fft_state * st=NULL;
-    size_t memneeded = sizeof(kiss_fft_state)
+    kiss_fft_cfg st=NULL;
+    size_t memneeded = sizeof(struct kiss_fft_state)
         + sizeof(kiss_fft_cpx)*nfft /* twiddle factors*/
         + sizeof(kiss_fft_cpx)*nfft /* tmpbuf*/
         + sizeof(int)*2*MAXFACTORS /* factors*/
         + sizeof(kiss_fft_cpx)*nfft; /* scratch*/
 
     if ( lenmem==NULL ) {
-        st = ( kiss_fft_state *)malloc( memneeded );
+        st = ( kiss_fft_cfg)malloc( memneeded );
     }else{
         if (*lenmem >= memneeded)
-            st = ( kiss_fft_state *)mem;
+            st = (kiss_fft_cfg)mem;
         *lenmem = memneeded;
     }
     if (st){
@@ -345,12 +345,11 @@ void * kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem )
 
         kf_factor(nfft,st->factors);
     }
-    return st;
+    return (kiss_fft_cfg)st;
 }
 
-void kiss_fft_stride(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,int in_stride)
+void kiss_fft_stride(kiss_fft_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,int in_stride)
 {
-    const kiss_fft_state * st = cfg;
     if (st->nfft < 0) {
         fprintf(stderr,"usage error: invalid kiss_fft_state. make sure the correct kiss_fft_alloc routine was used.\n");
         exit(1);
@@ -364,7 +363,7 @@ void kiss_fft_stride(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout
     }
 }
 
-void kiss_fft(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
+void kiss_fft(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 {
     kiss_fft_stride(cfg,fin,fout,1);
 }

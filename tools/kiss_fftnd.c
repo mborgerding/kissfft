@@ -20,7 +20,7 @@ typedef struct {
     int dimprod; /* dimsum would be mighty tasty right now */
     int ndims; 
     int *dims;
-    void **states; /* cfg states for each dimension */
+    kiss_fft_cfg *states; /* cfg states for each dimension */
     kiss_fft_cpx * tmpbuf; /*buffer capable of hold the entire buffer */
 }kiss_fftnd_state;
 
@@ -56,7 +56,7 @@ void * kiss_fftnd_alloc(int *dims,int ndims,int inverse_fft,void*mem,size_t*lenm
     st->ndims = ndims;
     ptr=(char*)(st+1);
 
-    st->states = (void**)ptr;
+    st->states = (kiss_fft_cfg *)ptr;
     ptr += sizeof(void*) * ndims;
 
     st->dims = (int*)ptr;
@@ -69,9 +69,8 @@ void * kiss_fftnd_alloc(int *dims,int ndims,int inverse_fft,void*mem,size_t*lenm
         size_t len;
         st->dims[i] = dims[i];
         kiss_fft_alloc (st->dims[i], inverse_fft, NULL, &len);
-        st->states[i] = ptr;
+        st->states[i] = kiss_fft_alloc (st->dims[i], inverse_fft, ptr,&len);
         ptr += len;
-        kiss_fft_alloc (st->dims[i], inverse_fft, st->states[i], &len);
     }
     return st;
 }

@@ -18,14 +18,14 @@ typedef struct
 {
     int nfft;
     int inverse;
-    void * cfg;
+    kiss_fft_cfg cfg;
     void * next;
 } cached_fft;
 
 static cached_fft *cache_root=NULL;
 static int ncached=0;
 
-static const void * find_cached_fft(int nfft,int inverse)
+static kiss_fft_cfg find_cached_fft(int nfft,int inverse)
 {
     size_t len;
     cached_fft * cur=cache_root;
@@ -42,7 +42,7 @@ static const void * find_cached_fft(int nfft,int inverse)
         cur = (cached_fft*)malloc(sizeof(cached_fft) + len );
         if (cur == NULL)
             return NULL;
-        cur->cfg = cur+1;
+        cur->cfg = (kiss_fft_cfg)(cur+1);
         kiss_fft_alloc(nfft,inverse,cur->cfg,&len);
         cur->nfft=nfft;
         cur->inverse=inverse;
