@@ -104,8 +104,8 @@ void fft_work(
         for ( q1=0 ; q1<p ; ++q1 ) {
             scratch[q1] = Fout[ k  ];
 #ifdef FIXED_POINT
-            scratch[q1].r = Fout[ k  ].r>>1;
-            scratch[q1].i = Fout[ k  ].i>>1;
+            scratch[q1].r >>= 1;
+            scratch[q1].i >>= 1;
 #endif            
             k += m;
         }
@@ -137,17 +137,34 @@ void fft_work(
  * */
 void * kiss_fft_alloc(int nfft,int inverse_fft)
 {
+    int allocsize;
     int nstages=0;
     int i;
     kiss_fft_state * st=NULL;
-    st = ( kiss_fft_state *)malloc( sizeof(kiss_fft_state) );
+
+    allocsize =  sizeof(kiss_fft_state)
+        + sizeof(kiss_fft_cpx)*nfft // twiddle factors
+        + sizeof(kiss_fft_cpx)*nfft // tmpbuf
+        + sizeof(int)*nfft // factors
+        + sizeof(kiss_fft_cpx)*nfft; // scratch
+    
+    st = ( kiss_fft_state *)malloc( allocsize );
+    if (!st)
+        return NULL;
+
     st->nfft=nfft;
     st->inverse = inverse_fft;
+    st->twiddles = (kiss_fft_cpx*)(st+1); // just beyond struct
+    st->tmpbuf = (kiss_fft_cpx*)(st->twiddles + nfft);//  just after twiddles
+    st->scratch = (kiss_fft_cpx*)(st->tmpbuf + nfft);
+    st->factors = (int*)(st->scratch + nfft); // just after tmpbuf
 
+    /*
     st->twiddles = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
     st->tmpbuf = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
     st->scratch = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
     st->factors = (int*)malloc( sizeof(int)*nfft );
+    */
 
     for (i=0;i<nfft;++i) {
         const double pi=3.14159265358979323846264338327;
