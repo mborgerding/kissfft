@@ -287,63 +287,32 @@ void bfly_generic(
         int p
         )
 {
-    int u,q,d,fsm,halfp,mp,uf;
+    int u,k,q1,q;
     kiss_fft_cpx * scratch = st->scratch;
-    kiss_fft_cpx * scratch2 = scratch + p;
-    kiss_fft_cpx * tw = st->twiddles;
-    kiss_fft_cpx tlo,t3,t4;
-    kiss_fft_cpx *Foutlo,*Fouthi;
-
-    fsm = fstride*m;
-    halfp=p/2;
-    mp=m*p;
-
-    for ( q=1; q<p ; ++q ) {
-        int twidx = q*fsm;
-        for ( d=1; d<=halfp;++d) {
-            tlo = tw[ twidx];
-            twidx += d*fsm;
-
-            if (twidx >=  st->nfft)
-                twidx -= st->nfft;
-            *scratch2++ = tlo;
-        }
-    }
+    kiss_fft_cpx * twiddles = st->twiddles;
+    kiss_fft_cpx t;
+    int Norig = st->nfft;
 
     for ( u=0; u<m; ++u ) {
-        scratch[0] = Fout[0];
-        scratch2 = scratch + p;
-        uf=u*fstride;
-
-        Foutlo=Fout;
-        for ( q=1 ; q<p ; ++q ) {
-            Foutlo += m;
-            C_MUL( scratch[q] , *Foutlo ,  tw[uf*q] );
-            *Foutlo = scratch[0];
+        k=u;
+        for ( q1=0 ; q1<p ; ++q1 ) {
+            scratch[q1] = Fout[ k  ];
+            C_FIXDIV(scratch[q1],p);
+            k += m;
         }
-        
-        for ( q=1; q<p ; ++q ) {
-            C_ADDTO(*Fout , scratch[q] );
-            Foutlo=Fout+m;
-            Fouthi=Fout+mp;
 
-            do{
-                tlo = *scratch2++;
-
-                t3.r = scratch[q].r * tlo.r;
-                t3.i = scratch[q].r * tlo.i;
-                t4.r = scratch[q].i * tlo.i;
-                t4.i = - scratch[q].i * tlo.r;
-
-                Fouthi -= m;
-
-                Foutlo->r += t3.r - t4.r;
-                Foutlo->i += t3.i - t4.i;
-                Fouthi->r += t3.r + t4.r;
-                Fouthi->i -= t3.i + t4.i;
-            }while( (Foutlo += m) < Fouthi );
+        k=u;
+        for ( q1=0 ; q1<p ; ++q1 ) {
+            int twidx=0;
+            Fout[ k ] = scratch[0];
+            for (q=1;q<p;++q ) {
+                twidx += fstride * k;
+                if (twidx>=Norig) twidx-=Norig;
+                C_MUL(t,scratch[q] , twiddles[twidx] );
+                C_ADDTO( Fout[ k ] ,t);
+            }
+            k += m;
         }
-        ++Fout;
     }
 }
 
@@ -369,9 +338,7 @@ void fft_work(
 
     switch (p) {
         case 2: bfly2(Fout,fstride,st,m); break;
-#if 1
         case 3: bfly3(Fout,fstride,st,m); break;
-#endif                
         case 4: bfly4(Fout,fstride,st,m); break;
         case 5: bfly5(Fout,fstride,st,m); break;
         default: bfly_generic(Fout,fstride,st,m,p); break;
