@@ -26,7 +26,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
 
-void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
+void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse,int useascii)
 {
     void *st;
     kiss_fft_cpx * buf;
@@ -36,7 +36,13 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
 
     while ( fread( buf , sizeof(kiss_fft_cpx) * nfft ,1, fin ) > 0 ) {
         kiss_fft( st , buf );
-        fwrite( buf , sizeof(kiss_fft_cpx) , nfft , fout );
+        if (useascii) {
+            int i;
+            for (i=0;i<nfft;++i) 
+                fprintf(fout, "(%g,%g) ", (double)buf[i].r,(double)buf[i].i);
+        }else{            
+            fwrite( buf , sizeof(kiss_fft_cpx) , nfft , fout );
+        }
     }
     free(st);
     free(buf);
@@ -48,11 +54,13 @@ int main(int argc,char ** argv)
     int isinverse=0;
     FILE *fin=stdin;
     FILE *fout=stdout;
+    int useascii=0;
         
     while (1) {
-        int c=getopt(argc,argv,"n:i");
+        int c=getopt(argc,argv,"n:ia");
         if (c==-1) break;
         switch (c) {
+            case 'a':useascii=1;break;
             case 'n':nfft = atoi(optarg);break;
             case 'i':isinverse=1;break;
         }
@@ -70,7 +78,7 @@ int main(int argc,char ** argv)
         ++optind;
     }
 
-    fft_file(fin,fout,nfft,isinverse);
+    fft_file(fin,fout,nfft,isinverse,useascii);
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);

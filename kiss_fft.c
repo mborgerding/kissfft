@@ -13,6 +13,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 #include "kiss_fft.h"
 /*
@@ -26,10 +27,19 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  */
 
 typedef struct {
-    int nfft;
-    kiss_fft_cpx* twiddle;
-    int * swap_indices;
-    int nswap;
+    int nr;    // N remaining
+    int radix; // radix of the stage
+    kiss_fft_cpx * twiddle;
+}kiss_fft_stage;
+
+
+
+#define MAX_STAGES 20
+typedef struct {
+    int nstages;
+    int allocsize;
+    kiss_fft_stage stages[MAX_STAGES];
+    int * unscramble_indices;
 }kiss_fft_state;
 
 #ifdef FIXED_POINT
@@ -73,20 +83,15 @@ typedef struct {
 
 // create the twiddle factors
 static 
-void make_twiddles(kiss_fft_cpx * twiddle,int nfft,int inverse_fft) 
+void make_twiddles(kiss_fft_cpx * twiddle,int ntwid,int symmetry,int inverse_fft) 
 {
     const double pi=3.14159265358979323846264338327;
     int n;
-    for (n=0;n< (nfft>>1);++n) {
-#ifdef FIXED_POINT
-        // TODO: find another way to calculate these without so much floating point math
-        twiddle[n].r =  (kiss_fft_scalar)(TWIDDLE_RANGE*cos(2*pi*n/nfft)+.5);
-        twiddle[n].i = -(kiss_fft_scalar)(TWIDDLE_RANGE*sin(2*pi*n/nfft)+.5);
-#else
-        twiddle[n].r = cos(2*pi*n/nfft);
-        twiddle[n].i = -sin(2*pi*n/nfft);
-#endif
-
+    int denom = ntwid*symmetry;
+    
+    for (n=0;n<ntwid;++n) {
+        twiddle[n].r = cos(2*pi*n/denom);
+        twiddle[n].i = -sin(2*pi*n/denom);
         // inverse fft uses complex conjugate twiddle factors
         if (inverse_fft)
             twiddle[n].i *= -1;
@@ -141,32 +146,59 @@ void undo_bit_rev( kiss_fft_cpx * f, const int * swap_indices,int nswap)
 
 
 // the heart of the fft
-static
-void fft_work(int N,kiss_fft_cpx *f,const kiss_fft_cpx * twid,int twid_step)
+static 
+void fft_work( kiss_fft_cpx * f,const  kiss_fft_stage * stage , int nstages )
 {
-    N >>= 1;
+    int n;
+    // only works for 2s
+    
     {   // declare automatic variables in here to reduce stack usage
-        int n;
         kiss_fft_cpx csum,cdiff;
-        const kiss_fft_cpx * cur_twid = twid;
         kiss_fft_cpx *f1 = f;
-        kiss_fft_cpx *f2 = f+N;
-        for (n=0;n<N;++n)
+        kiss_fft_cpx *f2 = f+ stage->nr;
+        const kiss_fft_cpx * twid = stage->twiddle;
+        for ( n = 0 ; n < stage->nr ; ++n )
         {
             C_ADD( csum,  *f1 , *f2 );
             C_SUB( cdiff, *f1 , *f2 );
             *f1++ = csum;
-            C_MUL(*f2, cdiff, *cur_twid);
+            C_MUL(*f2, cdiff, *twid);
             ++f2;
-            cur_twid += twid_step;
+            ++twid;
         }
     }
-    if (N==1) return;
-    //twid_step *= 2;
-    fft_work(N,f+N,twid,twid_step*2);
-    fft_work(N,f,twid,twid_step*2); 
+    if ( nstages == 1 )
+        return;
+    
+    for (n=0;n<stage->radix;++n)
+        fft_work( f + n * stage->nr ,stage+1,nstages-1);
 }
+static
+kiss_fft_state * decompose( kiss_fft_state * st, int * pnfft,int radix,int inverse_fft)
+{
+    int nfft = *pnfft;
 
+    while (nfft>1 && (nfft%radix)==0) {
+        int newsize;
+        int nstages=st->nstages;
+        nfft /= radix;
+        fprintf(stderr,"%d ",radix);
+
+        newsize = st->allocsize + nfft * sizeof(kiss_fft_cpx);
+
+        st=(kiss_fft_state*)realloc(st,newsize);
+
+        st->stages[nstages].radix=radix;
+        st->stages[nstages].nr=nfft;
+        st->stages[nstages].twiddle = (kiss_fft_cpx*)((char*)st + st->allocsize);
+
+        make_twiddles( st->stages[nstages].twiddle,nfft,radix,inverse_fft );
+        st->allocsize = newsize;
+        st->nstages = nstages+1;
+    }
+    *pnfft = nfft;
+    return st;
+}
 
 /*      
  *      void * kiss_fft_alloc(int nfft,int inverse_fft)
@@ -179,26 +211,36 @@ void fft_work(int N,kiss_fft_cpx *f,const kiss_fft_cpx * twid,int twid_step)
 void * kiss_fft_alloc(int nfft,int inverse_fft)
 {
     kiss_fft_state * st=NULL;
-    // allocate one large buffer to hold the state, twiddle buffers, and bit-rev indices
-    int size = sizeof(kiss_fft_state) + (nfft>>1)*sizeof(kiss_fft_cpx) + nfft*sizeof(int);
+    int tmp;
+    int i;
+    int allocsize=sizeof(kiss_fft_state) + nfft*sizeof(int);
 
-    st = ( kiss_fft_state *)malloc(size);
-    if (st) {
-        st->twiddle = (kiss_fft_cpx*)(st+1); // pointer just beyond the kiss_fft_state struct
-        st->swap_indices = (int*)( st->twiddle + (nfft>>1) );// pointer just beyond the twiddle buffer
-        st->nfft = nfft;
-        // initialize the twiddle factors
-        make_twiddles(st->twiddle,nfft,inverse_fft);
-        // create list of index-swaps
-        st->nswap = make_bit_reverse_indices(st->swap_indices,nfft);
+    st = ( kiss_fft_state *)malloc( allocsize );
+    st->nstages=0;
+    st->allocsize=allocsize;
+    st->unscramble_indices = (int*)(st+1);// just past end of buffer
+
+    for (i=0;i<nfft;++i)
+        st->unscramble_indices[i] = i;
+
+    fprintf(stderr,"factoring %d: ",nfft);
+
+    tmp=nfft;
+    st = decompose( st,&tmp,2,inverse_fft);
+    fprintf(stderr,"\n");
+
+    // TODO factor 3,5,7,11 ???
+    if ( tmp > 1 ) {
+        fprintf(stderr,"%d not factorable by 2,3 (%d remaining)\n",nfft,tmp);
+        free(st);
+        return NULL;
     }
+
     return st;
 }
-
 
 void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
     const kiss_fft_state * st = cfg;
-    fft_work(st->nfft, f, st->twiddle , 1 );
-    undo_bit_rev(f,st->swap_indices,st->nswap);
+    fft_work( f, st->stages , st->nstages );
 }
