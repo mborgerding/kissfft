@@ -2,6 +2,8 @@
 
 #define xstr(s) str(s)
 #define str(s) #s
+
+static
 double snr_compare( kiss_fft_cpx * test_vec_out,kiss_fft_cpx * testbuf, int n)
 {
     int k;
@@ -26,7 +28,7 @@ double snr_compare( kiss_fft_cpx * test_vec_out,kiss_fft_cpx * testbuf, int n)
     return snr;
 }
 
-int main() { int exit_code=0;
+int main(void) { int exit_code=0;
 
 #define NFFT 10
     {

@@ -4,16 +4,19 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "pstats.h"
+
 static struct tms tms_beg;
 static struct tms tms_end;
 static int has_times = 0;
 
-void pstats_init()
+
+void pstats_init(void)
 {
     has_times = times(&tms_beg) != -1;
 }
 
-static void tms_report()
+static void tms_report(void)
 {
     double cputime;
     if (! has_times )
@@ -25,7 +28,7 @@ static void tms_report()
     fprintf(stderr,"\tcputime=%.3f\n" , cputime);
 }
 
-static void ps_report()
+static void ps_report(void)
 {
     char buf[1024];
 #ifdef __APPLE__ /*  MAC OS X */

@@ -4,13 +4,14 @@
 #include <time.h>
 #include <unistd.h>
 
-static double cputime()
+static double cputime(void)
 {
     struct tms t;
     times(&t);
     return (double)(t.tms_utime + t.tms_stime)/  sysconf(_SC_CLK_TCK) ;
 }
 
+static
 double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 {
     int k;
@@ -52,12 +53,12 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 #endif
 
 
-int main()
+int main(void)
 {
     double ts,tfft,trfft;
     int i;
     kiss_fft_cpx cin[NFFT];
-    kiss_fft_scalar sin[NFFT] = {0.309655,0.815653,0.768570,0.591841,0.404767,0.637617,0.007803,0.012665};
+    kiss_fft_scalar rin[NFFT] = {0.309655,0.815653,0.768570,0.591841,0.404767,0.637617,0.007803,0.012665};
     kiss_fft_cpx cout[NFFT];
     kiss_fft_cpx sout[NFFT];
     
@@ -68,16 +69,16 @@ int main()
 
     for (i=0;i<NFFT;++i) {
 #ifdef RANDOM        
-        sin[i] = (kiss_fft_scalar)(rand()-RAND_MAX/2);
+        rin[i] = (kiss_fft_scalar)(rand()-RAND_MAX/2);
 #endif        
-        cin[i].r = sin[i];
+        cin[i].r = rin[i];
         cin[i].i = 0;
     }
 
     kiss_fft_state = kiss_fft_alloc(NFFT,0,0,0);
     kiss_fftr_state = kiss_fftr_alloc(NFFT,0,0,0);
     kiss_fft(kiss_fft_state,cin,cout);
-    kiss_fftr(kiss_fftr_state,sin,sout);
+    kiss_fftr(kiss_fftr_state,rin,sout);
     printf( "nfft=%d, inverse=%d, snr=%g\n",
             NFFT,0, snr_compare(cout,sout,(NFFT/2)+1) );
 #ifdef RANDOM        
@@ -89,8 +90,8 @@ int main()
     
     ts = cputime();
     for (i=0;i<NUMFFTS;++i) {
-        kiss_fftr( kiss_fftr_state, sin, cout );
-        /* kiss_fftri(kiss_fftr_state,cout,sin); */
+        kiss_fftr( kiss_fftr_state, rin, cout );
+        /* kiss_fftri(kiss_fftr_state,cout,rin); */
     }
     trfft = cputime() - ts;
 
@@ -103,10 +104,10 @@ int main()
     kiss_fftr_state = kiss_fftr_alloc(NFFT,1,0,0);
 
     kiss_fft(kiss_fft_state,cout,cin);
-    kiss_fftri(kiss_fftr_state,cout,sin);
+    kiss_fftri(kiss_fftr_state,cout,rin);
 
     for (i=0;i<NFFT;++i) {
-        sout[i].r = sin[i];
+        sout[i].r = rin[i];
         sout[i].i = 0;
     }
     

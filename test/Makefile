@@ -1,3 +1,9 @@
+
+WARNINGS=-W -Wall -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return \
+    -Wcast-align -Wcast-qual -Wnested-externs -Wshadow -Wbad-function-cast \
+    -Wwrite-strings
+
+
 ifeq "$(NFFT)" ""
  NFFT=1800
 endif
@@ -42,7 +48,7 @@ tools:
 # for x86 pentium+ machines , these flags work well
 #CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer   -I.. -I../tools
 # If the above flags do not work, try the following
-CFLAGS=-Wall -O3 -I.. -I../tools
+CFLAGS=-Wall -O3 -I.. -I../tools $(WARNINGS)
 
 $(SELFTEST): $(SELFTESTSRC) $(SRCFILES)
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+
