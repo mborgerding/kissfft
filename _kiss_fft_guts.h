@@ -70,11 +70,19 @@ typedef struct {
 #define C_SUBFROM( res , a)\
     do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
 
-kiss_fft_cpx kf_cexp(double phase);
-
-int kf_allocsize(int nfft);
-
-void kf_init_state(kiss_fft_state * st,int nfft,int inverse_fft);
+static
+kiss_fft_cpx kf_cexp(double phase) /* returns e ** (j*phase)   */
+{
+    kiss_fft_cpx x;
+#ifdef FIXED_POINT
+    x.r = (kiss_fft_scalar) (32767 * cos (phase));
+    x.i = (kiss_fft_scalar) (32767 * sin (phase));
+#else
+    x.r = cos (phase);
+    x.i = sin (phase);
+#endif
+    return x;
+}
 
 void kf_work(
         kiss_fft_cpx * Fout,
@@ -84,3 +92,8 @@ void kf_work(
         const kiss_fft_state * st
         );
 
+/* a debugging function */
+static void pcpx( kiss_fft_cpx * c)
+{
+    fprintf(stderr,"%g + %gi\n",c->r,c->i);
+}

@@ -21,43 +21,45 @@ typedef struct {
     kiss_fft_cpx * super_twiddles;
 }kiss_fftr_state;
 
-void * kiss_fftr_alloc(int nfft,int inverse_fft)
+void * kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem)
 {
     int i;
     kiss_fftr_state *st = NULL;
-    int subsize;
-    
-    if (nfft&1) {
+    size_t subsize, memneeded;
+
+    if (nfft & 1) {
         /*fprintf(stderr,"Real FFT optimization must be even.\n"); */
         return NULL;
     }
     nfft >>= 1;
 
-    subsize = kf_allocsize(nfft);
+    kiss_fft_alloc (nfft, inverse_fft, NULL, &subsize);
+    memneeded = sizeof(kiss_fftr_state) + subsize + sizeof(kiss_fft_cpx) * ( nfft * 2);
 
-    st = (kiss_fftr_state *) malloc ( sizeof(kiss_fftr_state)
-            + subsize + sizeof(kiss_fft_cpx) * ( nfft * 2) );
+    if (lenmem == NULL) {
+        st = (kiss_fftr_state *) malloc (memneeded);
+    } else {
+        if (*lenmem >= memneeded)
+            st = (kiss_fftr_state *) mem;
+        *lenmem = memneeded;
+    }
     if (!st)
         return NULL;
 
     st->minus3 = -3;
-    st->substate = (kiss_fft_state *)(st+1); /*just beyond kiss_fftr_state struct */
-    st->tmpbuf =  (kiss_fft_cpx*)(((char*)st->substate) + subsize);
-    st->super_twiddles =  st->tmpbuf + nfft;
-    kf_init_state (st->substate, nfft, inverse_fft);
+    st->substate = (kiss_fft_state *) (st + 1); /*just beyond kiss_fftr_state struct */
+    st->tmpbuf = (kiss_fft_cpx *) (((char *) st->substate) + subsize);
+    st->super_twiddles = st->tmpbuf + nfft;
+    kiss_fft_alloc(nfft, inverse_fft, st->substate, &subsize);
 
-    for (i=0;i<nfft;++i) {
-        double phase = -3.14159265358979323846264338327 * ( (double)i / nfft + .5);
+    for (i = 0; i < nfft; ++i) {
+        double phase =
+            -3.14159265358979323846264338327 * ((double) i / nfft + .5);
         if (inverse_fft)
             phase *= -1;
-        st->super_twiddles[i] = kf_cexp( phase );
+        st->super_twiddles[i] = kf_cexp (phase);
     }
     return st;
-}
-
-static void pcpx( kiss_fft_cpx * c)
-{
-    printf("%g + %gi\n",c->r,c->i);
 }
 
 void kiss_fftr(const void * cfg,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata)

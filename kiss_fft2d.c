@@ -21,24 +21,31 @@ typedef struct {
     kiss_fft_cpx * tmpbuf;
 }kiss_fft2d_state;
 
-void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft)
+void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft,void*mem,size_t*lenmem)
 {
     kiss_fft2d_state *st = NULL;
-    int size1,size2,sizetmp;
-    size1 = kf_allocsize(ncols);
-    size2 = kf_allocsize(nrows);
-    sizetmp = sizeof(kiss_fft_cpx)*(ncols > nrows ? ncols : nrows);
+    size_t size1, size2, sizetmp, memneeded;
+    kiss_fft_alloc (ncols, inverse_fft, NULL, &size1);
+    kiss_fft_alloc (nrows, inverse_fft, NULL, &size2);
+    sizetmp = sizeof (kiss_fft_cpx) * (ncols > nrows ? ncols : nrows);
+    memneeded = sizeof (kiss_fft2d_state) + size1 + size2 + sizetmp;
 
-    st = (kiss_fft2d_state *) malloc ( sizeof(kiss_fft2d_state) + size1 + size2 + sizetmp );
+    if (lenmem == NULL) {
+        st = (kiss_fft2d_state *) malloc (memneeded);
+    } else {
+        if (*lenmem >= memneeded)
+            st = (kiss_fft2d_state *) mem;
+        *lenmem = memneeded;
+    }
     if (!st)
         return NULL;
 
     st->minus2 = -2;
-    st->rowst = (kiss_fft_state *)(st+1); /*just beyond kiss_fft2d_state struct */
-    st->colst = (kiss_fft_state *)( (char*)(st->rowst) + size1 );
-    st->tmpbuf = (kiss_fft_cpx *)( (char*)(st->rowst) + size1 + size2 );
-    kf_init_state (st->rowst, ncols, inverse_fft);
-    kf_init_state (st->colst, nrows, inverse_fft);
+    st->rowst = (kiss_fft_state *) (st + 1);    /*just beyond kiss_fft2d_state struct */
+    st->colst = (kiss_fft_state *) ((char *) (st->rowst) + size1);
+    st->tmpbuf = (kiss_fft_cpx *) ((char *) (st->rowst) + size1 + size2);
+    kiss_fft_alloc (ncols, inverse_fft, st->rowst, &size1);
+    kiss_fft_alloc (nrows, inverse_fft, st->colst, &size2);
     return st;
 }
 

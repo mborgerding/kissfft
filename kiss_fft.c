@@ -18,19 +18,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
 
-kiss_fft_cpx kf_cexp(double phase) /* returns e ** (j*phase)   */
-{
-    kiss_fft_cpx x;
-#ifdef FIXED_POINT
-    x.r = (kiss_fft_scalar) ( 32767*cos(phase) );
-    x.i = (kiss_fft_scalar) ( 32767*sin(phase) );
-#else
-    x.r = cos(phase);
-    x.i = sin(phase);
-#endif
-    return x;
-}
-
 static void kf_bfly2(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -276,16 +263,6 @@ void kf_work(
     }
 }
 
-int kf_allocsize(int nfft)
-{
-    int allocsize =  sizeof(kiss_fft_state)
-        + sizeof(kiss_fft_cpx)*nfft /* twiddle factors*/
-        + sizeof(kiss_fft_cpx)*nfft /* tmpbuf*/
-        + sizeof(int)*nfft /* factors*/
-        + sizeof(kiss_fft_cpx)*nfft; /* scratch*/
-    return allocsize;
-}
-
 /*  facbuf is populated by p1,m1,p2,m2, ...
     where 
     p[i] * m[i] = m[i-1]
@@ -312,27 +289,6 @@ void kf_factor(int n,int * facbuf)
     } while (n > 1);
 }
 
-void kf_init_state(kiss_fft_state * st,int nfft,int inverse_fft)
-{
-    int i;
-    st->nfft=nfft;
-    st->inverse = inverse_fft;
-    st->twiddles = (kiss_fft_cpx*)(st+1); /* just beyond struct*/
-    st->tmpbuf = (kiss_fft_cpx*)(st->twiddles + nfft);/*  just after twiddles*/
-    st->scratch = (kiss_fft_cpx*)(st->tmpbuf + nfft);
-    st->factors = (int*)(st->scratch + nfft);
-
-    for (i=0;i<nfft;++i) {
-        const double pi=3.14159265358979323846264338327;
-        double phase = ( -2*pi /nfft ) * i;
-        if (st->inverse)
-            phase *= -1;
-        st->twiddles[i] = kf_cexp( phase );
-    }
-
-    kf_factor(nfft,st->factors);
-}
-
 /*
  *      void * kiss_fft_alloc(int nfft,int inverse_fft)
  *
@@ -341,14 +297,41 @@ void kf_init_state(kiss_fft_state * st,int nfft,int inverse_fft)
  * The return value is a contiguous block of memory, allocated with malloc.  As such,
  * It can be freed with free(), rather than a kiss_fft-specific function.
  * */
-void * kiss_fft_alloc(int nfft,int inverse_fft)
+void * kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem )
 {
     kiss_fft_state * st=NULL;
+    size_t memneeded = sizeof(kiss_fft_state)
+        + sizeof(kiss_fft_cpx)*nfft /* twiddle factors*/
+        + sizeof(kiss_fft_cpx)*nfft /* tmpbuf*/
+        + sizeof(int)*nfft /* factors*/
+        + sizeof(kiss_fft_cpx)*nfft; /* scratch*/
 
-    st = ( kiss_fft_state *)malloc( kf_allocsize(nfft) );
-    if (!st)
-        return NULL;
-    kf_init_state( st ,nfft,inverse_fft );
+    if ( lenmem==NULL ) {
+        st = ( kiss_fft_state *)malloc( memneeded );
+    }else{
+        if (*lenmem >= memneeded)
+            st = ( kiss_fft_state *)mem;
+        *lenmem = memneeded;
+    }
+    if (st){
+        int i;
+        st->nfft=nfft;
+        st->inverse = inverse_fft;
+        st->twiddles = (kiss_fft_cpx*)(st+1); /* just beyond struct*/
+        st->tmpbuf = (kiss_fft_cpx*)(st->twiddles + nfft);/*  just after twiddles*/
+        st->scratch = (kiss_fft_cpx*)(st->tmpbuf + nfft);
+        st->factors = (int*)(st->scratch + nfft);
+
+        for (i=0;i<nfft;++i) {
+            const double pi=3.14159265358979323846264338327;
+            double phase = ( -2*pi /nfft ) * i;
+            if (st->inverse)
+                phase *= -1;
+            st->twiddles[i] = kf_cexp( phase );
+        }
+
+        kf_factor(nfft,st->factors);
+    }
     return st;
 }
 

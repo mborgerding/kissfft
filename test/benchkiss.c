@@ -42,7 +42,7 @@ int main(int argc,char ** argv)
 
     pstats_init();
 
-    st = kiss_fft_alloc( nfft ,isinverse );
+    st = kiss_fft_alloc( nfft ,isinverse ,0,0);
 
     for (i=0;i<numffts;++i)
         kiss_fft( st ,buf,bufout );

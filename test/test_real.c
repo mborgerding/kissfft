@@ -42,7 +42,7 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 #endif
 
 #ifndef NUMFFTS
-#define NUMFFTS 10000
+#define NUMFFTS 1000
 #endif
 
 void pcpx(const char * msg, kiss_fft_cpx * c)
@@ -72,8 +72,8 @@ int main()
 /*        printf("in[%d]",i);pcpx("",cin+i); */
     }
 
-    kiss_fft_state = kiss_fft_alloc(NFFT,0);
-    kiss_fftr_state = kiss_fftr_alloc(NFFT,0);
+    kiss_fft_state = kiss_fft_alloc(NFFT,0,0,0);
+    kiss_fftr_state = kiss_fftr_alloc(NFFT,0,0,0);
     kiss_fft(kiss_fft_state,cin,cout);
     kiss_fftr(kiss_fftr_state,sin,sout);
     printf( "nfft=%d, inverse=%d, snr=%g\n",
@@ -97,8 +97,8 @@ int main()
     free(kiss_fft_state);
     free(kiss_fftr_state);
 
-    kiss_fft_state = kiss_fft_alloc(NFFT,1);
-    kiss_fftr_state = kiss_fftr_alloc(NFFT,1);
+    kiss_fft_state = kiss_fft_alloc(NFFT,1,0,0);
+    kiss_fftr_state = kiss_fftr_alloc(NFFT,1,0,0);
 
     kiss_fft(kiss_fft_state,cout,cin);
     kiss_fftri(kiss_fftr_state,cout,sin);

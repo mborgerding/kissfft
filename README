@@ -17,13 +17,14 @@ USAGE:
             ... // transformed 
         free(cfg);
 
-    Note: frequency-domain data is stored from dc to 2pi.
+    Note: frequency-domain data is stored from dc up to 2pi.
     so cx_out[0] is the dc bin of the FFT
-    and cx_out[nfft/2] is the Nyquist bin (if present)
+    and cx_out[nfft/2] is the Nyquist bin (if even length FFT)
 
     Declarations are in "kiss_fft.h", along with a brief description of the 
 functions you'll need to use. Code definitions for 1d complex FFTs are in kiss_fft.c.
-with sample usage code.  For more functionality, like 2d FFTs you may need to add other source files to your project.
+with sample usage code.  For more functionality, like 2d FFTs you may need to add 
+other source files to your project.
 
     The code can be compiled to use float, double or 16bit short samples.
 The default is float.
@@ -41,8 +42,7 @@ a well respected and highly optimized fft library.  I don't want to criticize
 this great library, so let's call it FFT_BRANDX.
 During this process, I learned:
 
-    1. FFT_BRANDX has 500 times as many lines of code as Kiss 
-        (and that's just the C code).
+    1. FFT_BRANDX has more than 100K lines of code. KISS has less than 1k.
     2. It took me an embarrassingly long time to get FFT_BRANDX working.
     3. A simple program using FFT_BRANDX is 522KB. A similar program using kiss_fft is 18KB.
     4. FFT_BRANDX is roughly twice as fast as KISS FFT.
@@ -72,6 +72,9 @@ LICENSE:
     BSD, see COPYING for details. Basically, "free to use, give credit where due, no guarantees"
 
 TODO:
+    *) Add 2d real optimized FFT
+    *) Make a better self-test program(s).  Should report snr & timing for short,float, 
+        or double.
     *) Add simple windowing function, e.g. Hamming : w(i)=.54-.46*cos(2pi*i/(n-1))
     *) Make the fixed point scaling and bit shifts more easily configurable.
     *) Document/revisit the input/output fft scaling

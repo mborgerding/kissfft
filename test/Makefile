@@ -56,9 +56,10 @@ mtime: all $(BENCHFFTW)
 		[ -x ./$(BENCHFFTW) ] && ./$(BENCHFFTW) -x $(NUMFFTS) -n $$n || true ; \
 	done
 
-snr: all
+snr: all $(TESTREAL)
 	@echo "testkiss( $(NFFT) , 1, '$(DATATYPE)' );" | octave -q
 	@echo "testkiss( $(NFFT) , $(NROWS), '$(DATATYPE)' );" | octave -q
+	./$(TESTREAL)
 
 test: snr time fftw
 

@@ -37,9 +37,9 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int nrows,int isinverse,int useasc
     buf = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft *nrows );
     bufout = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft *nrows);
     if (nrows!=1)
-        st = kiss_fft2d_alloc( nrows,nfft ,isinverse );
+        st = kiss_fft2d_alloc( nrows,nfft ,isinverse ,0,0);
     else
-        st = kiss_fft_alloc( nfft ,isinverse );
+        st = kiss_fft_alloc( nfft ,isinverse ,0,0);
 
     while ( fread( buf , sizeof(kiss_fft_cpx) * nfft * nrows ,1, fin ) > 0 ) {
         for (i=0;i<times;++i)
