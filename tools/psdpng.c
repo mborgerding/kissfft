@@ -133,12 +133,12 @@ void transform_signal()
     CHECKNULL( avgbuf=(kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx)*nfreqs ) );
 
     while ( ( n = fread(inbuf,sizeof(short)*2,nfft,fin) ) == nfft ) {
-        //pack the shorts
+        /* pack the shorts */
         for (i=0;i<nfft;++i){
             tbuf[i] = inbuf[2*i] + inbuf[2*i+1];
         }
 
-        // do FFT
+        /* do FFT */
         kiss_fftr(cfg,tbuf,fbuf);
 
         if (remove_dc) {

@@ -14,22 +14,23 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "kiss_fftnd.h"
 #include "_kiss_fft_guts.h"
 
-typedef struct {
+struct kiss_fftnd_state{
     int dimprod; /* dimsum would be mighty tasty right now */
     int ndims; 
     int *dims;
     kiss_fft_cfg *states; /* cfg states for each dimension */
     kiss_fft_cpx * tmpbuf; /*buffer capable of hold the entire buffer */
-}kiss_fftnd_state;
+};
 
-void * kiss_fftnd_alloc(int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
+kiss_fftnd_cfg kiss_fftnd_alloc(int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
 {
-    kiss_fftnd_state *st = NULL;
+    kiss_fftnd_cfg st = NULL;
     int i;
     int dimprod=1;
-    size_t memneeded = sizeof(kiss_fftnd_state);
+    size_t memneeded = sizeof(struct kiss_fftnd_state);
     char * ptr;
 
     for (i=0;i<ndims;++i) {
@@ -43,10 +44,10 @@ void * kiss_fftnd_alloc(int *dims,int ndims,int inverse_fft,void*mem,size_t*lenm
     memneeded += sizeof(kiss_fft_cpx) * dimprod; /* st->tmpbuf */
 
     if (lenmem == NULL) {/* allocate for the caller*/
-        st = (kiss_fftnd_state *) malloc (memneeded);
+        st = (kiss_fftnd_cfg) malloc (memneeded);
     } else { /* initialize supplied buffer if big enough */
         if (*lenmem >= memneeded)
-            st = (kiss_fftnd_state *) mem;
+            st = (kiss_fftnd_cfg) mem;
         *lenmem = memneeded; /*tell caller how big struct is (or would be) */
     }
     if (!st)
@@ -137,10 +138,9 @@ Stage 2 ( D=4) treats this buffer as a 4*6 matrix,
    , i.e. the summation of all 24 input elements. 
 
 */
-void kiss_fftnd(void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
+void kiss_fftnd(kiss_fftnd_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 {
     int i,k;
-    kiss_fftnd_state *st = ( kiss_fftnd_state *)cfg;
     const kiss_fft_cpx * bufin=fin;
     kiss_fft_cpx * bufout;
 
