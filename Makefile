@@ -1,6 +1,10 @@
-message:
-	@echo "Nothing to make here.  Move on down to test/ for self test stuff"
-	@echo "or tools/ for real FFTs, multi-d FFTs, fast convolution filtering, cacher"
+
+
+
+testall:
+	export DATATYPE=short && cd test && make test
+	export DATATYPE=float && cd test && make test
+	export DATATYPE=double && cd test && make test
 
 tarball: clean
 	find | grep -i -v cvs | zip kiss_fft.zip -@

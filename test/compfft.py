@@ -25,6 +25,7 @@ def main():
     import popen2
     opts,args = getopt( sys.argv[1:],'u:n:Rt:' )
     opts=dict(opts)
+    exitcode=0
 
     util = opts.get('-u','./kf_float')
 
@@ -67,7 +68,9 @@ def main():
     if snr<100:
         print xout
         print xoutcomp
+        exitcode=1
     print 'NFFT=%s,SNR = %f dB' % (str(dims),snr)
+    sys.exit(exitcode)
 
 def dopack(x,fmt,cpx):
     x = reshape( x, ( size(x),) )

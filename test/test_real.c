@@ -34,8 +34,10 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
     }
     snr = 10*log10( sigpow / noisepow );
     scale /= n;
-    if (snr<10)
+    if (snr<10) {
         printf( "\npoor snr, try a scaling factor %f\n" , scale );
+        exit(1);
+    }
     return snr;
 }
 #define RANDOM

@@ -14,7 +14,6 @@ BENCHFFTW=bm_fftw_$(DATATYPE)
 SELFTEST=st_$(DATATYPE)
 TESTREAL=tr_$(DATATYPE)
 TESTKFC=tkfc_$(DATATYPE)
-FFTUTIL=kf_$(DATATYPE)
 FASTFILT=ff_$(DATATYPE)
 FASTFILTREAL=ffr_$(DATATYPE)
 
@@ -33,53 +32,43 @@ else
  FFTWLIB=fftw3
 endif
 
+SRCFILES=../kiss_fft.c ../tools/kiss_fftnd.c ../tools/kiss_fftr.c pstats.c ../tools/kfc.c
 
-all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(FFTUTIL) \
-	$(TESTKFC) $(FASTFILT) $(FASTFILTREAL)
+all: tools $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTKFC)
 
-#CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer 
+tools:
+	cd ../tools && make all
+
+#CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer   -I.. -I../tools
 #-DUSE_SKIP 
 # If the above flags do not work, try the following
-CFLAGS=-Wall -O3
+CFLAGS=-Wall -O3 -I.. -I../tools
 
-$(FASTFILTREAL): ../kiss_fft.c kiss_fastfir.c kiss_fftr.c
-	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -DREAL_FASTFIR -lm $+ -DFAST_FILT_UTIL
+$(SELFTEST): $(SELFTESTSRC) $(SRCFILES)
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+
 
-$(FASTFILT): ../kiss_fft.c kiss_fastfir.c
-	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+ -DFAST_FILT_UTIL
-
-$(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fftnd.c kiss_fftr.c
-	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
-
-$(SELFTEST): ../kiss_fft.c $(SELFTESTSRC) kiss_fftnd.c
-	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
-
-$(TESTKFC): ../kiss_fft.c kfc.c
-	$(CC) -o $@ $(CFLAGS) -I.. -DKFC_TEST $(TYPEFLAGS) -lm $+
+$(TESTKFC): $(SRCFILES) 
+	$(CC) -o $@ $(CFLAGS)  -DKFC_TEST $(TYPEFLAGS) -lm $+
 	
-$(TESTREAL): ../kiss_fft.c kiss_fftr.c test_real.c
-	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
+$(TESTREAL): test_real.c $(SRCFILES)
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+
 
-$(BENCHKISS): benchkiss.c ../kiss_fft.c pstats.c
-	$(CC) -o $@ $(CFLAGS) -I.. benchkiss.c $(TYPEFLAGS) ../kiss_fft.c pstats.c -lm 
+$(BENCHKISS): benchkiss.c $(SRCFILES)
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm  $+
 
 $(BENCHFFTW): benchfftw.c pstats.c
-	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) benchfftw.c pstats.c -lm -l$(FFTWLIB) -L/usr/local/lib/ || echo "FFTW not available for comparison"
+	@echo "======attempting to build FFTW benchmark"
+	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) $+ -lm -l$(FFTWLIB) -L/usr/local/lib/ || echo "FFTW not available for comparison"
 
 test: all
 	@./$(TESTKFC)
-	@echo "======SELF TEST $(DATATYPE)"
+	@echo "======1d & 2-d complex fft self test (type= $(DATATYPE) )"
 	@./$(SELFTEST)
-	@echo "======REAL FFT TEST $(DATATYPE)"
+	@echo "======real FFT (type= $(DATATYPE) )"
 	@./$(TESTREAL)
-	@echo "======TIMING TEST $(DATATYPE)"
+	@echo "======timing test (type=$(DATATYPE))"
 	@./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT) 
 	@[ -x ./$(BENCHFFTW) ] && ./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT) ||true
-
-testall:
-	@(export DATATYPE=double && make test )
-	@(export DATATYPE=float && make test )
-	@(export DATATYPE=short && make test )
 
 selftest.c:
 	./mk_test.py 10 12 14 > selftest.c
