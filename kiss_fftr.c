@@ -48,6 +48,8 @@ void * kiss_fftr_alloc(int nfft,int inverse_fft)
 
     for (i=0;i<nfft;++i) {
         double phase = -3.14159265358979323846264338327 * ( (double)i / nfft + .5);
+        if (inverse_fft)
+            phase *= -1;
         st->super_twiddles[i] = kf_cexp( phase );
     }
     return st;
@@ -58,13 +60,13 @@ static void pcpx( kiss_fft_cpx * c)
     printf("%g + %gi\n",c->r,c->i);
 }
 
-void kiss_fftr(const void * cfg,const kiss_fft_scalar *fin,kiss_fft_cpx *fout)
+void kiss_fftr(const void * cfg,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata)
 {
-    /* input buffer fin is stored row-wise */
+    /* input buffer timedata is stored row-wise */
     kiss_fftr_state *st = ( kiss_fftr_state *)cfg;
     int k,N;
 
-    if (st->minus3 != -3 || st->substate->inverse ) {
+    if ( st->minus3 != -3 || st->substate->inverse) {
         fprintf(stderr,"kiss fft usage error: improper alloc\n");
         exit(1);
     }
@@ -72,10 +74,10 @@ void kiss_fftr(const void * cfg,const kiss_fft_scalar *fin,kiss_fft_cpx *fout)
     N = st->substate->nfft;
 
     /*perform the parallel fft of two real signals packed in real,imag*/
-    kiss_fft( st->substate , (const kiss_fft_cpx*)fin, st->tmpbuf );
+    kiss_fft( st->substate , (const kiss_fft_cpx*)timedata, st->tmpbuf );
  
-    fout[0].r = st->tmpbuf[0].r + st->tmpbuf[0].i;
-    fout[0].i = 0;
+    freqdata[0].r = st->tmpbuf[0].r + st->tmpbuf[0].i;
+    freqdata[0].i = 0;
 
     for (k=1;k<N;++k) {
         kiss_fft_cpx fpnk,fpk,f1k;
@@ -86,12 +88,43 @@ void kiss_fftr(const void * cfg,const kiss_fft_scalar *fin,kiss_fft_cpx *fout)
 
         C_ADD( f1k, fpk , fpnk );
         C_SUBFROM( fpk , fpnk );
-        C_MUL( fout[k], fpk , st->super_twiddles[k] );
-        C_ADDTO(fout[k],f1k);
+        C_MUL( freqdata[k], fpk , st->super_twiddles[k] );
+        C_ADDTO(freqdata[k],f1k);
 
-        fout[k].r /= 2;
-        fout[k].i /= 2;
+        freqdata[k].r /= 2;
+        freqdata[k].i /= 2;
     }
+    freqdata[N].r = st->tmpbuf[0].r - st->tmpbuf[0].i;
+    freqdata[N].i = 0;
 }
+    
+void kiss_fftri(const void * cfg,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata)
+{
+    /* input buffer timedata is stored row-wise */
+    kiss_fftr_state *st = (kiss_fftr_state *) cfg;
+    int k, N;
 
+    if (st->minus3 != -3 || st->substate->inverse == 0) {
+        fprintf (stderr, "kiss fft usage error: improper alloc\n");
+        exit (1);
+    }
 
+    N = st->substate->nfft;
+
+    st->tmpbuf[0].r = freqdata[0].r + freqdata[N].r;
+    st->tmpbuf[0].i = freqdata[0].r - freqdata[N].r;
+    for (k = 1; k <= N / 2; ++k) {
+        kiss_fft_cpx fk, fnkc, fek, fok, tmpbuf;
+        fk = freqdata[k];
+        fnkc.r = freqdata[N - k].r;
+        fnkc.i = -freqdata[N - k].i;
+
+        C_ADD (fek, fk, fnkc);
+        C_SUB (tmpbuf, fk, fnkc);
+        C_MUL (fok, tmpbuf, st->super_twiddles[k]);
+        C_ADD (st->tmpbuf[k], fek, fok);
+        C_SUB (st->tmpbuf[N - k], fek, fok);
+        st->tmpbuf[N - k].i *= -1;
+    }
+    kiss_fft (st->substate, st->tmpbuf, (kiss_fft_cpx *) timedata);
+}

@@ -1,24 +1,24 @@
 #include "kiss_fft.h"
-#include <sys/time.h>
+#include <sys/times.h>
+#include <unistd.h>
 
-static double timesnap()
+static double cputime()
 {
-    struct timeval tv;
-    gettimeofday(&tv,NULL);    
-    return (double)tv.tv_sec + (double)tv.tv_usec/1000000;
+    struct tms t;
+    times(&t);
+    return (double)(t.tms_utime + t.tms_stime)/  sysconf(_SC_CLK_TCK) ;
 }
 
-void * kiss_fftr_alloc(int nfft,int inverse_fft);
-void kiss_fftr(const void * cfg,const kiss_fft_scalar *fin,kiss_fft_cpx *fout);
+
 
 double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 {
     int k;
     double sigpow,noisepow,err,snr,scale=0;
-    sigpow = noisepow = .000000000000000000000000000001; 
+    sigpow = noisepow = .00000000000000000001; 
 
     for (k=0;k<n;++k) {
-        sigpow += vec1[k].r * vec1[k].i + 
+        sigpow += vec1[k].r * vec1[k].r + 
                   vec1[k].i * vec1[k].i;
         err = vec1[k].r - vec2[k].r;
         noisepow += err * err;
@@ -36,6 +36,7 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 }
 
 #define RANDOM
+ 
 #ifndef RANDOM
 #define NFFT 8
 #else
@@ -43,7 +44,7 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 #endif
 
 #ifndef NUMFFTS
-#define NUMFFTS 1000
+#define NUMFFTS 10000
 #endif
 
 void pcpx(const char * msg, kiss_fft_cpx * c)
@@ -60,12 +61,9 @@ int main()
     kiss_fft_cpx cout[NFFT];
     kiss_fft_cpx sout[NFFT];
     
-    const void * kiss_fft_state;
-    const void * kiss_fftr_state;
-    int inverse = 0;
+    void * kiss_fft_state;
+    void * kiss_fftr_state;
     
-    kiss_fft_state = kiss_fft_alloc(NFFT,inverse);
-    kiss_fftr_state = kiss_fftr_alloc(NFFT,inverse);
 
     for (i=0;i<NFFT;++i) {
 #ifdef RANDOM        
@@ -76,27 +74,50 @@ int main()
 /*        printf("in[%d]",i);pcpx("",cin+i); */
     }
 
+    kiss_fft_state = kiss_fft_alloc(NFFT,0);
+    kiss_fftr_state = kiss_fftr_alloc(NFFT,0);
     kiss_fft(kiss_fft_state,cin,cout);
     kiss_fftr(kiss_fftr_state,sin,sout);
-
     printf( "nfft=%d, inverse=%d, snr=%g\n",
-            NFFT,inverse, snr_compare(cout,sout,NFFT/2) );
+            NFFT,0, snr_compare(cout,sout,(NFFT/2)+1) );
+    free(kiss_fft_state);
+    free(kiss_fftr_state);
 
-    ts = timesnap();
+    kiss_fft_state = kiss_fft_alloc(NFFT,1);
+    kiss_fftr_state = kiss_fftr_alloc(NFFT,1);
+
+    kiss_fft(kiss_fft_state,cout,cin);
+    kiss_fftri(kiss_fftr_state,cout,sin);
+
+    for (i=0;i<NFFT;++i) {
+        sout[i].r = sin[i];
+        sout[i].i = 0;
+        /* printf("sin[%d] = %f\t",i,sin[i]); 
+        printf("cin[%d]",i);pcpx("",cin+i); 
+        printf("sout[%d]",i);pcpx("",sout+i); */ 
+    }
+    
+    printf( "nfft=%d, inverse=%d, snr=%g\n",
+            NFFT,1, snr_compare(cin,cin,NFFT/2) );
+#ifdef RANDOM        
+    ts = cputime();
     for (i=0;i<NUMFFTS;++i) {
         kiss_fft(kiss_fft_state,cin,cout);
     }
-    tfft = timesnap() - ts;
+    tfft = cputime() - ts;
     
-    ts = timesnap();
+    ts = cputime();
     for (i=0;i<NUMFFTS;++i) {
-        kiss_fftr(kiss_fftr_state,sin,cout);
+        /* kiss_fftr(kiss_fftr_state,sin,cout); */
+        kiss_fftri(kiss_fftr_state,cout,sin);
     }
-    trfft = timesnap() - ts;
-    
-    printf("%d complex ffts took %gs, real took %gs\n",NUMFFTS,tfft,trfft);
+    trfft = cputime() - ts;
 
-    
+    printf("%d complex ffts took %gs, real took %gs\n",NUMFFTS,tfft,trfft);
+#endif        
+    free(kiss_fft_state);
+    free(kiss_fftr_state);
+
     return 0;
 }
 

@@ -59,6 +59,14 @@ void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft);
 void kiss_fft2d(const void* cfg_from_alloc , const kiss_fft_cpx *fin,kiss_fft_cpx *fout );
 
 
+/* Real optimized version can save about 40% cpu time vs. complex fft of a real seq.
+ */
+void * kiss_fftr_alloc(int nfft,int inverse_fft);
+void kiss_fftr(const void * cfg,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata);
+void kiss_fftri(const void * cfg,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata);
+
+
+
 /* when done with the cfg for a given fft size and direction, simply free it*/
 #define kiss_fft_free free
 
