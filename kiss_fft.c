@@ -27,65 +27,20 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  * }kiss_fft_cpx;
  */
 
-typedef struct {
-    int nr;    // N remaining
-    int radix; // radix of the stage
-    kiss_fft_cpx * twiddle;
-}kiss_fft_stage;
-
 const double pi=3.14159265358979323846264338327;
-
 
 #define MAX_STAGES 20
 typedef struct {
     int nfft;
-    int nstages;
-    int allocsize;
-    kiss_fft_stage stages[MAX_STAGES];
-    int * unscramble_indices;
-    kiss_fft_cpx * buf1;
+    int inverse;
 }kiss_fft_state;
-
-
-
-#ifdef FIXED_POINT
-
-#   define TWIDDLE_RANGE ( (1<<FIXED_POINT_FRAC_BITS) - 1 )
-
-    /* The fixed point versions of C_ADD and C_SUB divide by two
-     * after the add/sub.
-     * This is to prevent overflow.
-     * The cumulative effect is to multiply the sequence by 1/Nfft.
-     * */
-#   define C_ADD(x,a,b) \
-     do{ (x).r = ( ( (a).r+(b).r +1) >> 1 );\
-         (x).i = ( ( (a).i+(b).i +1) >> 1 ); }while(0)
-#   define C_SUB(x,a,b) \
-     do{ (x).r = ( ( (a).r-(b).r +1) >> 1 );\
-         (x).i = ( ( (a).i-(b).i +1) >> 1 ); }while(0)
-
-    /*  We don't have to worry about overflow from multiplying by twiddle factors since they
-     *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
-     *  rounding.
-     * */
-#   define C_MUL(m,a,b) \
-     do{ (m).r = ( ( (a).r*(b).r - (a).i*(b).i)  + (TWIDDLE_RANGE>>1) ) >> FIXED_POINT_FRAC_BITS;\
-         (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (TWIDDLE_RANGE>>1) ) >> FIXED_POINT_FRAC_BITS;\
-         }while(0)
-#else // not FIXED_POINT
 
 #define C_ADD(x,a,b) \
     do{ (x).r = (a).r+(b).r;\
         (x).i = (a).i+(b).i;}while(0)
-#define C_SUB(x,a,b) \
-    do{ (x).r = (a).r-(b).r;\
-        (x).i = (a).i-(b).i;}while(0)
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
-
-#endif
-
 
 static
 kiss_fft_cpx cexp(double phase)
@@ -94,69 +49,6 @@ kiss_fft_cpx cexp(double phase)
     x.r = cos(phase);
     x.i = -sin(phase);
     return x;
-}
-
-// create the twiddle factors
-static 
-void make_twiddles(kiss_fft_cpx * twiddle,int ntwid,int symmetry,int inverse_fft) 
-{
-    int n;
-    int denom = ntwid*symmetry;
-    
-    for (n=0;n<ntwid;++n) {
-        twiddle[n] = cexp( 2*pi*n/denom );
-        //twiddle[n].r = cos(2*pi*n/denom);
-        //twiddle[n].i = -sin(2*pi*n/denom);
-        // inverse fft uses complex conjugate twiddle factors
-        if (inverse_fft)
-            twiddle[n].i *= -1;
-    }
-}
-
-
-// reverse the bits for numbers from 0 to N-1
-static
-int bit_reverse(int i,int N)
-{
-    int rev=0;
-    while ( N >>= 1 ) {
-        rev = rev*2 + (i&1);
-        i>>=1;
-    }
-    return rev;
-}
-
-// make a list of index swaps that need to be done for bit-reversed addressing
-static
-int make_bit_reverse_indices(int *swap_indices ,int nfft)
-{
-    int n,nswap;
-    nswap=0;
-    // set up swap indices to unwrap bit-reversed addressing
-    for ( n=0; n<nfft; ++n ) {
-        swap_indices[nswap*2] = bit_reverse(n,nfft);
-        if ( n < swap_indices[nswap*2] ) {
-            swap_indices[nswap*2+1] = n;
-            ++nswap;
-        }
-    }
-    return nswap;
-}
-
-static
-void undo_bit_rev( kiss_fft_cpx * f, const int * swap_indices,int nswap)
-{
-    int i,i0,i1;
-    kiss_fft_cpx tmp;
-
-    // unwrap bit-reverse indexing
-    for ( i=0 ; i<nswap ; ++i ) {
-        i0= *swap_indices++;
-        i1= *swap_indices++;
-        tmp = f[i0];
-        f[i0] = f[i1];
-        f[i1] = tmp;
-    }
 }
 
 static kiss_fft_cpx cadd(kiss_fft_cpx a,kiss_fft_cpx b)
@@ -173,84 +65,94 @@ static kiss_fft_cpx cmul(kiss_fft_cpx a,kiss_fft_cpx b)
     return c;
 }
 
-
-
 // the heart of the fft
 static 
-void fft_work( kiss_fft_cpx * h,kiss_fft_cpx * h2,const  kiss_fft_stage * stage , int nstages )
+void fft_work(
+        kiss_fft_cpx * Fout,
+        const kiss_fft_cpx * f,
+        int fstride,
+        int n,
+        int inverse,
+        kiss_fft_cpx * scratch
+        )
 {
-    int n;
-    {   // declare automatic variables in here to reduce stack usage
-        int nx,ny,Nx,Ny;
-        kiss_fft_cpx twid;
-        double inc1 = -2*pi/(stage->radix * stage->nr);
-        Ny = stage->nr;
-        Nx = stage->radix;
+    int m,p=0,q,q1,u,k;
+    kiss_fft_cpx t;
+    double two_pi_divN;
 
-        for (ny=0;ny<Ny; ++ny) {
-            for ( nx=0 ; nx<Nx ; ++nx ) {
-               h2[ny] = h[ny];
 
-                h2[ny] = cadd( h2[ny] , cmul( twid ,h[ nx * nr + ny ]  ) );
-            }
-
-            twid = cexp();
-            cmul(h2[ny]);
-        }
-/*
-            h2[n] =  h[n] + h[n+N/2]
-            h2[n+N/2] = ( h[n] - h[n+N/2] ) * exp ( n * j*2*pi/N)
-
-            for ( n = 0 ; n < stage->nr ; ++n )
-            {
-                C_ADD( csum,  *f1 , *f2 );
-                C_SUB( cdiff, *f1 , *f2 );
-                C_MUL(*f2, cdiff, *twid);
-                *f1++ = csum;
-                ++f2;
-                ++twid;
-            }
-*/            
-    }
-    if ( nstages == 1 )
+    if (n==1) {
+        *Fout = *f;
         return;
+    }
 
-    for (n=0;n<stage->radix;++n) {
-        int offset = n * stage->nr;
-        fft_work( h2 + offset , h + offset ,stage+1,nstages-1);
+    two_pi_divN = 2*pi/n;
+    if (inverse)
+        two_pi_divN *= -1;
+
+    if (n%2 == 0) p=2;
+    else if(n%3 == 0) p=3;
+    else if(n%5 == 0) p=5;
+    else if(n%7 == 0) p=7;
+    else {
+        fprintf(stderr,"%d is not divisible by %d\n",n,p);
+        p=n;
+        exit(1);
+    }
+    m = n/p;
+    /* n = stage->n; m = stage->m; p = stage->p; */
+
+#ifdef LOUD        
+    printf("n=%d,p=%d\n",n,p);
+    for (k=0;k<n;++k) {
+        t=f[k*fstride];
+        printf("(%.3f,%.3f) ",t.r,t.i);
+    }
+    printf(" <<< fin \n");
+#endif
+
+    for (q=0;q<p;++q) {
+#ifdef LOUD
+        for (k=0;k<m;++k) {
+            t = (f+q*fstride)[fstride*p*k];
+            printf("(%.3f,%.3f) ",t.r,t.i);
+        }
+        printf(" <<< f[fstride*k+q] \n");
+#endif
+        fft_work( Fout + m*q, f+q*fstride, fstride*p, m,inverse, scratch );
+    }
+
+#ifdef LOUD
+    printf("twiddling n=%d,p=%d\n",n,p);
+#endif
+    
+    for ( u=0; u<m; ++u ) {
+        for ( q1=0 ; q1<p ; ++q1 ) {
+            scratch[q1] = Fout[ u+q1*m  ];
+#ifdef LOUD
+            printf("(%.3f,%.3f) ",scratch[q1].r,scratch[q1].i);
+#endif
+        }
+#ifdef LOUD
+        printf(" <<< scratch \n");
+#endif
+
+        for ( q1=0 ; q1<p ; ++q1 ) {
+            k=q1*m+u;
+            Fout[ k ] = scratch[0];
+            for (q=1;q<p;++q ) {
+                //t = e ** ( j*2*pi*k*q/n );
+                t = cexp( two_pi_divN * k * q );
+                Fout[ k ] = cadd( Fout[ k ] , 
+                                  cmul( scratch[q] , t ) );
+            }
+        }
     }
 }
 
-static
-kiss_fft_state * decompose( kiss_fft_state * st, int * pnfft,int radix,int inverse_fft)
-{
-    int nfft = *pnfft;
-
-    while (nfft>1 && (nfft%radix)==0) {
-        int newsize;
-        int nstages=st->nstages;
-        nfft /= radix;
-        fprintf(stderr,"%d ",radix);
-
-        newsize = st->allocsize + nfft * sizeof(kiss_fft_cpx);
-
-        st=(kiss_fft_state*)realloc(st,newsize);
-
-        st->stages[nstages].radix=radix;
-        st->stages[nstages].nr=nfft;
-        st->stages[nstages].twiddle = (kiss_fft_cpx*)((char*)st + st->allocsize);
-
-        make_twiddles( st->stages[nstages].twiddle,nfft,radix,inverse_fft );
-        st->allocsize = newsize;
-        st->nstages = nstages+1;
-    }
-    *pnfft = nfft;
-    return st;
-}
-
-/*      
+/*
  *      void * kiss_fft_alloc(int nfft,int inverse_fft)
- *      
+ *
  * User-callable function to allocate all necessary scratch space for the fft.
  *
  * The return value is a contiguous block of memory, allocated with malloc.  As such,
@@ -259,41 +161,23 @@ kiss_fft_state * decompose( kiss_fft_state * st, int * pnfft,int radix,int inver
 void * kiss_fft_alloc(int nfft,int inverse_fft)
 {
     kiss_fft_state * st=NULL;
-    int tmp;
-    int i;
-    int allocsize=sizeof(kiss_fft_state) + nfft*( sizeof(int) + sizeof(kiss_fft_cpx) );
-
-    st = ( kiss_fft_state *)malloc( allocsize );
+    st = ( kiss_fft_state *)malloc( sizeof(kiss_fft_state) );
     st->nfft=nfft;
-    st->nstages=0;
-    st->allocsize=allocsize;
-    st->unscramble_indices = (int*)(st+1);// just past end of buffer
-    st->buf1 = (kiss_fft_cpx*)( st->unscramble_indices + nfft);
-
-    for (i=0;i<nfft;++i)
-        st->unscramble_indices[i] = i;
-
-    fprintf(stderr,"factoring %d: ",nfft);
-
-    tmp=nfft;
-    st = decompose( st,&tmp,2,inverse_fft);
-    fprintf(stderr,"\n");
-
-    // TODO factor 3,5,7,11 ???
-    if ( tmp > 1 ) {
-        fprintf(stderr,"%d not factorable by 2,3 (%d remaining)\n",nfft,tmp);
-        free(st);
-        return NULL;
-    }
+    st->inverse = inverse_fft;
 
     return st;
 }
 
 void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
+    int i,n;
     const kiss_fft_state * st = cfg;
-    fft_work( f,st->buf1, st->stages , st->nstages );
-    if (st->nstages&1) {
-        memcpy( st->buf1 , f,sizeof(kiss_fft_cpx) * st->nfft );
-    }
+    kiss_fft_cpx tmpbuf[1024];
+    kiss_fft_cpx scratch[1024];
+    n = st->nfft;
+
+    for (i=0;i<n;++i)
+        tmpbuf[i] = f[i];
+
+    fft_work( f, tmpbuf, 1, n, st->inverse, scratch );
 }
