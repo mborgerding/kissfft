@@ -73,6 +73,7 @@ kiss_fft_cpx cexp(double phase)
     return x;
 }
 
+
 static 
 void fft_work(
         kiss_fft_cpx * Fout,
@@ -82,6 +83,80 @@ void fft_work(
         const kiss_fft_state * st
         );
 
+static 
+void fft4work(
+        kiss_fft_cpx * Fout,
+        const kiss_fft_cpx * f,
+        int fstride,
+        int * factors,
+        const kiss_fft_state * st
+        )
+{
+    kiss_fft_cpx * Fout1;
+    kiss_fft_cpx * Fout2;
+    kiss_fft_cpx * Fout3;
+    int m,q,u,k;
+    kiss_fft_cpx t;
+    kiss_fft_cpx * scratch = st->scratch;
+    kiss_fft_cpx * twiddles = st->twiddles;
+    int Norig = st->nfft;
+
+    factors++;
+    m=*factors++;
+
+    Fout1 = Fout + m;
+    Fout2 = Fout + 2*m;
+    Fout3 = Fout + 3*m;
+
+    if (m==1) {
+        Fout[0] = f[0];
+        Fout[1] = f[fstride*1];
+        Fout[2] = f[fstride*2];
+        Fout[3] = f[fstride*3];
+    }else{
+        fft_work( Fout , f,           fstride*4,factors,st);
+        fft_work( Fout1 ,f+fstride,   fstride*4,factors,st);
+        fft_work( Fout2 ,f+fstride*2, fstride*4,factors,st);
+        fft_work( Fout3 ,f+fstride*3, fstride*4,factors,st);
+    }
+
+    for ( u=0; u<m; ++u ) {
+        int twidx;
+        scratch[0]= *Fout;
+        scratch[1]= *Fout1;
+        scratch[2]= *Fout2;
+        scratch[3]= *Fout3;
+
+        k=u;
+
+            *Fout = scratch[0];
+            *Fout1 = scratch[0];
+            *Fout2 = scratch[0];
+            *Fout3 = scratch[0];
+
+            for (q=1;q<4;++q ) {
+                twidx = (fstride * (u+0*m) * q)%Norig;
+                C_MUL(t,scratch[q] , twiddles[twidx] );
+                C_ADDTO(*Fout,t);
+
+                twidx = (fstride * (u+1*m) * q)%Norig;
+                C_MUL(t,scratch[q] , twiddles[twidx] );
+                C_ADDTO(*Fout1,t);
+                
+                twidx = (fstride * (u+2*m) * q)%Norig;
+                C_MUL(t,scratch[q] , twiddles[twidx] );
+                C_ADDTO(*Fout2,t);
+
+                twidx = (fstride * (u+3*m) * q)%Norig;
+                C_MUL(t,scratch[q] , twiddles[twidx] );
+                C_ADDTO(*Fout3,t);
+            }
+            ++Fout;
+            ++Fout1;
+            ++Fout2;
+            ++Fout3;
+    }
+}
 // the heart of the fft
 static 
 void fft2work(
@@ -92,35 +167,38 @@ void fft2work(
         const kiss_fft_state * st
         )
 {
+    int m;
     kiss_fft_cpx * Fout2;
-    int u,m;
-    kiss_fft_cpx t;
-    kiss_fft_cpx * twiddles = st->twiddles;
 
-    factors++;// p==2
+    factors++;
     m=*factors++;
+    Fout2 = Fout + m;
 
-    if (*factors == 2){
-        fft2work(Fout,f,fstride*2,factors,st);
-        fft2work(Fout+m,f+fstride,fstride*2,factors,st);
-    }else if (m==1) {
+    if (m==1) {
         Fout[0] = f[0];
         Fout[1] = f[fstride];
+    } else if (*factors == 2) {
+        fft2work(Fout,f,fstride*2,factors,st);
+        fft2work(Fout2,f+fstride,fstride*2,factors,st);
     } else {
         fft_work( Fout , f, fstride*2,factors,st);
         fft_work( Fout + m, f+fstride, fstride*2,factors,st);
     }
 
-    Fout2 = Fout + m;
-    for ( u=0; u<m; ++u ) {
-        C_MUL (t,  *Fout2 , *twiddles);
-        twiddles += fstride;
-        C_SUB( *Fout2 ,  *Fout , t );
-        C_ADDTO( *Fout ,  t );
-        ++Fout2;
-        ++Fout;
+    {
+        kiss_fft_cpx * twiddles = st->twiddles;
+        kiss_fft_cpx t;
+        do{
+            C_MUL (t,  *Fout2 , *twiddles);
+            twiddles += fstride;
+            C_SUB( *Fout2 ,  *Fout , t );
+            C_ADDTO( *Fout ,  t );
+            ++Fout2;
+            ++Fout;
+        }while (--m);
     }
 }
+
 
 static 
 void fft_work(
@@ -135,13 +213,11 @@ void fft_work(
     kiss_fft_cpx t;
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
-    int Norig = st->nfft;
 
 #if 1    
     switch (*factors) {
-        case 2:
-            fft2work(Fout,f,fstride,factors,st);
-            return;
+        case 4: fft4work(Fout,f,fstride,factors,st); return;
+        case 2: fft2work(Fout,f,fstride,factors,st); return;
         default:
             break;
     }
@@ -173,9 +249,9 @@ void fft_work(
             int twidx=0;
             Fout[ k ] = scratch[0];
             for (q=1;q<p;++q ) {
+                int Norig = st->nfft;
                 twidx += fstride * k;
-                if (twidx>=Norig)
-                    twidx-=Norig;
+                if (twidx>=Norig) twidx-=Norig;
                 C_MUL(t,scratch[q] , twiddles[twidx] );
                 Fout[ k ].r += t.r;
                 Fout[ k ].i += t.i;
@@ -227,7 +303,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     }
 
     while (nfft>1) {
-        const int primes[] = {2,3,5,7,11,13,17,-1};
+        const int primes[] = {4,2,3,5,7,11,13,17,-1};
         int p=nfft;
         i=0;
         while ( primes[i] != -1 ) {
@@ -240,7 +316,26 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
         st->factors[2*nstages] = p;
         nfft /= p;
         st->factors[2*nstages+1] = nfft;
+        
+        //printf("%d,%d ",p,nfft);
+
         ++nstages;
+    }
+    //printf("\n");
+
+    // reverse the factors list so that the 2s are packed to the back
+    nfft=st->nfft;
+    for ( i=0 ; i< nstages ;i+=2 ) {
+        int p;
+        p = st->factors[i];
+        st->factors[i] = st->factors[ 2*nstages-i-2];
+        st->factors[2*nstages-i-2 ] = p;
+    }
+
+    for ( i=0 ; i< nstages*2 ;i+=2 ) {
+        nfft /= st->factors[i];
+        st->factors[i+1] = nfft;
+        //printf("%d,%d ",st->factors[i], st->factors[i+1] );
     }
 
     return st;
