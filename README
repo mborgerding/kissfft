@@ -51,12 +51,12 @@ theory straight before working on fixed point issues.  In the end, I had a
 little bit of code that could be recompiled easily to do ffts with short, float
 or double (other types should be easy too).  
 
-    Once I got my FFT working, I wanted to get some performance numbers against 
+    Once I got my FFT working, I was curious about the speed compared to
 a well respected and highly optimized fft library.  I don't want to criticize 
 this great library, so let's call it FFT_BRANDX.
 During this process, I learned:
 
-    1. FFT_BRANDX has more than 100K lines of code. KISS has less than 1k.
+    1. FFT_BRANDX has more than 100K lines of code. The core  of kiss_fft is about 500 lines (cpx 1-d).
     2. It took me an embarrassingly long time to get FFT_BRANDX working.
     3. A simple program using FFT_BRANDX is 522KB. A similar program using kiss_fft is 18KB.
     4. FFT_BRANDX is roughly twice as fast as KISS FFT.
@@ -70,8 +70,10 @@ last bit of performance.
 PERFORMANCE:
     (on Athlon XP 2100+, with gcc 2.96, optimization O3, float data type)
 
-    Kiss performed 1000 1024-pt ffts in 100 ms of cpu time.
+    Kiss performed 1000 1024-pt cpx ffts in 100 ms of cpu time.
     For comparison, it took md5sum 160ms cputime to process the same amount of data
+
+    Transforming 5 minutes of CD quality audio takes about 1 second (nfft=1024). 
 
 DO NOT:
     ... use Kiss if you need the Fastest Fourier Transform in the World
@@ -90,10 +92,10 @@ No scaling is done.  Optimized butterflies are used for factors 2,3,4, and 5.
     
 
 LICENSE:
-    BSD, see COPYING for details. Basically, "free to use, give credit where due, no guarantees"
+    BSD, see COPYING for details. Basically, "free to use&change, give credit where due, no guarantees"
 
 TODO:
-    *) Add real optimization for odd length FFTs (DST)
+    *) Add real optimization for odd length FFTs (DST?)
     *) Add real optimization to the n-dimensional FFT
     *) Add simple windowing function, e.g. Hamming : w(i)=.54-.46*cos(2pi*i/(n-1))
     *) Make the fixed point scaling and bit shifts more easily configurable.
