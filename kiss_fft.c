@@ -297,7 +297,6 @@ void kf_factor(int n,int * facbuf)
 }
 
 /*
- *      void * kiss_fft_alloc(int nfft,int inverse_fft)
  *
  * User-callable function to allocate all necessary scratch space for the fft.
  *

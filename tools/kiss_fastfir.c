@@ -231,6 +231,73 @@ size_t kiss_fastfir(
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <assert.h>
+
+void direct_file_filter(
+        FILE * fin,
+        FILE * fout,
+        const kffsamp_t * imp_resp,
+        size_t n_imp_resp,
+        size_t nfft )
+{
+    size_t nlag = n_imp_resp - 1;
+
+    const kffsamp_t *tmph;
+    kffsamp_t *buf, *lagbuf;
+    kffsamp_t outval;
+    size_t nread;
+    size_t nbuf;
+    size_t oldestlag = 0;
+    size_t i, ii;
+
+    nbuf = 4096;
+    buf = (kffsamp_t *) malloc ( sizeof (kffsamp_t) * nbuf);
+    lagbuf = (kffsamp_t *) malloc (sizeof (kffsamp_t) * nlag);
+    if (!lagbuf || !buf) {
+        perror("lagbuf allocation");
+        exit(1);
+    }
+
+    if ( fread (lagbuf, sizeof (kffsamp_t), nlag, fin) !=  nlag ) {
+        perror ("insufficient data to overcome transient");
+        exit (1);
+    }
+
+    do {
+        nread = fread (buf, sizeof (kffsamp_t), nbuf, fin);
+        if (nread <= 0)
+            break;
+
+        for (i = 0; i < nread; ++i) {
+            outval = 0;
+            tmph = imp_resp;
+
+
+            for (ii = oldestlag; ii < nlag; ++ii)
+                outval += lagbuf[ii] * *tmph++;
+
+
+            for (ii = 0; ii < oldestlag; ++ii)
+                outval += lagbuf[ii] * *tmph++;
+
+            outval += buf[i] * *tmph++;
+
+
+            lagbuf[oldestlag] = buf[i];
+            buf[i] = outval;
+
+            if (++oldestlag == nlag)
+                oldestlag = 0;
+        }
+
+        if (fwrite (buf, sizeof (buf[0]), nread, fout) != nread) {
+            perror ("short write");
+            exit (1);
+        }
+    } while (nread);
+    free (buf);
+    free (lagbuf);
+}
 
 void do_file_filter(
         FILE * fin,
@@ -283,12 +350,13 @@ void do_file_filter(
 int main(int argc,char**argv)
 {
     kffsamp_t * h;
+    int use_direct=0;
     size_t nh,nfft=0;
     FILE *fin=stdin;
     FILE *fout=stdout;
     FILE *filtfile=NULL;
     while (1) {
-        int c=getopt(argc,argv,"n:h:i:o:v");
+        int c=getopt(argc,argv,"n:h:i:o:vd");
         if (c==-1) break;
         switch (c) {
             case 'v':
@@ -318,10 +386,16 @@ int main(int argc,char**argv)
                     exit(1);
                 }
                 break;
+            case 'd':
+                use_direct=1;
+                break;
             case '?':
                      fprintf(stderr,"usage options:\n"
+                            "\t-n nfft: fft size to use\n"
+                            "\t-d : use direct FIR filtering, not fast convolution\n"
                             "\t-i filename: input file\n"
                             "\t-o filename: output(filtered) file\n"
+                            "\t-n nfft: fft size to use\n"
                             "\t-h filename: impulse response\n");
                      exit (1);
             default:fprintf(stderr,"bad %c\n",c);break;
@@ -339,7 +413,10 @@ int main(int argc,char**argv)
     fread(h,sizeof(kffsamp_t),nh,filtfile);
     fclose(filtfile);
  
-    do_file_filter( fin, fout, h,nh,nfft);
+    if (use_direct)
+        direct_file_filter( fin, fout, h,nh,nfft);
+    else
+        do_file_filter( fin, fout, h,nh,nfft);
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);

@@ -70,7 +70,7 @@ typedef struct {
 #define C_SUBFROM( res , a)\
     do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
 
-static
+static inline
 kiss_fft_cpx kf_cexp(double phase) /* returns e ** (j*phase)   */
 {
     kiss_fft_cpx x;

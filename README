@@ -72,9 +72,8 @@ LICENSE:
     BSD, see COPYING for details. Basically, "free to use, give credit where due, no guarantees"
 
 TODO:
-    *) Add 2d real optimized FFT
-    *) Make a better self-test program(s).  Should report snr & timing for short,float, 
-        or double.
+    *) Add real optimization for odd length FFTs
+    *) Add real optimization to the n-dimensional FFT
     *) Add simple windowing function, e.g. Hamming : w(i)=.54-.46*cos(2pi*i/(n-1))
     *) Make the fixed point scaling and bit shifts more easily configurable.
     *) Document/revisit the input/output fft scaling
