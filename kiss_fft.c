@@ -16,25 +16,19 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <stdio.h>
 #include <math.h>
 #include <memory.h>
+
+/* kiss_fft.h
+   defines kiss_fft_scalar as either short or a float type
+   and defines
+   typedef struct { kiss_fft_scalar r; kiss_fft_scalar i; }kiss_fft_cpx; */
 #include "kiss_fft.h"
 
-/*try this, you might get a speed improvement*/
+/*  Try static inline. Who knows? You might get a speed improvement. I didn't. YMMV   */
 #if 0
 #  define FUNCDECL static inline
 #else
 #  define FUNCDECL
 #endif
-
-/*
- * kiss_fft.h
- * defines kiss_fft_scalar as either short or a float type
- * and defines
- * typedef struct {
- *     kiss_fft_scalar r;
- *     kiss_fft_scalar i;
- * }kiss_fft_cpx;
- */
-
 
 typedef struct {
     int nfft;
@@ -46,20 +40,20 @@ typedef struct {
 }kiss_fft_state;
 
 #ifdef FIXED_POINT
+
 #   define C_MUL(m,a,b) \
       do{ (m).r = ( ( (a).r*(b).r - (a).i*(b).i)  + (1<<14) ) >> 15;\
           (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (1<<14) ) >> 15;\
       }while(0)
-
 #   define C_FIXDIV(c,div) \
     do{ (c).r /= div; (c).i /=div; }while(0)
-
 #define C_MUL_SCALAR(m,s) \
      do{ (m).r = ( (m).r * (s) + (1<<14) ) >> 15;\
          (m).i = ( (m).i * (s) + (1<<14) ) >> 15;\
      }while(0)
 
 #else  /* not FIXED_POINT*/
+
 #define C_MUL_SCALAR(m,s) \
      do{ (m).r *= (s);\
          (m).i *= (s);\
@@ -68,6 +62,7 @@ typedef struct {
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
+
 #endif
 
 #define  C_ADD( res, a,b)\
@@ -80,9 +75,9 @@ typedef struct {
     do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
 #define C_ROTADDTO(sum,c,q) \
     do{ switch (q) {\
-            case 0: (sum).r += (c).r; (sum).i += (c).i; break;\
+            case 0: C_ADDTO(sum,c); break;\
             case 1: (sum).r += (c).i; (sum).i -= (c).r; break;\
-            case 2: (sum).r -= (c).r; (sum).i -= (c).i; break;\
+            case 2: C_SUBFROM(sum,c); break;\
             case 3: (sum).r -= (c).i; (sum).i += (c).r; break;\
         } }while(0) 
 
@@ -157,9 +152,9 @@ void bfly3(
         scratch[4].r = scratch[5].r - scratch[6].i;
         scratch[4].i = scratch[5].i + scratch[6].r;
         C_ADD( *Fout1, scratch[0] , scratch[4] );
-        scratch[4].r = scratch[5].r + scratch[6].i;
-        scratch[4].i = scratch[5].i - scratch[6].r;
-        C_ADD( *Fout2, scratch[0] , scratch[4] );
+        *Fout2 = *Fout1;
+        Fout2->r += 2*scratch[6].i;
+        Fout2->i -= 2*scratch[6].r;
         ++Fout0;++Fout1;++Fout2;
     }
 }
@@ -326,7 +321,8 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     }
 
     while (nfft>1) {
-        const int primes[] = {4,2,3,5,7,11,13,17,-1};
+        /* If you add a new radix, don't forget to put it here */
+        const int primes[] = {4,2,3,-1};
         int p=nfft;
         i=0;
         while ( primes[i] != -1 ) {
@@ -342,22 +338,6 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
         
         ++nstages;
     }
-
-    /* reverse the factors list so that the 2s are packed to the back*/
-    nfft=st->nfft;
-    for ( i=0 ; i< nstages ;i+=2 ) {
-        int p;
-        p = st->factors[i];
-        st->factors[i] = st->factors[ 2*nstages-i-2];
-        st->factors[2*nstages-i-2 ] = p;
-    }
-
-    for ( i=0 ; i< nstages*2 ;i+=2 ) {
-        nfft /= st->factors[i];
-        st->factors[i+1] = nfft;
-    }
-
-    memset(st->tmpbuf,0,sizeof(kiss_fft_cpx)*nfft);
     return st;
 }
 
