@@ -326,7 +326,7 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
             st = (kiss_fft_cfg)mem;
         *lenmem = memneeded;
     }
-    if (st){
+    if (st) {
         int i;
         st->nfft=nfft;
         st->inverse = inverse_fft;
@@ -345,16 +345,11 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
 
         kf_factor(nfft,st->factors);
     }
-    return (kiss_fft_cfg)st;
+    return st;
 }
 
 void kiss_fft_stride(kiss_fft_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,int in_stride)
 {
-    if (st->nfft < 0) {
-        fprintf(stderr,"usage error: invalid kiss_fft_state. make sure the correct kiss_fft_alloc routine was used.\n");
-        exit(1);
-    }
-
     if (fin == fout) {
         kf_work(st->tmpbuf,fin,1,in_stride, st->factors,st);
         memcpy(fout,st->tmpbuf,sizeof(kiss_fft_cpx)*st->nfft);
