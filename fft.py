@@ -1,26 +1,37 @@
 #!/usr/local/bin/python2.3
 import math
+pi=math.pi
+e=math.e
+j=complex(0,1)
 
-def T(n,i):
-    return math.e ** complex( 0,-2*math.pi*i/n )
+def T(n,k):
+    return e ** -2*j*pi*k/n
 
 def fft(f):
     n=len(f)
-    if n%2 == 0:
-        np = n/2
-        fe=[0 ] * np
-        fo=[0 ] * np
-        for i in range(np):
-            fe[i] = f[i] + f[i+np]
-            fo[i] = (f[i] - f[i+np]) * T(n,i)
-        Fe=fft(fe)
-        Fo=fft(fo)
-        F=[0 ] * n
-        F[::2] = Fe
-        F[1::2] = Fo
-    elif n==1:
-        F=f
+    if n==1:
+        return f
+
+    for p in 4,3,2,5:
+        if n%p==0:
+            break
     else:
-        raise exceptions.Exception('cannot factor %d by 2' % n)
-    return F
+        raise Exception('%s not factorable ' % n)
+    m = n/p
+
+    Fm=[]
+    for q in range(p): # 0,1
+        fp = f[q::p]
+        Fp = fft( fp )
+        Fm.extend( Fp )
+
+    Fout=[0]*n
+    for k in range(n):
+        val = 0
+        for q in range(p):
+            t = e ** ( -j*2*pi*k*q/n )
+            val += Fm[ q*m + (k%m) ] * t
+        Fout[k] = val
+
+    return Fout
 
