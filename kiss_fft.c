@@ -33,11 +33,15 @@ const double pi=3.14159265358979323846264338327;
 typedef struct {
     int nfft;
     int inverse;
+    kiss_fft_cpx * twiddles;
 }kiss_fft_state;
 
 #define C_ADD(x,a,b) \
     do{ (x).r = (a).r+(b).r;\
         (x).i = (a).i+(b).i;}while(0)
+#define C_SUB(x,a,b) \
+    do{ (x).r = (a).r-(b).r;\
+        (x).i = (a).i-(b).i;}while(0)
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
@@ -51,6 +55,12 @@ kiss_fft_cpx cexp(double phase)
     return x;
 }
 
+static kiss_fft_cpx csub(kiss_fft_cpx a,kiss_fft_cpx b)
+{
+    kiss_fft_cpx c;
+    C_SUB(c,a,b);
+    return c;
+}
 static kiss_fft_cpx cadd(kiss_fft_cpx a,kiss_fft_cpx b)
 {
     kiss_fft_cpx c;
@@ -72,24 +82,25 @@ void fft_work(
         const kiss_fft_cpx * f,
         int fstride,
         int n,
+        int Norig,
         int inverse,
-        kiss_fft_cpx * scratch
+        kiss_fft_cpx * scratch,
+        kiss_fft_cpx * twiddles
         )
 {
     int m,p=0,q,q1,u,k;
     kiss_fft_cpx t;
-    double two_pi_divN;
-
 
     if (n==1) {
         *Fout = *f;
         return;
     }
-
+/*
+    double two_pi_divN;
     two_pi_divN = 2*pi/n;
     if (inverse)
         two_pi_divN *= -1;
-
+*/
     if (n%2 == 0) p=2;
     else if(n%3 == 0) p=3;
     else if(n%5 == 0) p=5;
@@ -119,13 +130,13 @@ void fft_work(
         }
         printf(" <<< f[fstride*k+q] \n");
 #endif
-        fft_work( Fout + m*q, f+q*fstride, fstride*p, m,inverse, scratch );
+        fft_work( Fout + m*q, f+q*fstride, fstride*p, m,Norig,inverse, scratch ,twiddles);
     }
 
 #ifdef LOUD
     printf("twiddling n=%d,p=%d\n",n,p);
 #endif
-    
+
     for ( u=0; u<m; ++u ) {
         for ( q1=0 ; q1<p ; ++q1 ) {
             scratch[q1] = Fout[ u+q1*m  ];
@@ -138,11 +149,29 @@ void fft_work(
 #endif
 
         for ( q1=0 ; q1<p ; ++q1 ) {
+            int twidx=0;
             k=q1*m+u;
             Fout[ k ] = scratch[0];
             for (q=1;q<p;++q ) {
-                //t = e ** ( j*2*pi*k*q/n );
-                t = cexp( two_pi_divN * k * q );
+                twidx += fstride * k;
+                if (twidx>=Norig)
+                    twidx-=Norig;
+                t = twiddles[twidx];
+/*                
+                kiss_fft_cpx diff,tref;
+                tref = cexp( two_pi_divN * k * q );
+                diff = csub(t,tref);
+                if ( 
+                        diff.r * diff.r + diff.i*diff.i * 100
+                        >
+                        tref.r * tref.r + tref.i*tref.i) 
+                {
+                    printf("twiddling n=%d,p=%d\n",n,p);
+                    printf("t=(%.3f,%.3f) ",t.r,t.i);
+                    printf("tref=(%.3f,%.3f) ",tref.r,tref.i);
+                    printf("diff=(%.3f,%.3f) \n",diff.r,diff.i);
+                }
+*/
                 Fout[ k ] = cadd( Fout[ k ] , 
                                   cmul( scratch[q] , t ) );
             }
@@ -160,10 +189,20 @@ void fft_work(
  * */
 void * kiss_fft_alloc(int nfft,int inverse_fft)
 {
+    int i;
     kiss_fft_state * st=NULL;
     st = ( kiss_fft_state *)malloc( sizeof(kiss_fft_state) );
     st->nfft=nfft;
     st->inverse = inverse_fft;
+
+    st->twiddles = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
+
+    for (i=0;i<nfft;++i) {
+        double phase = ( 2*pi /nfft ) * i;
+        if (st->inverse)
+            phase *= -1;
+        st->twiddles[i] = cexp( phase );
+    }
 
     return st;
 }
@@ -179,5 +218,5 @@ void kiss_fft(const void * cfg,kiss_fft_cpx *f)
     for (i=0;i<n;++i)
         tmpbuf[i] = f[i];
 
-    fft_work( f, tmpbuf, 1, n, st->inverse, scratch );
+    fft_work( f, tmpbuf, 1, n,n, st->inverse, scratch ,st->twiddles);
 }
