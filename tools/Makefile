@@ -20,18 +20,18 @@ else
 endif
 
 CFLAGS=-Wall -O3 -ansi -pedantic
-$(UTIL): ../kiss_fft.c fftutil.c
+$(UTIL): ../kiss_fft.c fftutil.c 
 	gcc -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) ../kiss_fft.c fftutil.c -lm
 
-$(BENCH): benchkiss.c ../kiss_fft.c
-	gcc -o $@ $(CFLAGS) -I.. benchkiss.c $(TYPEFLAGS) ../kiss_fft.c -lm 
+$(BENCH): benchkiss.c ../kiss_fft.c pstats.c
+	gcc -o $@ $(CFLAGS) -I.. benchkiss.c $(TYPEFLAGS) ../kiss_fft.c pstats.c -lm 
 
 fftw: bm_fftw
 	@[ -x ./bm_fftw ] && \
 		./bm_fftw -x $(NUMFFTS) -n $(NFFT)
 
-bm_fftw: benchfftw.c
-	@gcc -o $@ $(CFLAGS) benchfftw.c -lm -lfftw3 -L /usr/local/lib/ \
+bm_fftw: benchfftw.c pstats.c
+	@gcc -o $@ $(CFLAGS) benchfftw.c pstats.c -lm -lfftw3 -L /usr/local/lib/ \
 	 || echo 'Cannot build FFTW test script'
 
 time: all

@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include <fftw3.h>
 #include <getopt.h>
-#include <sys/times.h>
-#include <unistd.h>
+#include "pstats.h"
 
 int main(int argc,char ** argv)
 {
@@ -14,8 +13,8 @@ int main(int argc,char ** argv)
     fftw_complex * in=NULL;
     fftw_complex * out=NULL;
     fftw_plan p;
-    struct tms t0,t1;
-    float cputime;
+
+    pstats_init();
 
     while (1) {
       int c = getopt (argc, argv, "n:ix:");
@@ -41,7 +40,6 @@ int main(int argc,char ** argv)
         in[i][1] = rand() - RAND_MAX/2;
     }
 
-    times(&t0);
     if ( isinverse )
         p = fftw_plan_dft_1d(nfft, in, out, FFTW_BACKWARD, FFTW_ESTIMATE);
     else    
@@ -51,20 +49,12 @@ int main(int argc,char ** argv)
         fftw_execute(p);
 
     fftw_destroy_plan(p);
-    times(&t1);
 
     fftw_free(in); fftw_free(out);
 
-    cputime = ( ((float)t1.tms_utime + t1.tms_stime + t1.tms_cutime + t1.tms_cstime ) - 
-                ((float)t0.tms_utime + t0.tms_stime + t0.tms_cutime + t0.tms_cstime ) )
-             / sysconf(_SC_CLK_TCK);
+    fprintf(stderr,"fftw\tnfft=%d\tnumffts=%d\n", nfft,numffts);
+    pstats_report();
 
-    fprintf(stderr,"fftw\t" 
-            "nfft=%d\t"
-            "numffts=%d\t"
-            "cputime=%.3f\n" , 
-            nfft,numffts,cputime
-            );
     return 0;
 }
 
