@@ -27,7 +27,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  * }kiss_fft_cpx;
  */
 
-
 typedef struct {
     int nfft;
     int inverse;
@@ -65,38 +64,31 @@ kiss_fft_cpx cexp(double phase)
     return x;
 }
 
-static kiss_fft_cpx cmul(kiss_fft_cpx a,kiss_fft_cpx b)
-{
-    kiss_fft_cpx c;
-    C_MUL(c,a,b);
-    return c;
-}
-
 // the heart of the fft
 static 
 void fft_work(
         kiss_fft_cpx * Fout,
         const kiss_fft_cpx * f,
         int fstride,
-        int n,
-        int Norig,
-        int inverse,
-        kiss_fft_cpx * scratch,
-        kiss_fft_cpx * twiddles,
-        int * factors
+        int * factors,
+        const kiss_fft_state * st
         )
 {
     int m,p=0,q,q1,u,k;
     kiss_fft_cpx t;
+    kiss_fft_cpx * scratch = st->scratch;
+    kiss_fft_cpx * twiddles = st->twiddles;
+    int Norig = st->nfft;
 
     p=*factors++;
     m=*factors++;//m = n/p;
 
     for (q=0;q<p;++q) {
+        // TODO f+= fstride; instead of offset below
         if (m==1) 
             *(Fout + m*q) = *(f+q*fstride);
         else
-            fft_work( Fout + m*q, f+q*fstride, fstride*p, m,Norig,inverse, scratch ,twiddles,factors);
+            fft_work( Fout + m*q, f+q*fstride, fstride*p,factors,st);
     }
 
     for ( u=0; u<m; ++u ) {
@@ -159,12 +151,6 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     st->scratch = (kiss_fft_cpx*)(st->tmpbuf + nfft);
     st->factors = (int*)(st->scratch + nfft); // just after tmpbuf
 
-    /*
-    st->twiddles = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
-    st->tmpbuf = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
-    st->scratch = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
-    st->factors = (int*)malloc( sizeof(int)*nfft );
-    */
 
     for (i=0;i<nfft;++i) {
         const double pi=3.14159265358979323846264338327;
@@ -200,5 +186,5 @@ void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 
     n = st->nfft;
     memcpy(st->tmpbuf,f,sizeof(kiss_fft_cpx)*n);
-    fft_work( f, st->tmpbuf, 1, n,n, st->inverse, st->scratch ,st->twiddles,st->factors);
+    fft_work( f, st->tmpbuf, 1, st->factors,st );
 }
