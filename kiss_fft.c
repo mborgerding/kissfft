@@ -287,31 +287,44 @@ void bfly_generic(
         int p
         )
 {
-    int u,k,q1,q;
+    int u,q,d;
     kiss_fft_cpx * scratch = st->scratch;
-    kiss_fft_cpx * twiddles = st->twiddles;
-    kiss_fft_cpx t;
-    int Norig = st->nfft;
+    kiss_fft_cpx * tw = st->twiddles;
+    kiss_fft_cpx tlo,t1,t2,t3,t4;
 
     for ( u=0; u<m; ++u ) {
-        k=u;
-        for ( q1=0 ; q1<p ; ++q1 ) {
-            scratch[q1] = Fout[ k  ];
-            C_FIXDIV(scratch[q1],p);
-            k += m;
+        scratch[0] = Fout[u];
+
+        for ( q=1 ; q<p ; ++q ) {
+            C_MUL( scratch[q] , Fout[  m*q + u] ,  tw[u*fstride*q] );
+            Fout[  m*q + u] = scratch[0];
+            C_ADDTO(Fout[u] , scratch[q] );
         }
 
-        k=u;
-        for ( q1=0 ; q1<p ; ++q1 ) {
-            int twidx=0;
-            Fout[ k ] = scratch[0];
-            for (q=1;q<p;++q ) {
-                twidx += fstride * k;
-                if (twidx>=Norig) twidx-=Norig;
-                C_MUL(t,scratch[q] , twiddles[twidx] );
-                C_ADDTO( Fout[ k ] ,t);
+        for ( q=1; q<p ; ++q ) {
+            int twidx = q*fstride * m;
+            for ( d=1; d<=p/2;++d) {
+
+                tlo = tw[ twidx];
+                twidx += d*fstride*m;
+
+                if (twidx >=  st->nfft)
+                    twidx -= st->nfft;
+
+                t3.r = scratch[q].r * tlo.r;
+                t3.i = scratch[q].r * tlo.i;
+                t4.r = scratch[q].i * tlo.i;
+                t4.i = - scratch[q].i * tlo.r;
+
+                t1.r = t3.r - t4.r;
+                t1.i = t3.i - t4.i;
+                
+                t2.r = t3.r + t4.r;
+                t2.i = - (t3.i + t4.i);
+                 
+                C_ADDTO( Fout[ m*d+u ] ,t1);
+                C_ADDTO( Fout[ m*(p-d)+u ] ,t2);
             }
-            k += m;
         }
     }
 }
@@ -338,7 +351,9 @@ void fft_work(
 
     switch (p) {
         case 2: bfly2(Fout,fstride,st,m); break;
+#if 0                
         case 3: bfly3(Fout,fstride,st,m); break;
+#endif                
         case 4: bfly4(Fout,fstride,st,m); break;
         case 5: bfly5(Fout,fstride,st,m); break;
         default: bfly_generic(Fout,fstride,st,m,p); break;

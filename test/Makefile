@@ -42,9 +42,9 @@ POW3=243 729 2187
 POW5=25 125 625 3125
 
 mtime: all bm_fftw
-	@for n in $(NFFT) $(POW2) $(POW3) $(POW5) ;do \
+	for n in $(POW3) ;do \
 		./$(BENCH) -x $(NUMFFTS) -n $$n;\
-		[ -x ./bm_fftw ] && ./bm_fftw -x $(NUMFFTS) -n $$n ; \
+		[ "$(DATATYPE)" == "double" ] && [ -x ./bm_fftw ] && ./bm_fftw -x $(NUMFFTS) -n $$n || true ; \
 	done
 
 snr: all
