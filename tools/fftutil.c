@@ -19,61 +19,90 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <unistd.h>
 
 #include "kiss_fft.h"
+#include "kiss_fft2d.h"
+#include "kiss_fftr.h"
 
-void fft_file(FILE * fin,FILE * fout,int nfft,int nrows,int isinverse,int useascii,int times)
+void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
 {
-    int i;
     void *st;
     kiss_fft_cpx * buf;
     kiss_fft_cpx * bufout;
-            
 
-    buf = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft *nrows );
-    bufout = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft *nrows);
-    if (nrows!=1)
-        st = kiss_fft2d_alloc( nrows,nfft ,isinverse ,0,0);
-    else
-        st = kiss_fft_alloc( nfft ,isinverse ,0,0);
+    buf = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft );
+    bufout = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft );
+    st = kiss_fft_alloc( nfft ,isinverse ,0,0);
 
-    while ( fread( buf , sizeof(kiss_fft_cpx) * nfft * nrows ,1, fin ) > 0 ) {
-        for (i=0;i<times;++i)
-            if (nrows!=1)
-                kiss_fft2d( st , buf ,bufout);
-            else
-                kiss_fft( st , buf ,bufout);
-
-        if (useascii) {
-            int i;
-            for (i=0;i<nfft*nrows;++i) 
-                fprintf(fout, "(%g,%g) ", (double)bufout[i].r,(double)bufout[i].i);
-        }else{
-            fwrite( bufout , sizeof(kiss_fft_cpx) , nfft*nrows , fout );
-        }
+    while ( fread( buf , sizeof(kiss_fft_cpx) * nfft ,1, fin ) > 0 ) {
+        kiss_fft( st , buf ,bufout);
+        fwrite( bufout , sizeof(kiss_fft_cpx) , nfft , fout );
     }
     free(st);
     free(buf);
     free(bufout);
 }
 
+void fft_file2d(FILE * fin,FILE * fout,int nfft,int nrows,int isinverse)
+{
+    void *st;
+    kiss_fft_cpx *buf;
+    kiss_fft_cpx *bufout;
+
+    buf = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * nfft * nrows);
+    bufout = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * nfft * nrows);
+    st = kiss_fft2d_alloc (nrows, nfft, isinverse, 0, 0);
+
+    while (fread (buf, sizeof (kiss_fft_cpx) * nfft * nrows, 1, fin) > 0) {
+        kiss_fft2d (st, buf, bufout);
+        fwrite (bufout, sizeof (kiss_fft_cpx), nfft * nrows, fout);
+    }
+    free (st);
+    free (buf);
+    free (bufout);
+}
+
+void fft_file_real(FILE * fin,FILE * fout,int nfft,int isinverse)
+{
+    void *st;
+    kiss_fft_scalar * rbuf;
+    kiss_fft_cpx * cbuf;
+
+    rbuf = (kiss_fft_scalar*)malloc(sizeof(kiss_fft_scalar) * nfft );
+    cbuf = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * (nfft/2+1) );
+    st = kiss_fftr_alloc( nfft ,isinverse ,0,0);
+
+    if (isinverse==0) {
+        while ( fread( rbuf , sizeof(kiss_fft_scalar) * nfft ,1, fin ) > 0 ) {
+            kiss_fftr( st , rbuf ,cbuf);
+            fwrite( cbuf , sizeof(kiss_fft_cpx) , (nfft/2 + 1) , fout );
+        }
+    }else{
+        while ( fread( cbuf , sizeof(kiss_fft_cpx) * (nfft/2+1) ,1, fin ) > 0 ) {
+            kiss_fftri( st , cbuf ,rbuf);
+            fwrite( rbuf , sizeof(kiss_fft_scalar) , nfft , fout );
+        }
+    }
+    free(st);
+    free(rbuf);
+    free(cbuf);
+}
+
 int main(int argc,char ** argv)
 {
     int nfft=1024;
     int isinverse=0;
+    int isreal=0;
     FILE *fin=stdin;
     FILE *fout=stdout;
-    int useascii=0;
-    int times=1;
     int nrows=1;
 
     while (1) {
-        int c=getopt(argc,argv,"n:iax:r:");
+        int c=getopt(argc,argv,"n:ir:R");
         if (c==-1) break;
         switch (c) {
-            case 'a':useascii=1;break;
             case 'n':nfft = atoi(optarg);break;
             case 'r':nrows = atoi(optarg);break;
             case 'i':isinverse=1;break;
-            case 'x':times=atoi(optarg);break;
+            case 'R':isreal=1;break;
         }
     }
 
@@ -89,7 +118,12 @@ int main(int argc,char ** argv)
         ++optind;
     }
 
-    fft_file(fin,fout,nfft,nrows,isinverse,useascii,times);
+    if (nrows>1 && !isreal)
+        fft_file2d(fin,fout,nfft,nrows,isinverse);
+    else if (nrows==1 && !isreal)
+        fft_file(fin,fout,nfft,isinverse);
+    else if (nrows==1 && isreal)
+        fft_file_real(fin,fout,nfft,isinverse);
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);

@@ -13,6 +13,7 @@ BENCHKISS=bm_kiss_$(DATATYPE)
 BENCHFFTW=bm_fftw_$(DATATYPE)
 SELFTEST=st_$(DATATYPE)
 TESTREAL=tr_$(DATATYPE)
+FFTUTIL=kf_$(DATATYPE)
 
 ifeq  "$(DATATYPE)" "short"
  TYPEFLAGS=-DFIXED_POINT -Dkiss_fft_scalar=short
@@ -30,11 +31,14 @@ else
 endif
 
 
-all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL)
+all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(FFTUTIL)
 
 #CFLAGS=-Wall -O3 -ansi -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer
 # If the above flags do not work, try the following
 CFLAGS=-Wall -O3
+
+$(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fft2d.c kiss_fftr.c
+	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
 $(SELFTEST): ../kiss_fft.c $(SELFTESTSRC)
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
@@ -68,4 +72,4 @@ selftest_short.c:
 	./mk_test.py -s 10 12 14 > selftest_short.c
 
 clean:
-	rm -f *~ bm_* st_* tr_*
+	rm -f *~ bm_* st_* tr_* kf_*

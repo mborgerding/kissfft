@@ -18,6 +18,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
 
+/* the max length of the sequence of factors of nfft , 
+ MAXFACTORS==32 this should be good up to more 1e15 samples
+ ( 2 * 3**31 )
+ */
+#define MAXFACTORS 32
+
 static void kf_bfly2(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -303,7 +309,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem )
     size_t memneeded = sizeof(kiss_fft_state)
         + sizeof(kiss_fft_cpx)*nfft /* twiddle factors*/
         + sizeof(kiss_fft_cpx)*nfft /* tmpbuf*/
-        + sizeof(int)*nfft /* factors*/
+        + sizeof(int)*2*MAXFACTORS /* factors*/
         + sizeof(kiss_fft_cpx)*nfft; /* scratch*/
 
     if ( lenmem==NULL ) {
