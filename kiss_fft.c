@@ -169,37 +169,50 @@ void bfly3(
         int m
         )
 {
-    const int p=3;
-    int u,k,q1,q;
+    kiss_fft_cpx *Fout0,*Fout1,*Fout2;
+    
+    int u;
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
-    kiss_fft_cpx t;
+    kiss_fft_cpx t[6];
+    //kiss_fft_cpx epi3 =  twiddles[fstride*m];
+    kiss_fft_cpx epi3 = { -0.500000000000000 , -0.866025403784439 };
+    kiss_fft_cpx nepi3 = { -0.500000000000000 , 0.866025403784439 };
+    if ( st->inverse){
+        epi3.i *=-1;
+        nepi3.i *=-1;
+    }
 
+    //printf("epi3=%e,%ei\n",epi3.r,epi3.i);
     for ( u=0; u<m; ++u ) {
-        k=u;
-        for ( q1=0 ; q1<p ; ++q1 ) {
-            scratch[q1] = Fout[ k  ];
-#ifdef FIXED_POINT
-            scratch[q1].r /= p;
-            scratch[q1].i /= p;
-#endif            
-            k += m;
-        }
 
-        k=u;
-        for ( q1=0 ; q1<p ; ++q1 ) {
-            int twidx=0;
-            Fout[ k ] = scratch[0];
-            for (q=1;q<p;++q ) {
-                int Norig = st->nfft;
-                twidx += fstride * k;
-                if (twidx>=Norig) twidx-=Norig;
-                C_MUL(t,scratch[q] , twiddles[twidx] );
-                Fout[ k ].r += t.r;
-                Fout[ k ].i += t.i;
-            }
-            k += m;
-        }
+        Fout0=Fout++;
+        Fout1=Fout0+m;
+        Fout2=Fout0+2*m;
+        scratch[0] = *Fout0;
+        scratch[1] = *Fout1;
+        scratch[2] = *Fout2;
+
+        // st->nfft = 3*m*fstride 
+        // u < m
+        C_MUL(t[0],scratch[1] , twiddles[fstride*u    ] ); 
+        //C_MUL(t[2],scratch[1] , twiddles[fstride*u+fstride*m] );
+        C_MUL(t[2],t[0] ,  epi3 );
+        //C_MUL(t[4],scratch[1] , twiddles[fstride*u+2*fstride*m] );
+        C_MUL(t[4],t[2] , epi3);
+
+        C_MUL(t[1],scratch[2] , twiddles[fstride*u*2] );
+        //C_MUL(t[3],scratch[2] , twiddles[(fstride*(u+m)*2)%st->nfft] );
+        C_MUL(t[3],t[1] , nepi3);
+        //C_MUL(t[5],scratch[2] , twiddles[(fstride*(u+2*m)*2)%st->nfft] );
+        C_MUL(t[5],t[3] , nepi3);
+
+        Fout0->r = scratch[0].r + t[0].r + t[1].r;
+        Fout0->i = scratch[0].i + t[0].i + t[1].i;
+        Fout1->r = scratch[0].r + t[2].r + t[3].r;
+        Fout1->i = scratch[0].i + t[2].i + t[3].i;
+        Fout2->r = scratch[0].r + t[4].r + t[5].r;
+        Fout2->i = scratch[0].i + t[4].i + t[5].i;
     }
 }
 
