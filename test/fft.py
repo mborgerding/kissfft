@@ -148,9 +148,11 @@ def randmat( ndims ):
 def test_fftnd(ndims=3):
     import FFT
     import Numeric
+    random.seed(2)
 
     x=randmat( ndims )
     print 'dimensions=%s' % str( Numeric.shape(x) )
+    #print 'x=%s' %str(x)
     xver = FFT.fftnd(x)
     x2=myfftnd(x)
     err = xver - x2
@@ -158,7 +160,11 @@ def test_fftnd(ndims=3):
     xverf = flatten(xver)
     errpow = Numeric.vdot(errf,errf)+1e-10
     sigpow = Numeric.vdot(xverf,xverf)+1e-10
-    print 'SNR=%sdB' % str(10*math.log10(abs(sigpow/errpow) ) )
+    snr = 10*math.log10(abs(sigpow/errpow) )
+    if snr<80:
+        print xver
+        print x2
+    print 'SNR=%sdB' % str( snr )
  
 def myfftnd(x):
     import Numeric
@@ -168,20 +174,41 @@ def myfftnd(x):
 
 def fftndwork(x,dims):
     import Numeric
-    if len(dims)==1:
-        return fft(x,0)
-    else:
-        samples_per_chunk = Numeric.product( dims[1:] )
-        precomp = [ ]
-        curfftlen = dims[ 0 ]
-        for i in range( curfftlen ):
-            xslice = x[ i*samples_per_chunk : (i+1)*samples_per_chunk ]
-            precomp.extend( fftndwork( xslice,dims[1:] ) )
-        xout = [ complex(0,0) ] * samples_per_chunk * dims[0]
-        for i in range( samples_per_chunk ):
-            pfx = fft( precomp[ i::samples_per_chunk ],0 )
-            xout[ i::samples_per_chunk ] = pfx
-        return xout
+    kk=1
+    for k in range( len(dims) ):
+        d=dims[ k ]
+        g=Numeric.product( dims ) / d
+        #print 'dimension %d==%d, g=%d' % ( k ,d,g )
+        #print 'x=%s' % str(x)
+        next_stage = []
+        chunk = 0
+        for ii in range(kk):
+            start = ii*d*g
+            for i in range(start,start+g):
+                xslice = x[i:(i+d)*g:g]
+                if len(xslice) != d:
+                    print 'len(xslice)= %d' % len(xslice)
+                    sys.exit(0)
+
+                fxslice = fft(xslice,0)
+                #print 'fft( x[%d:%d:%d] ) ' %( i,(i+d)*g,g),
+                #print 'fft( %s ) == %s ' % (str(xslice),str(fxslice))
+                next_stage.extend( fxslice )
+        if  len(next_stage) != len(x):
+            print 'len(next_stage)= %d' % len(next_stage)
+            sys.exit(1)
+
+        #kk *= d
+        #print 'next_stage=%s' % str(next_stage)
+        x = next_stage[:]
+    return x
 
 if __name__ == "__main__":
-    main()
+    try:
+        nd = int(sys.argv[1])
+    except:
+        nd=None
+    if nd:    
+        test_fftnd( nd )
+    else:    
+        sys.exit(0)
