@@ -127,8 +127,8 @@ void bfly4(
         )
 {
     kiss_fft_cpx *Fout1,*Fout2,*Fout3;
-    kiss_fft_cpx t1,t2,t3;
     kiss_fft_cpx *tw1,*tw2,*tw3;
+    kiss_fft_cpx scratch[6];
 
     Fout1 = Fout + m;
     Fout2 = Fout + 2*m;
@@ -138,34 +138,30 @@ void bfly4(
     do {
         C_FIXDIV(*Fout,4); C_FIXDIV(*Fout1,4); C_FIXDIV(*Fout2,4); C_FIXDIV(*Fout3,4);
 
-        C_MUL(t1,*Fout1 , *tw1 );
+        C_MUL(scratch[0],*Fout1 , *tw1 );
+        C_MUL(scratch[1],*Fout2 , *tw2 );
+        C_MUL(scratch[2],*Fout3 , *tw3 );
+
+        C_SUB( scratch[5] , *Fout, scratch[1] );
+        C_ADDTO(*Fout, scratch[1]);
+        C_ADD( scratch[3] , scratch[0] , scratch[2] );
+        C_SUB( scratch[4] , scratch[0] , scratch[2] );
+        C_SUB( *Fout2, *Fout, scratch[3] );
         tw1 += fstride;
-        C_MUL(t2,*Fout2 , *tw2 );
         tw2 += fstride*2;
-        C_MUL(t3,*Fout3 , *tw3 );
         tw3 += fstride*3;
-
-        *Fout3 = *Fout2 = *Fout1 = *Fout;
-
-        C_ADDTO(*Fout,t1);
-        C_ADDTO(*Fout,t2);
-        C_ADDTO(*Fout,t3);
-        C_SUBFROM(*Fout2,t3);
-        C_SUBFROM(*Fout2,t1); 
-        C_ADDTO(  *Fout2,t2);
-        C_SUBFROM(*Fout3,t2);
-        C_SUBFROM(*Fout1,t2);
+        C_ADDTO( *Fout , scratch[3] );
 
         if(st->inverse) {
-            C_ROTADDTO(*Fout1,t1,3);
-            C_ROTADDTO(*Fout1,t3,1);
-            C_ROTADDTO(*Fout3,t1,1);
-            C_ROTADDTO(*Fout3,t3,3);
+            Fout1->r = scratch[5].r - scratch[4].i;
+            Fout1->i = scratch[5].i + scratch[4].r;
+            Fout3->r = scratch[5].r + scratch[4].i;
+            Fout3->i = scratch[5].i - scratch[4].r;
         }else{
-            C_ROTADDTO(*Fout1,t1,1);
-            C_ROTADDTO(*Fout1,t3,3);
-            C_ROTADDTO(*Fout3,t1,3);
-            C_ROTADDTO(*Fout3,t3,1);
+            Fout1->r = scratch[5].r + scratch[4].i;
+            Fout1->i = scratch[5].i - scratch[4].r;
+            Fout3->r = scratch[5].r - scratch[4].i;
+            Fout3->i = scratch[5].i + scratch[4].r;
         }
         ++Fout; ++Fout1; ++Fout2; ++Fout3;
     }while(--m);
@@ -277,9 +273,7 @@ void fft_work(
 
     switch (p) {
         case 2: bfly2(Fout,fstride,st,m); break;
-#if 1                
         case 3: bfly3(Fout,fstride,st,m); break;
-#endif
         case 4: bfly4(Fout,fstride,st,m); break;
         default: bfly_generic(Fout,fstride,st,m,p); break;
     }

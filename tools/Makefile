@@ -46,7 +46,7 @@ time: all $(RANDDAT)
 POW2=256 512 1024 2048
 POW3=243 729 2187
 mtime: all
-	@for n in $(POW3) ;do \
+	@for n in $(POW2) ;do \
 		export NFFT=$$n;make time; \
 		done
 
