@@ -84,15 +84,6 @@ kiss_fft_cpx kf_cexp(double phase) /* returns e ** (j*phase)   */
     return x;
 }
 
-void kf_work(
-        kiss_fft_cpx * Fout,
-        const kiss_fft_cpx * f,
-        int fstride,
-        int in_skip,
-        int * factors,
-        const kiss_fft_state * st
-        );
-
 /* a debugging function */
 #define pcpx(c)\
     fprintf(stderr,"%g + %gi\n",(double)((c)->r),(double)((c)->i) )

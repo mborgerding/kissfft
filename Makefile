@@ -29,6 +29,10 @@ dist: tarball
 
 upload: dist
 	ncftpput upload.sourceforge.net incoming $(ZIPFILE) $(TARBALL)
-	
-asm:
+
+asm: kiss_fft.s
+
+kiss_fft.s: kiss_fft.c kiss_fft.h _kiss_fft_guts.h
+	[ -e kiss_fft.s ] && mv kiss_fft.s kiss_fft.s~ || true
 	gcc -S kiss_fft.c -O3 -march=pentiumpro -ffast-math -fomit-frame-pointer -dA -fverbose-asm 
+	[ -e kiss_fft.s~ ] && diff kiss_fft.s~ kiss_fft.s || true
