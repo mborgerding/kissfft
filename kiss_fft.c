@@ -168,22 +168,33 @@ void fft_work(int N,kiss_fft_cpx *f,const kiss_fft_cpx * twid,int twid_step)
 }
 
 
+/*      
+ *      void * kiss_fft_alloc(int nfft,int inverse_fft)
+ *      
+ * User-callable function to allocate all necessary scratch space for the fft.
+ *
+ * The return value is a contiguous block of memory, allocated with malloc.  As such,
+ * It can be freed with free(), rather than a kiss_fft-specific function.
+ * */
 void * kiss_fft_alloc(int nfft,int inverse_fft)
 {
     kiss_fft_state * st=NULL;
-    // allocate one large buffer to hold the state and the buffers for twiddles and bit-rev indices
-    int size = sizeof(kiss_fft_state) + (nfft>>1)*sizeof(kiss_fft_cpx) + nfft*sizeof(int);
+    // allocate one large buffer to hold the state, twiddle buffers, and bit-rev indices
+    int size = sizeof(kiss_fft_state) + (nfft>>1)*sizeof(kiss_fft_cpx) + (nfft>>1)*sizeof(int);
 
     st = ( kiss_fft_state *)malloc(size);
-    if (st) { 
-        st->twiddle = (kiss_fft_cpx*)(st+1);
-        st->swap_indices = (int*)( st->twiddle + (nfft>>1) );
+    if (st) {
+        st->twiddle = (kiss_fft_cpx*)(st+1); // pointer just beyond the kiss_fft_state struct
+        st->swap_indices = (int*)( st->twiddle + (nfft>>1) );// pointer just beyond the twiddle buffer
         st->nfft = nfft;
+        // initialize the twiddle factors
         make_twiddles(st->twiddle,nfft,inverse_fft);
+        // create list of index-swaps
         st->nswap = make_bit_reverse_indices(st->swap_indices,nfft);
     }
     return st;
 }
+
 
 void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
@@ -191,73 +202,3 @@ void kiss_fft(const void * cfg,kiss_fft_cpx *f)
     fft_work(st->nfft, f, st->twiddle , 1 );
     undo_bit_rev(f,st->swap_indices,st->nswap);
 }
-
-#ifdef FFT_UTIL
-
-#include <stdio.h>
-#include <string.h>
-
-int main(int argc,char ** argv)
-{
-    kiss_fft_cpx * buf=NULL;
-    void *st;
-    int nfft=1024;
-    int inverse_fft=0;
-    int scale=0;
-    kiss_fft_cpx scaling;
-
-    fprintf(stderr,"sizeof(kiss_fft_cpx) == %d\n",sizeof(kiss_fft_cpx) );
-    
-    // parse args
-    while (argc>1 && argv[1][0]=='-'){
-        if (0==strcmp("-i",argv[1])) {
-            inverse_fft = 1;
-        }else if(0==strcmp("-s",argv[1])) {
-            scale = 1;
-        }
-        --argc;++argv;
-    }
-    if (argc>1) {
-        nfft = atoi(argv[1]);
-    }
-
-    // do we need to scale?
-    if (scale) {
-#ifdef FIXED_POINT
-        if ( ! inverse_fft ) {
-            scaling.r = nfft;
-            scaling.i = nfft;
-            fprintf(stderr,"scaling by %d\n",scaling.r);
-        }
-#else
-        if (inverse_fft ){
-            scaling.r = 1.0/nfft;
-            scaling.i = 1.0/nfft;
-            fprintf(stderr,"scaling by %e\n",scaling.r);
-        }
-#endif
-        else
-            scale = 0; // no need
-    }
-
-    buf=(kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx) * nfft );
-    st = kiss_fft_alloc( nfft ,inverse_fft );
-    while ( fread( buf , sizeof(kiss_fft_cpx) , nfft , stdin ) > 0 ) {
-        kiss_fft( st , buf );
-        if (scale) {
-            int k;
-            for (k=0;k<nfft;++k) {
-                buf[k].r = buf[k].r * scaling.r;
-                buf[k].i = buf[k].i * scaling.i;
-            }
-        }
-        fwrite( buf , sizeof(kiss_fft_cpx) , nfft , stdout );
-    }
-
-    free(st);
-    free(buf);
-
-    return 0;
-}
-
-#endif

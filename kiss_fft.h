@@ -32,15 +32,15 @@ void* kiss_fft_alloc(int nfft,int inverse_fft);
 // free() the state when done using it
 
 /*
- * kiss_fft
+ * kiss_fft(cfg,in_out_buf)
  *
  * Perform an in-place FFT on a complex input buffer.
- *
- * the input buffer should be real(f[0]) , imag(f[0]), ... ,real(f[nfft-1]) , imag(f[nfft-1])
- * the the output will be     real(F[0]) , imag(F[0]), ... ,real(F[nfft-1]) , imag(F[nfft-1])
- *
+ * for a forward FFT,
+ * the input should be  f[0] , f[1] , ... ,f[nfft-1]
+ * the output will be   F[0] , F[1] , ... ,F[nfft-1]
+ * Note that each element is complex.
  * */
-void kiss_fft( const void* cfg , kiss_fft_cpx *f ); // call for each buffer 
+void kiss_fft( const void* cfg_from_alloc , kiss_fft_cpx *f ); // call for each buffer 
 
 // when done with the cfg for a given fft size and direction, simply free it
 #define kiss_fft_free free
