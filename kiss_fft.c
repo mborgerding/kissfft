@@ -292,7 +292,7 @@ void bfly_generic(
     kiss_fft_cpx * scratch2 = scratch + p;
     kiss_fft_cpx * tw = st->twiddles;
     kiss_fft_cpx tlo,t3,t4;
-    kiss_fft_cpx *Foutlo,*Fouthi,*tw2;
+    kiss_fft_cpx *Foutlo,*Fouthi;
 
     fsm = fstride*m;
     halfp=p/2;
@@ -315,7 +315,6 @@ void bfly_generic(
         scratch2 = scratch + p;
         uf=u*fstride;
 
-        /* d==0 */
         Foutlo=Fout;
         for ( q=1 ; q<p ; ++q ) {
             Foutlo += m;
@@ -325,13 +324,11 @@ void bfly_generic(
         
         for ( q=1; q<p ; ++q ) {
             C_ADDTO(*Fout , scratch[q] );
-            Foutlo=Fout;
-            Fouthi=Fout + mp;
+            Foutlo=Fout+m;
+            Fouthi=Fout+mp;
 
-            for ( d=1; d<=halfp;++d) {
+            do{
                 tlo = *scratch2++;
-
-                Foutlo += m;
 
                 t3.r = scratch[q].r * tlo.r;
                 t3.i = scratch[q].r * tlo.i;
@@ -341,10 +338,10 @@ void bfly_generic(
                 Fouthi -= m;
 
                 Foutlo->r += t3.r - t4.r;
-                Fouthi->r += t3.r + t4.r;
                 Foutlo->i += t3.i - t4.i;
+                Fouthi->r += t3.r + t4.r;
                 Fouthi->i -= t3.i + t4.i;
-            }
+            }while( (Foutlo += m) < Fouthi );
         }
         ++Fout;
     }
@@ -372,7 +369,7 @@ void fft_work(
 
     switch (p) {
         case 2: bfly2(Fout,fstride,st,m); break;
-#if 0                
+#if 1
         case 3: bfly3(Fout,fstride,st,m); break;
 #endif                
         case 4: bfly4(Fout,fstride,st,m); break;
