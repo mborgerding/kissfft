@@ -1,3 +1,9 @@
+1.0
+    changed kiss_fft function from using a single buffer, to two buffers.
+    If the same buffer pointer is supplied for both in and out, kiss will
+    manage the buffer copies.
+
+
 
 
 0.4 : optimized for radix 2,3,4,5

@@ -12,78 +12,9 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <memory.h>
+#include "_kiss_fft_guts.h"
 
-/* kiss_fft.h
-   defines kiss_fft_scalar as either short or a float type
-   and defines
-   typedef struct { kiss_fft_scalar r; kiss_fft_scalar i; }kiss_fft_cpx; */
-#include "kiss_fft.h"
-
-typedef struct {
-    int nfft;
-    int inverse;
-    int *factors;
-    kiss_fft_cpx * twiddles;
-    kiss_fft_cpx * tmpbuf;
-    kiss_fft_cpx * scratch;
-}kiss_fft_state;
-
-typedef struct {
-    int minus2; /*signify a 2-d transform*/
-    kiss_fft_state * rowst;
-    kiss_fft_state * colst;
-    kiss_fft_cpx * tmpbuf;
-}kiss_fft2d_state;
-
-
-/*
-  Explanation of macros dealing with complex math:
-
-   C_MUL(m,a,b)         : m = a*b
-   C_FIXDIV( c , div )  : if a fixed point impl., c /= div. noop otherwise
-   C_SUB( res, a,b)     : res = a - b
-   C_SUBFROM( res , a)  : res -= a
-   C_ADDTO( res , a)    : res += a
- * */
-#ifdef FIXED_POINT
-#   define S_MUL(a,b) ( ( (a)*(b) + (1<<14) )>>15 )
-#   define C_MUL(m,a,b) \
-      do{ (m).r = ( ( (a).r*(b).r - (a).i*(b).i)  + (1<<14) ) >> 15;\
-          (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (1<<14) ) >> 15;\
-      }while(0)
-#   define C_FIXDIV(c,div) \
-    do{ (c).r /= div; (c).i /=div; }while(0)
-
-#   define C_MULBYSCALAR( c, s ) \
-    do{ (c).r = ( ( (c).r*(s) ) + (1<<14) ) >> 15;\
-        (c).i = ( ( (c).i*(s) ) + (1<<14) ) >> 15; }while(0)
-
-#else  /* not FIXED_POINT*/
-
-#   define S_MUL(a,b) ( (a)*(b) )
-#define C_MUL(m,a,b) \
-    do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
-        (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
-#   define C_FIXDIV(c,div) /* NOOP */
-#   define C_MULBYSCALAR( c, s ) \
-    do{ (c).r *= (s);\
-        (c).i *= (s); }while(0)
-#endif
-
-#define  C_ADD( res, a,b)\
-    do {    (res).r=(a).r+(b).r;  (res).i=(a).i+(b).i;  }while(0)
-#define  C_SUB( res, a,b)\
-    do {    (res).r=(a).r-(b).r;  (res).i=(a).i-(b).i;  }while(0)
-#define C_ADDTO( res , a)\
-    do {    (res).r += (a).r;  (res).i += (a).i;  }while(0)
-#define C_SUBFROM( res , a)\
-    do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
-
-kiss_fft_cpx cexp(double phase) /* returns e ** (j*phase)   */
+kiss_fft_cpx kf_cexp(double phase) /* returns e ** (j*phase)   */
 {
     kiss_fft_cpx x;
 #ifdef FIXED_POINT
@@ -96,8 +27,7 @@ kiss_fft_cpx cexp(double phase) /* returns e ** (j*phase)   */
     return x;
 }
 
-/* bfly2 is a optimization of bfly_generic for p==2 */
-void bfly2(
+static void kf_bfly2(
         kiss_fft_cpx * Fout,
         int fstride,
         const kiss_fft_state * st,
@@ -120,8 +50,7 @@ void bfly2(
     }while (--m);
 }
 
-/* bfly4 is a optimization of bfly_generic for p==4 */
-void bfly4(
+static void kf_bfly4(
         kiss_fft_cpx * Fout,
         int fstride,
         const kiss_fft_state * st,
@@ -169,8 +98,7 @@ void bfly4(
     }while(--m);
 }
 
-/* bfly3 is a optimization of bfly_generic for p==3 */
-void bfly3(
+static void kf_bfly3(
          kiss_fft_cpx * Fout,
          int fstride,
          const kiss_fft_state * st,
@@ -216,8 +144,7 @@ void bfly3(
      }while(--m);
 }
 
-/* bfly5 is a optimization of bfly_generic for p==5 */
-void bfly5(
+static void kf_bfly5(
         kiss_fft_cpx * Fout,
         int fstride,
         const kiss_fft_state * st,
@@ -279,7 +206,7 @@ void bfly5(
 }
 
 /* perform the butterfly for one stage of a mixed radix FFT */
-void bfly_generic(
+static void kf_bfly_generic(
         kiss_fft_cpx * Fout,
         int fstride,
         const kiss_fft_state * st,
@@ -316,7 +243,7 @@ void bfly_generic(
     }
 }
 
-void fft_work(
+void kf_work(
         kiss_fft_cpx * Fout,
         const kiss_fft_cpx * f,
         int fstride,
@@ -332,20 +259,20 @@ void fft_work(
         if (m==1)
             Fout[q] = *f;
         else
-            fft_work( Fout + m*q, f, fstride*p,factors,st);
+            kf_work( Fout + m*q, f, fstride*p,factors,st);
         f += fstride;
     }
 
     switch (p) {
-        case 2: bfly2(Fout,fstride,st,m); break;
-        case 3: bfly3(Fout,fstride,st,m); break;
-        case 4: bfly4(Fout,fstride,st,m); break;
-        case 5: bfly5(Fout,fstride,st,m); break;
-        default: bfly_generic(Fout,fstride,st,m,p); break;
+        case 2: kf_bfly2(Fout,fstride,st,m); break;
+        case 3: kf_bfly3(Fout,fstride,st,m); break; 
+        case 4: kf_bfly4(Fout,fstride,st,m); break;
+        case 5: kf_bfly5(Fout,fstride,st,m); break; 
+        default: kf_bfly_generic(Fout,fstride,st,m,p); break;
     }
 }
 
-int allocsize(int nfft)
+int kf_allocsize(int nfft)
 {
     int allocsize =  sizeof(kiss_fft_state)
         + sizeof(kiss_fft_cpx)*nfft /* twiddle factors*/
@@ -355,47 +282,33 @@ int allocsize(int nfft)
     return allocsize;
 }
 
-/*  factors out powers of 4, powers of 2, then any remaining primes 
- 
-    facbuf is populated by p1,m1,p2,m2, ...
-
+/*  facbuf is populated by p1,m1,p2,m2, ...
     where 
     p[i] * m[i] = m[i-1]
-    m0 = n
- 
- *  */
-
-void factor(int n,int * facbuf)
+    m0 = n                  */
+void kf_factor(int n,int * facbuf)
 {
-    int p;
+    int p=4;
+    int floor_sqrt = floor (sqrt (n));
 
-    while ( n>1 && (n&1) == 0) {
-        if ( (n&3) == 0) 
-            p=4;
-        else
-            p=2;
+    /*factor out powers of 4, powers of 2, then any remaining primes */
+    do {
+        while (n % p) {
+            switch (p) {
+                case 4: p = 2; break;
+                case 2: p = 3; break;
+                default: p += 2; break;
+            }
+            if (p > floor_sqrt)
+                p = n;          /* no more factors, skip to end */
+        }
         n /= p;
         *facbuf++ = p;
         *facbuf++ = n;
-    }
-
-    if (n>1) {
-        int floor_sqrt = floor( sqrt( n ) );
-        p=3;
-        do{
-            while (n%p) {
-                p += 2;
-                if ( p>floor_sqrt )
-                    p=n;/* no more factors, skip to end*/
-            }
-            n /= p;
-            *facbuf++ = p;
-            *facbuf++ = n;
-        }while ( n >1);
-    }
+    } while (n > 1);
 }
 
-void init_state(kiss_fft_state * st,int nfft,int inverse_fft)
+void kf_init_state(kiss_fft_state * st,int nfft,int inverse_fft)
 {
     int i;
     st->nfft=nfft;
@@ -410,10 +323,10 @@ void init_state(kiss_fft_state * st,int nfft,int inverse_fft)
         double phase = ( -2*pi /nfft ) * i;
         if (st->inverse)
             phase *= -1;
-        st->twiddles[i] = cexp( phase );
+        st->twiddles[i] = kf_cexp( phase );
     }
 
-    factor(nfft,st->factors);
+    kf_factor(nfft,st->factors);
 }
 
 /*
@@ -428,77 +341,28 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
 {
     kiss_fft_state * st=NULL;
 
-    st = ( kiss_fft_state *)malloc( allocsize(nfft) );
+    st = ( kiss_fft_state *)malloc( kf_allocsize(nfft) );
     if (!st)
         return NULL;
-    init_state( st ,nfft,inverse_fft );
+    kf_init_state( st ,nfft,inverse_fft );
     return st;
 }
 
-void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft)
-{
-    kiss_fft2d_state *st = NULL;
-    int size1,size2,sizetmp;
-    size1 = allocsize(ncols);
-    size2 = allocsize(nrows);
-    sizetmp = sizeof(kiss_fft_cpx)*(ncols > nrows ? ncols : nrows);
-
-    st = (kiss_fft2d_state *) malloc ( sizeof(kiss_fft2d_state) + size1 + size2 + sizetmp );
-    if (!st)
-        return NULL;
-
-    st->minus2 = -2;
-    st->rowst = (kiss_fft_state *)(st+1); /*just beyond kiss_fft2d_state struct */
-    st->colst = (kiss_fft_state *)( (char*)(st->rowst) + size1 );
-    st->tmpbuf = (kiss_fft_cpx *)( (char*)(st->rowst) + size1 + size2 );
-    init_state (st->rowst, ncols, inverse_fft);
-    init_state (st->colst, nrows, inverse_fft);
-    return st;
-}
-
-void kiss_fft2d(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
-{
-    /* input buffer fin is stored row-wise */
-    kiss_fft2d_state *st = ( kiss_fft2d_state *)cfg;
-    int row,col;
-    int nrows,ncols;
-    nrows = st->colst->nfft;
-    ncols = st->rowst->nfft;
-
-    /*fft each column*/
-    for (col=0;col<ncols;++col) {
-        for (row=0;row< nrows ;++row)
-            st->tmpbuf[row] = fin[row*ncols + col];
-        kiss_fft(st->colst,st->tmpbuf);
-        for (row=0;row< nrows ;++row) {
-            fout[row*ncols + col] = st->tmpbuf[row];
-        }
-    }
-
-    /*fft each row */
-    for (row=0;row< nrows ;++row)
-        kiss_fft(st->rowst , fout + row*ncols );
-}
-
-/* original form of processing function, first release of KISS FFT was in-place.  This maintains API. */
-void kiss_fft(const void * cfg,kiss_fft_cpx *f)
+void kiss_fft(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 {
     const kiss_fft_state * st = cfg;
     if (st->nfft < 0) {
-        kiss_fft2d(cfg,f,f);
-    }else{
-        memcpy(st->tmpbuf,f,sizeof(kiss_fft_cpx)*st->nfft);
-        fft_work( f, st->tmpbuf, 1, st->factors,st );
+        fprintf(stderr,"usage error: invalid kiss_fft_state. make sure the correct kiss_fft_alloc routine was used.\n");
+        exit(1);
     }
+
+    if (fin == fout) {
+        memcpy(st->tmpbuf,fin,sizeof(kiss_fft_cpx)*st->nfft);
+        fin = st->tmpbuf;
+    }
+
+    kf_work( fout, fin, 1, st->factors,st );
 }
 
-/* two buffer version of above */
-void kiss_fft_io(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
-{
-    const kiss_fft_state * st = cfg;
-    if (st->nfft < 0) {
-        kiss_fft2d(cfg,fin,fout);
-    }else{
-        fft_work( fout, fin, 1, st->factors,st );
-    }
-}
+
+

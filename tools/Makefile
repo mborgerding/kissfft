@@ -20,9 +20,12 @@ else
  TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
 endif
 
-CFLAGS=-Wall -O3 -ansi -pedantic
-$(UTIL): ../kiss_fft.c fftutil.c 
-	gcc -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) ../kiss_fft.c fftutil.c -lm
+CFLAGS=-Wall -O3 -ansi -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer
+# If the above flags do not work, try the following
+#CFLAGS=-Wall -O3 -ansi -pedantic
+
+$(UTIL): ../kiss_fft.c ../kiss_fft2d.c fftutil.c
+	gcc -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) ../kiss_fft.c ../kiss_fft2d.c fftutil.c -lm
 
 $(BENCHKISS): benchkiss.c ../kiss_fft.c pstats.c
 	gcc -o $@ $(CFLAGS) -I.. benchkiss.c $(TYPEFLAGS) ../kiss_fft.c pstats.c -lm 

@@ -45,7 +45,7 @@ int main(int argc,char ** argv)
     st = kiss_fft_alloc( nfft ,isinverse );
 
     for (i=0;i<numffts;++i)
-        kiss_fft_io( st ,buf,bufout );
+        kiss_fft( st ,buf,bufout );
 
     free(st);
 

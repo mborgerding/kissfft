@@ -43,7 +43,7 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int nrows,int isinverse,int useasc
 
     while ( fread( buf , sizeof(kiss_fft_cpx) * nfft * nrows ,1, fin ) > 0 ) {
         for (i=0;i<times;++i)
-            kiss_fft_io( st , buf ,bufout);
+            kiss_fft( st , buf ,bufout);
         if (useascii) {
             int i;
             for (i=0;i<nfft*nrows;++i) 
