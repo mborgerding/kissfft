@@ -40,7 +40,6 @@ typedef struct {
    C_SUB( res, a,b)     : res = a - b 
    C_SUBFROM( res , a)  : res -= a
    C_ADDTO( res , a)    : res += a
-   C_ROTADDTO(sum,c,q)  : sum += c * exp(-j*q*pi/4)
  * */
 #ifdef FIXED_POINT
 
@@ -74,13 +73,6 @@ typedef struct {
     do {    (res).r += (a).r;  (res).i += (a).i;  }while(0)
 #define C_SUBFROM( res , a)\
     do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
-#define C_ROTADDTO(sum,c,q) \
-    do{ switch (q) {\
-            case 0: C_ADDTO(sum,c); break;\
-            case 1: (sum).r += (c).i; (sum).i -= (c).r; break;\
-            case 2: C_SUBFROM(sum,c); break;\
-            case 3: (sum).r -= (c).i; (sum).i += (c).r; break;\
-        } }while(0) 
 
 kiss_fft_cpx cexp(double phase)
 {
@@ -108,9 +100,10 @@ void bfly2(
     kiss_fft_cpx t;
     Fout2 = Fout + m;
     do{
+        C_FIXDIV(*Fout,2); C_FIXDIV(*Fout2,2);
+
         C_MUL (t,  *Fout2 , *tw1);
         tw1 += fstride;
-        C_FIXDIV(*Fout,2); C_FIXDIV(t,2);
         C_SUB( *Fout2 ,  *Fout , t );
         C_ADDTO( *Fout ,  t );
         ++Fout2;
