@@ -142,6 +142,12 @@ void * kiss_fastfir_alloc(const kffsamp_t * imp_resp,size_t n_imp_resp,
         st->fir_freq_resp[i].i *= scale;
     }
 
+    fprintf(stderr,
+            "nfft==%d\n"
+            "n_scrap==%d\n"
+            "output on %d+k*%d\n"
+            "\n" ,st->nfft, st->n_scrap ,st->nfft,st->nfft-n_imp_resp+1 );
+
     return st;
 }
 
@@ -151,6 +157,9 @@ size_t write_output(kiss_fastfir_state *st,
 {
     size_t nout = *pnout;
     size_t n2flush = st->nfft - st->bufout_idx;
+    if (nout==0)
+        return 0;
+
     if (zpadded)
         n2flush -= zpadded;
     if ( nout < n2flush )
@@ -166,8 +175,11 @@ static void do_fastconv(kiss_fastfir_state *st)
     int i;
     if ( st->bufout_idx < st->nfft ) {
         fprintf(stderr,"kiss_fastfir warning: "
-                " output buffer size must be >= input buffer size,"
+                " output buffer size must be > input buffer size,"
                 " %d samples lost\n",st->nfft - st->bufout_idx );
+        fprintf(stderr,"bufin_idx = %d\n",st->bufin_idx);
+        fprintf(stderr,"bufout_idx = %d\n",st->bufout_idx);
+        exit(1);
     }
     /*FFT st->bufin to st->tmpbuf*/
     FFTFWD(st->fftcfg,st->bufin,st->tmpbuf);
@@ -203,24 +215,30 @@ size_t kiss_fastfir(const void * cfg,
 
     out += write_output(st,out,&nout_avail,0);
 
-    if ( nin <= 0 ) {
+    if ( nin <= 0 && st->bufin_idx > st->n_scrap ) {
         size_t zero_pad = st->nfft - st->bufin_idx;
-        memset( st->bufin + st->bufin_idx, 0, zero_pad*sizeof(kiss_fft_cpx) );
+        memset( st->bufin + st->bufin_idx, 0, zero_pad*sizeof(kffsamp_t) );
         st->bufin_idx = st->nfft;
         do_fastconv(st);
+        if (zero_pad) {
+            int i;
+            for ( i=st->nfft-1; i>=zero_pad; --i )
+                st->bufout[i] = st->bufout[i-zero_pad];
+            st->bufout_idx += zero_pad;
+        }
         fprintf(stderr,"padded with %d zeros\n",zero_pad);
-        return write_output(st,out,&nout_avail,zero_pad);
-    }
-    
-    while (nin--) {
-        /* copy the input sample to bufin*/
-        st->bufin[st->bufin_idx++] = *in++;
+        out += write_output(st,out,&nout_avail,0);
+    }else {
+        while (nin--) {
+            /* copy the input sample to bufin*/
+            st->bufin[st->bufin_idx++] = *in++;
 
-        /* when the input buffer is full, perform fast convolution*/
-        if ( st->bufin_idx == st->nfft ) {
-            do_fastconv(st);
-            /* write the output buffer*/
-            out += write_output(st,out,&nout_avail,0);
+            /* when the input buffer is full, perform fast convolution*/
+            if ( st->bufin_idx == st->nfft ) {
+                do_fastconv(st);
+                /* write the output buffer*/
+                out += write_output(st,out,&nout_avail,0);
+            }
         }
     }
     return nout_orig - nout_avail;
@@ -238,17 +256,25 @@ void do_filter(
         size_t nfft)
 {
     void * cfg = kiss_fastfir_alloc(imp_resp,n_imp_resp,nfft,0,0);
-    kffsamp_t inbuf[BUFLEN],outbuf[BUFLEN];
+    kffsamp_t inbuf[BUFLEN],outbuf[BUFLEN+1];
     size_t ninbuf,noutbuf;
     do{
         ninbuf = fread(inbuf,sizeof(inbuf[0]),BUFLEN,fin );
         /* when ninbuf <= 0, that signals a flush*/
-        noutbuf = kiss_fastfir(cfg,inbuf,ninbuf,outbuf,BUFLEN);
+        noutbuf = kiss_fastfir(cfg,inbuf,ninbuf,outbuf,BUFLEN+1);
         if ( fwrite(outbuf,sizeof(outbuf[0]),noutbuf,fout) != noutbuf ) {
             fprintf(stderr,"short write\n");
             exit(1);
         }
     }while(ninbuf>0);
+    do{
+        noutbuf = kiss_fastfir(cfg,NULL,0,outbuf,BUFLEN);
+        if ( fwrite(outbuf,sizeof(outbuf[0]),noutbuf,fout) != noutbuf ) {
+            fprintf(stderr,"short write\n");
+            exit(1);
+        }
+    }while(noutbuf);
+
     fclose(fout);
     free(cfg);
 }
