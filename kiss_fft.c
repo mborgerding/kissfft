@@ -62,7 +62,6 @@ typedef struct {
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
-
 #endif
 
 #define  C_ADD( res, a,b)\
@@ -103,12 +102,12 @@ void bfly2(
         )
 {
     kiss_fft_cpx * Fout2;
-    kiss_fft_cpx * twiddles = st->twiddles;
+    kiss_fft_cpx * tw1 = st->twiddles;
     kiss_fft_cpx t;
     Fout2 = Fout + m;
     do{
-        C_MUL (t,  *Fout2 , *twiddles);
-        twiddles += fstride;
+        C_MUL (t,  *Fout2 , *tw1);
+        tw1 += fstride;
         C_FIXDIV(*Fout,2); C_FIXDIV(t,2);
         C_SUB( *Fout2 ,  *Fout , t );
         C_ADDTO( *Fout ,  t );
@@ -129,21 +128,24 @@ void bfly3(
     
     int u;
     kiss_fft_cpx * scratch = st->scratch;
-    kiss_fft_cpx * twiddles = st->twiddles;
+    kiss_fft_cpx *tw1,*tw2;
+    tw2 = tw1 = st->twiddles;
 
     Fout0=Fout;
     Fout1=Fout0+m;
     Fout2=Fout0+2*m;
 
-    scratch[3] = twiddles[ fstride*m ];
+    scratch[3] = st->twiddles[ fstride*m ];
 
     for ( u=0; u<m; ++u ) {
         C_FIXDIV(*Fout0,3);
         C_FIXDIV(*Fout1,3);
         C_FIXDIV(*Fout2,3);
         scratch[0] = *Fout0;
-        C_MUL(scratch[1],*Fout1 , twiddles[fstride*u    ] ); 
-        C_MUL(scratch[2],*Fout2 , twiddles[fstride*u*2] );
+        C_MUL(scratch[1],*Fout1 , *tw1 ); 
+        tw1 += fstride;
+        C_MUL(scratch[2],*Fout2 , *tw2 );
+        tw2 += 2*fstride;
         C_ADD(scratch[5],scratch[1],scratch[2]);
         C_SUB(scratch[6],scratch[1],scratch[2]);
         C_ADDTO(*Fout0,scratch[5]);
