@@ -44,21 +44,32 @@ def fastfilter(sig,h,nfft=None):
     return concatenate( res )
 
 def main():
-    siglen = 1e4
+    import sys
+    from getopt import getopt
+    opts,args = getopt(sys.argv[1:],'rn:l:')
+    opts=dict(opts)
+
+    siglen = int(opts.get('-l',1e4 ) )
     hlen = 50
-    nfft = 128
+ 
+    nfft = int(opts.get('-n',128) )
+    usereal = opts.has_key('-r')
+
     print 'nfft=%d'%nfft
     # make a signal
     sig = make_random( siglen )
     # make an impulse response
     h = make_random( hlen )
     #h=[1]*2+[0]*3
+    if usereal:
+        sig=[c.real for c in sig]
+        h=[c.real for c in h]
 
     # perform MAC filtering
     yslow = slowfilter(sig,h)
     #print '<YSLOW>',yslow,'</YSLOW>'
     #yfast = fastfilter(sig,h,nfft)
-    yfast = utilfastfilter(sig,h,nfft)
+    yfast = utilfastfilter(sig,h,nfft,usereal)
     #print yfast
     print 'len(yslow)=%d'%len(yslow)
     print 'len(yfast)=%d'%len(yfast)
@@ -69,16 +80,20 @@ def main():
         print yslow[:5]
         print yfast[:5]
 
-def utilfastfilter(sig,h,nfft):
+def utilfastfilter(sig,h,nfft,usereal):
     import compfft
     import os
-    open( 'sig.dat','w').write( compfft.dopack(sig,'f',1) )
-    open( 'h.dat','w').write( compfft.dopack(h,'f',1) )
-    cmd = './ff_float -n %d -i sig.dat -h h.dat -o out.dat' % nfft
+    open( 'sig.dat','w').write( compfft.dopack(sig,'f',not usereal) )
+    open( 'h.dat','w').write( compfft.dopack(h,'f',not usereal) )
+    if usereal: 
+        util = './ffr_float' 
+    else:
+        util = './ff_float'
+    cmd = 'time %s -n %d -i sig.dat -h h.dat -o out.dat' % (util, nfft)
     print cmd
     ec  = os.system(cmd)
     print 'exited->',ec
-    return compfft.dounpack(open('out.dat').read(),'f',1)
+    return compfft.dounpack(open('out.dat').read(),'f',not usereal)
 
 if __name__ == "__main__":
     main()

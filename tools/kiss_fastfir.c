@@ -14,12 +14,25 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 #include "_kiss_fft_guts.h"
 
-void * kiss_fastfir_alloc(const kiss_fft_cpx * imp_resp,size_t n_imp_resp,
+#ifdef REAL_FASTFIR
+#include "kiss_fftr.h"
+typedef kiss_fft_scalar kffsamp_t;
+#define FFT_ALLOC kiss_fftr_alloc
+#define FFTFWD kiss_fftr
+#define FFTINV kiss_fftri
+#else
+typedef kiss_fft_cpx kffsamp_t;
+#define FFT_ALLOC kiss_fft_alloc
+#define FFTFWD kiss_fft
+#define FFTINV kiss_fft
+#endif
+
+void * kiss_fastfir_alloc(const kffsamp_t * imp_resp,size_t n_imp_resp,
         int nfft,void * mem,size_t*lenmem);
 
 size_t kiss_fastfir(const void * cfg,
-        const kiss_fft_cpx *in, size_t nin,
-        kiss_fft_cpx *out, size_t nout);
+        const kffsamp_t *in, size_t nin,
+        kffsamp_t *out, size_t nout);
 
 typedef struct {
     int minus5; /*magic */
@@ -28,15 +41,16 @@ typedef struct {
     void * fftcfg;
     void * ifftcfg;
     kiss_fft_cpx * fir_freq_resp;
+    size_t n_freq_bins;
     size_t bufin_idx;
-    kiss_fft_cpx * bufin;
+    kffsamp_t * bufin;
     size_t bufout_idx;
-    kiss_fft_cpx * bufout;
+    kffsamp_t * bufout;
     kiss_fft_cpx * tmpbuf;
 }kiss_fastfir_state;
 
 
-void * kiss_fastfir_alloc(const kiss_fft_cpx * imp_resp,size_t n_imp_resp,
+void * kiss_fastfir_alloc(const kffsamp_t * imp_resp,size_t n_imp_resp,
         int nfft,void * mem,size_t*lenmem)
 {
     kiss_fastfir_state *st = NULL;
@@ -45,6 +59,7 @@ void * kiss_fastfir_alloc(const kiss_fft_cpx * imp_resp,size_t n_imp_resp,
     char * ptr;
     size_t i;
     float scale;
+    int n_freq_bins;
 
     if (nfft<=0) {
         /* determine fft size as next power of two at least 2x 
@@ -55,21 +70,27 @@ void * kiss_fastfir_alloc(const kiss_fft_cpx * imp_resp,size_t n_imp_resp,
              nfft<<=1;
         }while (i>>=1);
     }
+
+#ifdef REAL_FASTFIR
+    n_freq_bins = nfft/2 + 1;
+#else    
+    n_freq_bins = nfft;
+#endif
     /*fftcfg*/
-    kiss_fft_alloc (nfft, 0, NULL, &len_fftcfg);
+    FFT_ALLOC (nfft, 0, NULL, &len_fftcfg);
     memneeded += len_fftcfg;  
     /*ifftcfg*/
-    kiss_fft_alloc (nfft, 1, NULL, &len_ifftcfg);
+    FFT_ALLOC (nfft, 1, NULL, &len_ifftcfg);
     memneeded += len_ifftcfg;  
 
     /* fir_freq_resp */
-    memneeded += sizeof(kiss_fft_cpx) * nfft;
+    memneeded += sizeof(kiss_fft_cpx) * n_freq_bins;
     /* bufin */
-    memneeded += sizeof(kiss_fft_cpx) * nfft;
+    memneeded += sizeof(kffsamp_t) * nfft;
     /* bufout */
-    memneeded += sizeof(kiss_fft_cpx) * nfft;
+    memneeded += sizeof(kffsamp_t) * nfft;
     /* tmpbuf */
-    memneeded += sizeof(kiss_fft_cpx) * nfft;
+    memneeded += sizeof(kiss_fft_cpx) * n_freq_bins;
 
     if (lenmem == NULL) {
         st = (kiss_fastfir_state *) malloc (memneeded);
@@ -84,6 +105,7 @@ void * kiss_fastfir_alloc(const kiss_fft_cpx * imp_resp,size_t n_imp_resp,
     st->minus5 = -5;
     st->nfft = nfft;
     st->n_scrap = n_imp_resp-1;
+    st->n_freq_bins = n_freq_bins;
     st->bufin_idx = 0;
     st->bufout_idx = nfft;
     ptr=(char*)(st+1);
@@ -95,27 +117,27 @@ void * kiss_fastfir_alloc(const kiss_fft_cpx * imp_resp,size_t n_imp_resp,
     ptr += len_ifftcfg;
 
     st->fir_freq_resp = (kiss_fft_cpx*)ptr;
-    ptr += sizeof(kiss_fft_cpx) * nfft;
+    ptr += sizeof(kiss_fft_cpx) * n_freq_bins;
 
-    st->bufin = (kiss_fft_cpx*)ptr;
-    ptr += sizeof(kiss_fft_cpx) * nfft;
+    st->bufin = (kffsamp_t*)ptr;
+    ptr += sizeof(kffsamp_t) * nfft;
 
-    st->bufout = (kiss_fft_cpx*)ptr;
-    ptr += sizeof(kiss_fft_cpx) * nfft;
+    st->bufout = (kffsamp_t*)ptr;
+    ptr += sizeof(kffsamp_t) * nfft;
     
     st->tmpbuf = (kiss_fft_cpx*)ptr;
-    ptr += sizeof(kiss_fft_cpx) * nfft;
+    ptr += sizeof(kiss_fft_cpx) * n_freq_bins;
 
-    kiss_fft_alloc (nfft,0,st->fftcfg , &len_fftcfg);
-    kiss_fft_alloc (nfft,1,st->ifftcfg , &len_ifftcfg);
+    FFT_ALLOC (nfft,0,st->fftcfg , &len_fftcfg);
+    FFT_ALLOC (nfft,1,st->ifftcfg , &len_ifftcfg);
 
-    memset(st->fir_freq_resp,0,sizeof(kiss_fft_cpx)*nfft);
-    memcpy(st->fir_freq_resp,imp_resp,sizeof(kiss_fft_cpx)*n_imp_resp);
-    kiss_fft(st->fftcfg,st->fir_freq_resp,st->fir_freq_resp);
+    memset(st->bufin,0,sizeof(kffsamp_t)*nfft);
+    memcpy(st->bufin,imp_resp,sizeof(kffsamp_t)*n_imp_resp);
+    FFTFWD(st->fftcfg,st->bufin,st->fir_freq_resp);
 
     scale = 1.0 / st->nfft;
 
-    for (i=0;i < st->nfft;++i) {
+    for ( i=0; i < st->n_freq_bins; ++i ) {
         st->fir_freq_resp[i].r *= scale;
         st->fir_freq_resp[i].i *= scale;
     }
@@ -125,7 +147,7 @@ void * kiss_fastfir_alloc(const kiss_fft_cpx * imp_resp,size_t n_imp_resp,
 
 static
 size_t write_output(kiss_fastfir_state *st,
-        kiss_fft_cpx *out,size_t * pnout,size_t zpadded)
+        kffsamp_t *out,size_t * pnout,size_t zpadded)
 {
     size_t nout = *pnout;
     size_t n2flush = st->nfft - st->bufout_idx;
@@ -133,7 +155,7 @@ size_t write_output(kiss_fastfir_state *st,
         n2flush -= zpadded;
     if ( nout < n2flush )
         n2flush=nout;
-    memcpy(out,st->bufout + st->bufout_idx, sizeof(kiss_fft_cpx)*n2flush );
+    memcpy(out,st->bufout + st->bufout_idx, sizeof(kffsamp_t)*n2flush );
     st->bufout_idx += n2flush;
     *pnout = nout - n2flush;
     return n2flush;
@@ -147,31 +169,34 @@ static void do_fastconv(kiss_fastfir_state *st)
                 " output buffer size must be >= input buffer size,"
                 " %d samples lost\n",st->nfft - st->bufout_idx );
     }
-    //FFT st->bufin to st->bufout
-    kiss_fft(st->fftcfg,st->bufin,st->bufout);
+    /*FFT st->bufin to st->tmpbuf*/
+    FFTFWD(st->fftcfg,st->bufin,st->tmpbuf);
 
-    // shift tail to front of input buffer
+    /* shift tail to front of input buffer*/
     memcpy( st->bufin, 
             st->bufin + st->nfft - st->n_scrap,
             sizeof(kiss_fft_cpx)*st->n_scrap);
-    //set input idx to the next input spot
+    /*set input idx to the next input spot*/
     st->bufin_idx = st->n_scrap;
 
-    // multiply the frequency response of the input signal by
-    // that of the fir filter
-    for (i=0;i<st->nfft;++i)
-        C_MUL(st->tmpbuf[i],st->bufout[i],st->fir_freq_resp[i]);
+    /* multiply the frequency response of the input signal by*/
+    /* that of the fir filter*/
+    for ( i=0; i<st->n_freq_bins; ++i ) {
+        kiss_fft_cpx tmpsamp; 
+        C_MUL(tmpsamp,st->tmpbuf[i],st->fir_freq_resp[i]);
+        st->tmpbuf[i] = tmpsamp;
+    }
 
-    // perform the inverse fft
-    kiss_fft(st->ifftcfg,st->tmpbuf,st->bufout);
+    /* perform the inverse fft*/
+    FFTINV(st->ifftcfg,st->tmpbuf,st->bufout);
 
-    // need to skip over junk caused by circular convolution
+    /* need to skip over junk caused by circular convolution*/
     st->bufout_idx = st->n_scrap;
 }
     
 size_t kiss_fastfir(const void * cfg,
-        const kiss_fft_cpx *in, size_t nin,
-        kiss_fft_cpx *out, size_t nout_avail)
+        const kffsamp_t *in, size_t nin,
+        kffsamp_t *out, size_t nout_avail)
 {
     size_t nout_orig=nout_avail;
     kiss_fastfir_state *st = ( kiss_fastfir_state *)cfg;
@@ -188,13 +213,13 @@ size_t kiss_fastfir(const void * cfg,
     }
     
     while (nin--) {
-        // copy the input sample to bufin
+        /* copy the input sample to bufin*/
         st->bufin[st->bufin_idx++] = *in++;
 
-        // when the input buffer is full, perform fast convolution
+        /* when the input buffer is full, perform fast convolution*/
         if ( st->bufin_idx == st->nfft ) {
             do_fastconv(st);
-            // write the output buffer
+            /* write the output buffer*/
             out += write_output(st,out,&nout_avail,0);
         }
     }
@@ -208,18 +233,18 @@ size_t kiss_fastfir(const void * cfg,
 void do_filter(
         FILE * fin,
         FILE * fout,
-        const kiss_fft_cpx * imp_resp,
+        const kffsamp_t * imp_resp,
         size_t n_imp_resp,
         size_t nfft)
 {
     void * cfg = kiss_fastfir_alloc(imp_resp,n_imp_resp,nfft,0,0);
-    kiss_fft_cpx inbuf[BUFLEN],outbuf[BUFLEN];
+    kffsamp_t inbuf[BUFLEN],outbuf[BUFLEN];
     size_t ninbuf,noutbuf;
     do{
-        ninbuf = fread(inbuf,sizeof(kiss_fft_cpx),BUFLEN,fin );
-        // when ninbuf <= 0, that signals a flush
+        ninbuf = fread(inbuf,sizeof(inbuf[0]),BUFLEN,fin );
+        /* when ninbuf <= 0, that signals a flush*/
         noutbuf = kiss_fastfir(cfg,inbuf,ninbuf,outbuf,BUFLEN);
-        if ( fwrite(outbuf,sizeof(kiss_fft_cpx),noutbuf,fout) != noutbuf ) {
+        if ( fwrite(outbuf,sizeof(outbuf[0]),noutbuf,fout) != noutbuf ) {
             fprintf(stderr,"short write\n");
             exit(1);
         }
@@ -231,7 +256,7 @@ void do_filter(
 #include <unistd.h>
 int main(int argc,char**argv)
 {
-    kiss_fft_cpx * h;
+    kffsamp_t * h;
     size_t nh,nfft=0;
     FILE *fin=stdin;
     FILE *fout=stdout;
@@ -278,11 +303,11 @@ int main(int argc,char**argv)
         exit(1);
     }
     fseek(filtfile,0,SEEK_END);
-    nh = ftell(filtfile) / sizeof(kiss_fft_cpx);
+    nh = ftell(filtfile) / sizeof(kffsamp_t);
     fprintf(stderr,"%d samples in FIR filter\n",nh);
-    h = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx)*nh);
+    h = (kffsamp_t*)malloc(sizeof(kffsamp_t)*nh);
     fseek(filtfile,0,SEEK_SET);
-    fread(h,sizeof(kiss_fft_cpx),nh,filtfile);
+    fread(h,sizeof(kffsamp_t),nh,filtfile);
     fclose(filtfile);
  
     do_filter( fin, fout, h,nh,nfft);
