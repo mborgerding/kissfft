@@ -68,15 +68,21 @@ def real_fft( f,inv ):
     Fp = fft( fp ,0 )
     print 'fft output ', Fp
 
-    F = []
-    for k in range(N):
-        F1k = Fp[k] + Fp[-k].conjugate()
-        F2k = -j*(Fp[k] - Fp[-k].conjugate())
-        print 'F2k[%d]=%s' % (k,F2k)
+    F = [ complex(0,0) ] * ( N+1 )
+    
+    F[0] = complex( Fp[0].real + Fp[0].imag , 0 ) 
 
-        F.append( ( F1k + e ** ( -j*pi*k/N ) * F2k ) * .5 )
+    for k in range(1,N/2+1):
+        tw = e ** ( -j*pi*(.5+float(k)/N ) )
+        
+        F1k = Fp[k] + Fp[N-k].conjugate()
+        F2k = Fp[k] - Fp[N-k].conjugate()
+        F[k] = ( F1k + tw * F2k ) * .5
+        
+        #F[N-k] = ( F1kp + e ** ( -j*pi*(.5+float(N-k)/N ) ) * F2kp ) * .5
+        F[N-k] = ( F1k.conjugate() - tw.conjugate() * F2k.conjugate() ) * .5
 
-    F.append( complex( Fp[0].real - Fp[0].imag , 0 ) )
+    F[N] = complex( Fp[0].real - Fp[0].imag , 0 ) 
     return F
 
 def main():
