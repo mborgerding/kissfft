@@ -26,7 +26,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 static void kf_bfly2(
         kiss_fft_cpx * Fout,
-        const int fstride,
+        const size_t fstride,
         const kiss_fft_cfg st,
         int m
         )
@@ -49,7 +49,7 @@ static void kf_bfly2(
 
 static void kf_bfly4(
         kiss_fft_cpx * Fout,
-        const int fstride,
+        const size_t fstride,
         const kiss_fft_cfg st,
         const size_t m
         )
@@ -96,53 +96,51 @@ static void kf_bfly4(
 
 static void kf_bfly3(
          kiss_fft_cpx * Fout,
-         const int fstride,
+         const size_t fstride,
          const kiss_fft_cfg st,
-         int m
+         size_t m
          )
 {
-     kiss_fft_cpx *Fout0,*Fout1,*Fout2;
+     size_t k=m;
+     const size_t m2 = 2*m;
      kiss_fft_cpx *tw1,*tw2;
      kiss_fft_cpx scratch[5];
      kiss_fft_cpx epi3;
      epi3 = st->twiddles[fstride*m];
 
-     Fout0=Fout;
-     Fout1=Fout0+m;
-     Fout2=Fout0+2*m;
      tw1=tw2=st->twiddles;
 
      do{
-         C_FIXDIV(*Fout0,3); C_FIXDIV(*Fout1,3); C_FIXDIV(*Fout2,3);
+         C_FIXDIV(*Fout,3); C_FIXDIV(Fout[m],3); C_FIXDIV(Fout[m2],3);
 
-         C_MUL(scratch[1],*Fout1 , *tw1);
-         C_MUL(scratch[2],*Fout2 , *tw2);
+         C_MUL(scratch[1],Fout[m] , *tw1);
+         C_MUL(scratch[2],Fout[m2] , *tw2);
 
          C_ADD(scratch[3],scratch[1],scratch[2]);
          C_SUB(scratch[0],scratch[1],scratch[2]);
+         tw1 += fstride;
+         tw2 += fstride*2;
 
-         Fout1->r = Fout0->r - scratch[3].r/2;
-         Fout1->i = Fout0->i - scratch[3].i/2;
+         Fout[m].r = Fout->r - scratch[3].r/2;
+         Fout[m].i = Fout->i - scratch[3].i/2;
 
          C_MULBYSCALAR( scratch[0] , epi3.i );
 
-         C_ADDTO(*Fout0,scratch[3]);
+         C_ADDTO(*Fout,scratch[3]);
 
-         Fout2->r = Fout1->r + scratch[0].i;
-         Fout2->i = Fout1->i - scratch[0].r;
+         Fout[m2].r = Fout[m].r + scratch[0].i;
+         Fout[m2].i = Fout[m].i - scratch[0].r;
 
-         Fout1->r -= scratch[0].i;
-         Fout1->i += scratch[0].r;
+         Fout[m].r -= scratch[0].i;
+         Fout[m].i += scratch[0].r;
 
-         ++Fout0;++Fout1;++Fout2;
-         tw1 += fstride;
-         tw2 += fstride*2;
-     }while(--m);
+         ++Fout;
+     }while(--k);
 }
 
 static void kf_bfly5(
         kiss_fft_cpx * Fout,
-        const int fstride,
+        const size_t fstride,
         const kiss_fft_cfg st,
         int m
         )
@@ -204,7 +202,7 @@ static void kf_bfly5(
 /* perform the butterfly for one stage of a mixed radix FFT */
 static void kf_bfly_generic(
         kiss_fft_cpx * Fout,
-        const int fstride,
+        const size_t fstride,
         const kiss_fft_cfg st,
         int m,
         int p
@@ -243,7 +241,7 @@ static
 void kf_work(
         kiss_fft_cpx * Fout,
         const kiss_fft_cpx * f,
-        const int fstride,
+        const size_t fstride,
         int in_stride,
         int * factors,
         const kiss_fft_cfg st

@@ -12,7 +12,7 @@ USAGE:
 
         #include "kiss_fft.h"
 
-        void * cfg = kiss_fft_alloc( nfft ,inverse_fft );
+        kiss_fft_cfg cfg = kiss_fft_alloc( nfft ,inverse_fft );
 
         while ...
         
@@ -38,6 +38,7 @@ You can do other cool stuff with the extras you'll find in tools/
     * arbitrary dimension FFTs (complex only currently, apologies to Steve DeKorte -- mebbe next time )
     * real FFTs
     * fast convolution filtering
+    * spectrum image creation
 
 The core fft and most tools/ code can be compiled to use float, double 
 or 16bit short samples. The default is float.
@@ -101,6 +102,9 @@ TODO:
     *) Make the fixed point scaling and bit shifts more easily configurable.
     *) Document/revisit the input/output fft scaling
     *) See if the fixed point code can be optimized a little without adding complexity.
+    *) Make doc describing the overlap (tail) scrap fast convolution filtering in kiss_fastfir.c
+    *) Test all the ./tools/ code with fixed point (kiss_fastfir.c doesn't work, maybe others)
+
 
 AUTHOR:
     Mark Borgerding

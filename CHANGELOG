@@ -1,3 +1,13 @@
+1.2 (Feb 23, 2004)
+    interface change -- cfg object is forward declaration of struct instead of void*
+    This maintains type saftey and lets the compiler warn/error about stupid mistakes.
+            (prompted by suggestion from Erik de Castro Lopo)
+
+    small speed improvements
+
+    added psdpng.c -- sample utility that will create png spectrum "waterfalls" from an input file
+        ( not terribly useful yet)
+
 1.1.1 (Feb 1, 2004 )
     minor bug fix -- only affects odd rank, in-place, multi-dimensional FFTs
 
