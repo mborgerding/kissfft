@@ -74,32 +74,27 @@ void kiss_fftr(const void * cfg,const kiss_fft_scalar *fin,kiss_fft_cpx *fout)
     /*perform the parallel fft of two real signals packed in real,imag*/
     kiss_fft( st->substate , (const kiss_fft_cpx*)fin, st->tmpbuf );
  
-    for (k=0;k<N;++k) {
-        kiss_fft_cpx fpnk,fpk,f1k,f2k,scr[3];
-        
-        fpk = st->tmpbuf[k];
-        /* fpk is Fp[k] */
+    fout[0].r = st->tmpbuf[0].r + st->tmpbuf[0].i;
+    fout[0].i = 0;
 
-        if (k==0)
-            fpnk = st->tmpbuf[0];
-        else
-            fpnk = st->tmpbuf[N-k];
-        fpnk.i = fpnk.i * -1;
-        /* fpnk is Fp[-k].conjugate() */
+    for (k=1;k<N;++k) {
+        kiss_fft_cpx fpnk,fpk,f1k,f2k,scr[2];
+        
+        fpk = st->tmpbuf[k]; 
+
+        fpnk.r =  st->tmpbuf[N-k].r;
+        fpnk.i = -st->tmpbuf[N-k].i;
 
         C_ADD( f1k, fpk , fpnk );
-        /*printf("F1k[%d]:",k); pcpx(&f1k); */
+        C_SUBFROM( fpk , fpnk );
 
-        C_SUB( scr[0], fpk , fpnk );
-        f2k.r = scr[0].i;
-        f2k.i = -scr[0].r;
-        /*
-        printf("F2k[%d]:",k); pcpx(&f2k);
-        */
+        f2k.r = fpk.i;
+        f2k.i = -fpk.r;
 
         C_MUL( scr[1], f2k , st->super_twiddles[k] );
 
         C_ADD(fout[k],f1k,scr[1]);
+        
         fout[k].r /= 2;
         fout[k].i /= 2;
     }
