@@ -28,7 +28,11 @@ static void tms_report()
 static void ps_report()
 {
     char buf[1024];
+#ifdef __APPLE__ /*  MAC OS X */
+    sprintf(buf,"ps -o command,majflt,minflt,rss,pagein,vsz -p %d 1>&2",getpid() );
+#else /* GNU/Linux */
     sprintf(buf,"ps -o comm,majflt,minflt,rss,drs,pagein,sz,trs,vsz %d 1>&2",getpid() );
+#endif    
     system( buf );
 }
 

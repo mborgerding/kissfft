@@ -22,6 +22,14 @@ else
  SELFTESTSRC=selftest.c
 endif
 
+ifeq  "$(DATATYPE)" "float"
+# fftw needs to be built with --enable-float to build this lib
+ FFTWLIB=fftw3f
+else
+ FFTWLIB=fftw3
+endif
+
+
 all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL)
 
 #CFLAGS=-Wall -O3 -ansi -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer
@@ -38,7 +46,7 @@ $(BENCHKISS): benchkiss.c ../kiss_fft.c pstats.c
 	$(CC) -o $@ $(CFLAGS) -I.. benchkiss.c $(TYPEFLAGS) ../kiss_fft.c pstats.c -lm 
 
 $(BENCHFFTW): benchfftw.c pstats.c
-	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) benchfftw.c pstats.c -lm -lfftw3f -lfftw3 -L /usr/local/lib/ || echo "FFTW not available for comparison"
+	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) benchfftw.c pstats.c -lm -l$(FFTWLIB) -L/usr/local/lib/ || echo "FFTW not available for comparison"
 
 test: all
 	@echo "======SELF TEST $(DATATYPE)"
