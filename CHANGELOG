@@ -3,8 +3,7 @@
     If the same buffer pointer is supplied for both in and out, kiss will
     manage the buffer copies.
 
-    added kiss_fft2d as a separate source file (declarations in kiss_fft.h )
-
+    added kiss_fft2d and kiss_fftr as separate source files (declarations in kiss_fft.h )
 
 0.4 : optimized for radix 2,3,4,5
 

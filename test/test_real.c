@@ -38,7 +38,7 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 #ifndef RANDOM
 #define NFFT 8
 #else
-#define NFFT 1800
+#define NFFT 2*3*5*7*11
 #endif
 
 #ifndef NUMFFTS

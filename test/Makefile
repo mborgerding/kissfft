@@ -63,4 +63,4 @@ snr: all
 test: snr time fftw
 
 clean:
-	rm -f *~ fftutil_* bm_* *.dat
+	rm -f *~ fftutil_* bm_* tr_* *.dat
