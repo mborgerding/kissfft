@@ -1,4 +1,4 @@
-NFFT=2187
+NFFT=2048
 ALLUTILS=kfft kffts kfftd
 NUMFFTS=10000
 UTILSRC=../kiss_fft.c fftutil.c

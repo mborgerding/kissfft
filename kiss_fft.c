@@ -155,6 +155,10 @@ void bfly2(
     do{
         C_MUL (t,  *Fout2 , *twiddles);
         twiddles += fstride;
+#ifdef FIXED_POINT
+        Fout->r>>=1; Fout->i>>=1;
+        t.r>>=1; t.i>>=1;
+#endif
         C_SUB( *Fout2 ,  *Fout , t );
         C_ADDTO( *Fout ,  t );
         ++Fout2;
@@ -177,55 +181,35 @@ void bfly3(
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
     kiss_fft_cpx t[6];
-    //kiss_fft_cpx epi3 =  twiddles[fstride*m];
-    kiss_fft_cpx epi3 = { -0.5 , -0.866025403784439 };
-    kiss_fft_cpx nepi3 = { -0.5 , 0.866025403784439 };
-    if ( st->inverse){
-        epi3.i *=-1;
-        nepi3.i *=-1;
-    }
+    kiss_fft_cpx epi3;
+    //kiss_fft_cpx epi3 = { -0.5 , -0.866025403784439 };
+        epi3 = twiddles[fstride*m];
+
+    Fout0=Fout;
+    Fout1=Fout0+m;
+    Fout2=Fout0+2*m;
 
     //printf("epi3=%e,%ei\n",epi3.r,epi3.i);
     for ( u=0; u<m; ++u ) {
-        kiss_fft_cpx sum01,sum23,t0pt1,t0mt1;
+        kiss_fft_cpx sum23,t0pt1,t0mt1;
 
-        Fout0=Fout++;
-        Fout1=Fout0+m;
-        Fout2=Fout0+2*m;
+#ifdef FIXED_POINT
+        Fout0->r /= 3; Fout0->i /= 3;
+        Fout1->r /= 3; Fout1->i /= 3;
+        Fout2->r /= 3; Fout2->i /= 3;
+#endif        
+
         scratch[0] = *Fout0;
 
-        // st->nfft = 3*m*fstride 
         C_MUL(t[0],*Fout1 , twiddles[fstride*u    ] ); 
         C_MUL(t[1],*Fout2 , twiddles[fstride*u*2] );
-        C_ADD(sum01,t[0], t[1] );
 
-        //C_MUL(t[2],t[0] ,  epi3 );
-        //C_MUL(t[3],t[1] , nepi3);
-
-        C_MUL(t[5],t[1] , epi3);
-        C_MUL(t[4],t[0] , nepi3);
-
-        C_ADD(*Fout0,scratch[0],sum01);
-
-        /*
-           t0 * (-.5 , -.867j ) 
-         + t1 * (-.5 , .867j )
-
-            t0.r * -.5      - t0.r * .867 j      -   t0.i * .5 j   +   t0.i * .867
-            +
-            t1.r * -.5      + t1.r * .867 j     -   t1.i * .5 j     -   t1.i * .867
-
-            ( t0.r * -.5   +   t0.i * .867  - t1.r * .5 -  t1.i * .867)
-                +
-            j*(t0.r * -.867 + t1.r * .867 +   t0.i * -.5  +   t1.i * -.5)
-
-            -.5 * ( t0.r + t1.r) + .867 * (t0.i - t1.i )
-            +
-            -.867j * (t0.r - t1.r ) - .5 * (t0.i + t1.i )
-         * */
         C_ADD(t0pt1,t[0],t[1]);
-        t0pt1.r *= -.5;
-        t0pt1.i *= -.5;
+        C_ADD(*Fout0,scratch[0],t0pt1);
+        
+        t0pt1.r /= -2;
+        t0pt1.i /= -2;
+      
         C_SUB(t0mt1,t[0],t[1]);
         t0mt1.r *= epi3.i;
         t0mt1.i *= epi3.i;
@@ -239,10 +223,7 @@ void bfly3(
         sum23.i = t0pt1.i - t0mt1.r;
         C_ADD( *Fout2, scratch[0] , sum23 );
 
-//        Fout1->r = scratch[0].r + t[2].r + t[3].r;
-//        Fout1->i = scratch[0].i + t[2].i + t[3].i;
-//        Fout2->r = scratch[0].r + t[4].r + t[5].r;
-  //      Fout2->i = scratch[0].i + t[4].i + t[5].i;
+        ++Fout0;++Fout1;++Fout2;
     }
 }
 
