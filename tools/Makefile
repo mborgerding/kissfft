@@ -18,14 +18,16 @@ ifeq  "$(DATATYPE)" "float"
  FASTFILT=fastconv
  FASTFILTREAL=fastconvr
  PSDPNG=psdpng
+ DUMPHDR=dumphdr
 else
  FFTUTIL=fft_$(DATATYPE)
  FASTFILT=fastconv_$(DATATYPE)
  FASTFILTREAL=fastconvr_$(DATATYPE)
  PSDPNG=psdpng_$(DATATYPE)
+ DUMPHDR=dumphdr_$(DATATYPE)
 endif
 
-all: $(FFTUTIL) $(FASTFILT) $(FASTFILTREAL) $(PSDPNG)
+all: $(FFTUTIL) $(FASTFILT) $(FASTFILTREAL) $(PSDPNG) $(DUMPHDR)
 
 #CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer $(WARNINGS)
 # If the above flags do not work, try the following
@@ -42,6 +44,9 @@ $(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fftnd.c kiss_fftr.c
 
 $(PSDPNG): ../kiss_fft.c psdpng.c kiss_fftr.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm -lpng $+
+
+$(DUMPHDR): ../kiss_fft.c dumphdr.c
+	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
 clean:
 	rm -f *~ fft fft_* fastconv fastconv_* fastconvr fastconvr_* psdpng psdpng_*
