@@ -38,35 +38,25 @@ def fft(f):
     return Fout
 
 def real_fft( f ):
-    broken
-
     N = len(f) / 2
 
     res = f[::2]
     ims = f[1::2]
+
     fp = [ complex(r,i) for r,i in zip(res,ims) ]
+
     Fp = fft( fp )
 
-    Fpr = [ c.real for c in Fp ]
-    Fpi = [ c.imag for c in Fp ]
+    F = []
+    for k in range(N):
+        s2 = ( Fp[k] + Fp[-k] ) * .5
+        d2 = ( Fp[k] - Fp[-k] ).conjugate() * .5
+        F1k = complex( s2.real , d2.imag )
+        F2k = complex( s2.imag , d2.real )
+        F.append( F1k +  e ** ( -j*pi*k/N ) * F2k )
 
-    F1 = [complex(0,0)]*(N+1)
-    F2 = [complex(0,0)]*(N+1)
-
-    F1[0] = complex( Fpr[0] , 0 )
-    F2[0] = complex( Fpi[0] , 0 )
-    #F1[N] = complex( Fpr[N] , 0 )
-    #F2[N] = complex( Fpi[N] , 0 )
-
-
-    for k in range(1,N):
-        F1[k] = complex( (Fpr[k]+Fpr[N-k])/2 , j*(Fpi[k]-Fpi[N-k])/2 )
-        F2[k] = complex( (Fpi[k]+Fpi[N-k])/2 , j*(Fpr[k]-Fpr[N-k])/2 )
-
-    F = [ complex(0,0) ] * ( N + 1 )
-    for k in range(N+1):
-        F[k] = F1[k] +  e ** ( j*pi*k/N ) * F2[k]
-    return F        
+    F.append( complex( Fp[0].real - Fp[0].imag , 0 ) ) 
+    return F
 
 def test(f=range(1024),ntimes=10):
     import time
