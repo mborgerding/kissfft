@@ -32,6 +32,16 @@ typedef struct {
     kiss_fft_cpx * scratch;
 }kiss_fft_state;
 
+/*
+  Explanation of macros dealing with complex math:
+
+   C_MUL(m,a,b)         : m = a*b
+   C_FIXDIV( c , div )  : if a fixed point impl., c /= div. noop otherwise
+   C_SUB( res, a,b)     : res = a - b 
+   C_SUBFROM( res , a)  : res -= a
+   C_ADDTO( res , a)    : res += a
+   C_ROTADDTO(sum,c,q)  : sum += c * exp(-j*q*pi/4)
+ * */
 #ifdef FIXED_POINT
 
 #   define C_MUL(m,a,b) \
@@ -43,10 +53,10 @@ typedef struct {
 
 #else  /* not FIXED_POINT*/
 
-#   define C_FIXDIV(c,div) /* NOOP */
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
+#   define C_FIXDIV(c,div) /* NOOP */
 #endif
 
 #define  C_SUB( res, a,b)\
@@ -76,6 +86,7 @@ kiss_fft_cpx cexp(double phase)
     return x;
 }
 
+/* bfly2 is a optimization of bfly_generic for p==2 */
 void bfly2(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -98,6 +109,7 @@ void bfly2(
     }while (--m);
 }
 
+/* bfly4 is a optimization of bfly_generic for p==4 */
 void bfly4(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -149,7 +161,8 @@ void bfly4(
         ++Fout; ++Fout1; ++Fout2; ++Fout3;
     }while(--m);
 }
-        
+
+/* perform the butterfly for one stage of a mixed radix FFT */
 void bfly_generic(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -276,6 +289,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     return st;
 }
 
+/* original form of processing function, first release of KISS FFT was in-place.  This maintains API. */
 void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
     const kiss_fft_state * st = cfg;
@@ -283,6 +297,7 @@ void kiss_fft(const void * cfg,kiss_fft_cpx *f)
     fft_work( f, st->tmpbuf, 1, st->factors,st );
 }
 
+/* two buffer version of above */
 void kiss_fft_io(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 {
     const kiss_fft_state * st = cfg;
