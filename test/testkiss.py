@@ -3,10 +3,11 @@ import math
 import sys
 import os
 import random
-import Numeric
-import FFT
 import struct
 import popen2
+import getopt
+import Numeric
+import FFT
 
 pi=math.pi
 e=math.e
@@ -26,6 +27,7 @@ elif datatype=='short':
     util = '../tools/fft_short'
     fmt='h'
     minsnr=10
+
 
 def dopack(x,cpx=1):
     x = Numeric.reshape( x, ( Numeric.size(x),) )
@@ -48,8 +50,11 @@ def make_random(dims=[1]):
     for i in range(dims[0]):
         if len(dims)==1:
             r=random.uniform(-1,1)
-            i=random.uniform(-1,1)
-            res.append( complex(r,i) )
+            if doreal:
+                res.append( r )
+            else:
+                i=random.uniform(-1,1)
+                res.append( complex(r,i) )
         else:
             res.append( make_random( dims[1:] ) )
     return Numeric.array(res)
@@ -67,11 +72,20 @@ def randmat( ndims ):
 
 def test_fft(ndims):
     if ndims == 1:
-        x=Numeric.array(make_random( [ int(random.uniform(500,1025)) ] ))
+        nfft = int(random.uniform(50,520))
+        if doreal:
+            nfft = int(nfft/2)*2
+
+        x = Numeric.array(make_random( [ nfft ] ) )
     else:
         x=randmat( ndims )
 
-    xver = FFT.fftnd(x)
+    print 'dimensions=%s' % str( Numeric.shape(x) ),
+    if doreal:
+        xver = FFT.real_fft(x)
+    else:
+        xver = FFT.fftnd(x)
+    
     x2=dofft(x)
     err = xver - x2
     errf = flatten(err)
@@ -79,7 +93,6 @@ def test_fft(ndims):
     errpow = Numeric.vdot(errf,errf)+1e-10
     sigpow = Numeric.vdot(xverf,xverf)+1e-10
     snr = 10*math.log10(abs(sigpow/errpow) )
-    print 'dimensions=%s' % str( Numeric.shape(x) ),
     print 'SNR (compared to NumPy) : %.1fdB' % float(snr)
 
     if snr<minsnr:
@@ -89,7 +102,7 @@ def test_fft(ndims):
         sys.exit(1)
  
 def dofft(x):
-    dims=Numeric.shape(x)
+    dims=list( Numeric.shape(x) )
     x = flatten(x)
     iscomp = (type(x[0]) == complex)
 
@@ -100,13 +113,17 @@ def dofft(x):
 
     cmd='%s -n ' % util
     cmd += ','.join([str(d) for d in dims])
+    if doreal:
+        cmd += ' -R '
 
     p = popen2.Popen3(cmd )
 
     p.tochild.write( dopack( x , iscomp ) )
     p.tochild.close()
 
-    res = dounpack( p.fromchild.read() , iscomp )
+    res = dounpack( p.fromchild.read() , 1 )
+    if doreal:
+        dims[-1] = int( dims[-1]/2 ) + 1
 
     res = scale * res
 
@@ -114,10 +131,19 @@ def dofft(x):
     return Numeric.reshape(res,dims)
 
 def main():
-    for dim in range(1,9):
-        test_fft( dim )
-    print 'We crossed the 8th dimension.  Buckaroo would be proud'
+    opts,args = getopt.getopt(sys.argv[1:],'r')
+    opts=dict(opts)
 
+    global doreal
+    doreal = opts.has_key('-r')
+
+    if doreal:
+        print 'Note: Real optimization not yet done for odd length ffts and multi-D'
+        test_fft(1)
+    else:
+        for dim in range(1,9):
+            test_fft( dim )
+        print 'We crossed the 8th dimension.  Buckaroo would be proud'
 
 if __name__ == "__main__":
     main()
