@@ -68,12 +68,12 @@ last bit of performance.
     Sometimes simpler is better, even if it's not better.
 
 PERFORMANCE:
-    (on Athlon XP 2100+, with gcc 2.96, optimization O3, float data type)
+    (on Athlon XP 2100+, with gcc 2.96, float data type)
 
-    Kiss performed 1000 1024-pt cpx ffts in 100 ms of cpu time.
-    For comparison, it took md5sum 160ms cputime to process the same amount of data
+    Kiss performed 10000 1024-pt cpx ffts in .63 s of cpu time.
+    For comparison, it took md5sum twice as long to process the same amount of data.
 
-    Transforming 5 minutes of CD quality audio takes about 1 second (nfft=1024). 
+    Transforming 5 minutes of CD quality audio takes less than a second (nfft=1024). 
 
 DO NOT:
     ... use Kiss if you need the Fastest Fourier Transform in the World

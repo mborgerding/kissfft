@@ -29,3 +29,6 @@ dist: tarball
 
 upload: dist
 	ncftpput upload.sourceforge.net incoming $(ZIPFILE) $(TARBALL)
+	
+asm:
+	gcc -S kiss_fft.c -O3 -march=pentiumpro -ffast-math -fomit-frame-pointer -dA -fverbose-asm 
