@@ -37,10 +37,10 @@ endif
 all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(FFTUTIL) \
 	$(TESTKFC) $(FASTFILT) $(FASTFILTREAL)
 
-CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer 
+#CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer 
 #-DUSE_SKIP 
 # If the above flags do not work, try the following
-#CFLAGS=-Wall -O3
+CFLAGS=-Wall -O3
 
 $(FASTFILTREAL): ../kiss_fft.c kiss_fastfir.c kiss_fftr.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -DREAL_FASTFIR -lm $+ -DFAST_FILT_UTIL

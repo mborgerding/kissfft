@@ -8,8 +8,14 @@
 
 /*
  ATTENTION!
- If you would like a real-only FFT, see sample_code/kiss_fftr.c and .h
- If you would like a 2-dimensional FFT, see sample_code/kiss_fft2d.c and .h
+ If you would like a :
+ -- a utility that will handle the caching of fft objects
+ -- real-only FFT
+ -- a multi-dimensional FFT
+ -- a command-line utility to perform ffts
+ -- a command-line utility to perform fast-convolution filtering
+
+ then see tools/
  */
 
 #ifdef FIXED_POINT
