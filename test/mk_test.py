@@ -70,15 +70,14 @@ double snr_compare( kiss_fft_cpx * test_vec_out,kiss_fft_cpx * testbuf, int n)
 {
     int k;
     double sigpow,noisepow,err,snr,scale=0;
+    kiss_fft_cpx err;
     sigpow = noisepow = .000000000000000000000000000001; 
 
     for (k=0;k<n;++k) {
-        sigpow += test_vec_out[k].r * test_vec_out[k].i + 
+        sigpow += test_vec_out[k].r * test_vec_out[k].r + 
                   test_vec_out[k].i * test_vec_out[k].i;
-        err = test_vec_out[k].r - testbuf[k].r;
-        noisepow += err * err;
-        err = test_vec_out[k].i - testbuf[k].i;
-        noisepow += err * err;
+        C_SUB(err,test_vec_out[k],testbuf[k].r);
+        noisepow += err.r * err.r + err.i + err.i;
 
         if (test_vec_out[k].r)
             scale += testbuf[k].r / test_vec_out[k].r;
