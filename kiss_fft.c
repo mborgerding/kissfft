@@ -33,8 +33,30 @@ const double pi=3.14159265358979323846264338327;
 typedef struct {
     int nfft;
     int inverse;
+    int *factors;
     kiss_fft_cpx * twiddles;
+    kiss_fft_cpx * tmpbuf;
+    kiss_fft_cpx * scratch;
 }kiss_fft_state;
+
+#ifdef FIXED_POINT
+
+#   define C_ADD(x,a,b) \
+     do{ (x).r = ( ( (a).r+(b).r )  );\
+         (x).i = ( ( (a).i+(b).i )  ); }while(0)
+#   define C_SUB(x,a,b) \
+     do{ (x).r = ( ( (a).r-(b).r ) );\
+         (x).i = ( ( (a).i-(b).i ) ); }while(0)
+    /*  We don't have to worry about overflow from multiplying by twiddle factors since they
+     *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
+     *  rounding.
+     *  */
+#   define C_MUL(m,a,b) \
+      do{ (m).r = ( ( (a).r*(b).r - (a).i*(b).i)  + (1<<14) ) >> 15;\
+          (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (1<<14) ) >> 15;\
+      }while(0)
+
+#else  // not FIXED_POINT
 
 #define C_ADD(x,a,b) \
     do{ (x).r = (a).r+(b).r;\
@@ -45,13 +67,19 @@ typedef struct {
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
+#endif
 
 static
 kiss_fft_cpx cexp(double phase)
 {
     kiss_fft_cpx x;
+#ifdef FIXED_POINT    
+    x.r = (kiss_fft_scalar) ( 32767*cos(phase) );
+    x.i = (kiss_fft_scalar) ( -32767*sin(phase) );
+#else
     x.r = cos(phase);
     x.i = -sin(phase);
+#endif
     return x;
 }
 
@@ -85,7 +113,8 @@ void fft_work(
         int Norig,
         int inverse,
         kiss_fft_cpx * scratch,
-        kiss_fft_cpx * twiddles
+        kiss_fft_cpx * twiddles,
+        int * factors
         )
 {
     int m,p=0,q,q1,u,k;
@@ -95,58 +124,22 @@ void fft_work(
         *Fout = *f;
         return;
     }
-/*
-    double two_pi_divN;
-    two_pi_divN = 2*pi/n;
-    if (inverse)
-        two_pi_divN *= -1;
-*/
-    if (n%2 == 0) p=2;
-    else if(n%3 == 0) p=3;
-    else if(n%5 == 0) p=5;
-    else if(n%7 == 0) p=7;
-    else {
-        fprintf(stderr,"%d is not divisible by %d\n",n,p);
-        p=n;
-        exit(1);
-    }
-    m = n/p;
-    /* n = stage->n; m = stage->m; p = stage->p; */
-
-#ifdef LOUD        
-    printf("n=%d,p=%d\n",n,p);
-    for (k=0;k<n;++k) {
-        t=f[k*fstride];
-        printf("(%.3f,%.3f) ",t.r,t.i);
-    }
-    printf(" <<< fin \n");
-#endif
+    p=*factors++;
+    m=*factors++;//m = n/p;
 
     for (q=0;q<p;++q) {
-#ifdef LOUD
-        for (k=0;k<m;++k) {
-            t = (f+q*fstride)[fstride*p*k];
-            printf("(%.3f,%.3f) ",t.r,t.i);
-        }
-        printf(" <<< f[fstride*k+q] \n");
-#endif
-        fft_work( Fout + m*q, f+q*fstride, fstride*p, m,Norig,inverse, scratch ,twiddles);
+        fft_work( Fout + m*q, f+q*fstride, fstride*p, m,Norig,inverse, scratch ,twiddles,factors);
     }
-
-#ifdef LOUD
-    printf("twiddling n=%d,p=%d\n",n,p);
-#endif
 
     for ( u=0; u<m; ++u ) {
         for ( q1=0 ; q1<p ; ++q1 ) {
+#ifdef FIXED_POINT
+            scratch[q1].r = Fout[ u+q1*m  ].r>>1;
+            scratch[q1].i = Fout[ u+q1*m  ].i>>1;
+#else
             scratch[q1] = Fout[ u+q1*m  ];
-#ifdef LOUD
-            printf("(%.3f,%.3f) ",scratch[q1].r,scratch[q1].i);
-#endif
+#endif            
         }
-#ifdef LOUD
-        printf(" <<< scratch \n");
-#endif
 
         for ( q1=0 ; q1<p ; ++q1 ) {
             int twidx=0;
@@ -157,21 +150,6 @@ void fft_work(
                 if (twidx>=Norig)
                     twidx-=Norig;
                 t = twiddles[twidx];
-/*                
-                kiss_fft_cpx diff,tref;
-                tref = cexp( two_pi_divN * k * q );
-                diff = csub(t,tref);
-                if ( 
-                        diff.r * diff.r + diff.i*diff.i * 100
-                        >
-                        tref.r * tref.r + tref.i*tref.i) 
-                {
-                    printf("twiddling n=%d,p=%d\n",n,p);
-                    printf("t=(%.3f,%.3f) ",t.r,t.i);
-                    printf("tref=(%.3f,%.3f) ",tref.r,tref.i);
-                    printf("diff=(%.3f,%.3f) \n",diff.r,diff.i);
-                }
-*/
                 Fout[ k ] = cadd( Fout[ k ] , 
                                   cmul( scratch[q] , t ) );
             }
@@ -189,6 +167,7 @@ void fft_work(
  * */
 void * kiss_fft_alloc(int nfft,int inverse_fft)
 {
+    int nstages=0;
     int i;
     kiss_fft_state * st=NULL;
     st = ( kiss_fft_state *)malloc( sizeof(kiss_fft_state) );
@@ -196,12 +175,32 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     st->inverse = inverse_fft;
 
     st->twiddles = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
+    st->tmpbuf = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
+    st->scratch = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
+
+    st->factors = (int*)malloc( sizeof(int)*nfft );
 
     for (i=0;i<nfft;++i) {
         double phase = ( 2*pi /nfft ) * i;
         if (st->inverse)
             phase *= -1;
         st->twiddles[i] = cexp( phase );
+    }
+
+    while (nfft>1) {
+        const int primes[] = {2,3,5,7,11,13,17,-1};
+        int p=nfft;
+        i=0;
+        while ( primes[i] != -1 ) {
+            if ( nfft %  primes[i] == 0){
+                p =  primes[i];
+                break;
+            }
+        }
+        st->factors[2*nstages] = p;
+        nfft /= p;
+        st->factors[2*nstages+1] = nfft;
+        ++nstages;
     }
 
     return st;
@@ -211,12 +210,11 @@ void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
     int i,n;
     const kiss_fft_state * st = cfg;
-    kiss_fft_cpx tmpbuf[1024];
-    kiss_fft_cpx scratch[1024];
+
     n = st->nfft;
 
     for (i=0;i<n;++i)
-        tmpbuf[i] = f[i];
+        st->tmpbuf[i] = f[i];
 
-    fft_work( f, tmpbuf, 1, n,n, st->inverse, scratch ,st->twiddles);
+    fft_work( f, st->tmpbuf, 1, n,n, st->inverse, st->scratch ,st->twiddles,st->factors);
 }
