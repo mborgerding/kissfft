@@ -8,13 +8,7 @@ endif
 if nargin<4, scale_f2t=1
 endif
 
-if strcmp(prec,'short'),
-    kfft='./kffts';
-elseif strcmp(prec,'double')
-    kfft='./kfftd';
-else
-    kfft='./kfft';
-endif
+kfft= sprintf('./fftutil_%s',prec);
 
 siglen = nfft;
 sig=floor(32767*rand(1,siglen)) + j*floor(32767*rand(1,siglen));

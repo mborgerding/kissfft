@@ -7,5 +7,5 @@ tarball: clean
 
 clean:
 	cd sample_code && make clean
-	rm -f kiss_fft.tar.gz *~ *.pyc kiss_fft.zip
+	rm -f kiss_fft.tar.gz *~ *.pyc kiss_fft.zip fft.py
 

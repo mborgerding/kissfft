@@ -269,8 +269,8 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     }
 
     while (nfft>1) {
-        /* If you add a new radix, don't forget to put it here */
-        const int primes[] = {4,2,-1};
+        /* If you want a new radix, don't forget to put it here */
+        const int primes[] = {4,2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,-1};
         int p=nfft;
         i=0;
         while ( primes[i] != -1 ) {
