@@ -64,7 +64,49 @@ kiss_fft_cpx cexp(double phase)
     return x;
 }
 
+static 
+void fft_work(
+        kiss_fft_cpx * Fout,
+        const kiss_fft_cpx * f,
+        int fstride,
+        int * factors,
+        const kiss_fft_state * st
+        );
+
 // the heart of the fft
+static 
+void fft2work(
+        kiss_fft_cpx * Fout,
+        const kiss_fft_cpx * f,
+        int fstride,
+        int * factors,
+        const kiss_fft_state * st,
+        int m
+        )
+{
+    int u;
+    kiss_fft_cpx t;
+    //kiss_fft_cpx * scratch = st->scratch;
+    kiss_fft_cpx * twiddles = st->twiddles;
+    //int Norig = st->nfft;
+
+    if (m==1) {
+        Fout[0] = f[0];
+        Fout[1] = f[fstride];
+    } else {
+        fft_work( Fout , f, fstride*2,factors,st);
+        fft_work( Fout + m, f+fstride, fstride*2,factors,st);
+    }
+
+    for ( u=0; u<m; ++u ) {
+        C_MUL (t,  Fout[ u +m ] , twiddles[fstride * u]);
+        Fout[u+m].r = Fout[u].r - t.r;
+        Fout[u+m].i = Fout[u].i - t.i;
+        Fout[u].r += t.r;
+        Fout[u].i += t.i;
+    }
+}
+
 static 
 void fft_work(
         kiss_fft_cpx * Fout,
@@ -74,21 +116,31 @@ void fft_work(
         const kiss_fft_state * st
         )
 {
-    int m,p=0,q,q1,u,k;
+    int m,p,q,q1,u,k;
     kiss_fft_cpx t;
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
     int Norig = st->nfft;
 
     p=*factors++;
-    m=*factors++;//m = n/p;
+    m=*factors++;
+
+#if 1    
+    switch (*factors) {
+        case 2:
+            fft2work(Fout,f,fstride,factors,st,m);
+            return;
+        default:
+            break;
+    }
+#endif
 
     for (q=0;q<p;++q) {
-        // TODO f+= fstride; instead of offset below
         if (m==1) 
-            *(Fout + m*q) = *(f+q*fstride);
+            Fout[q] = *f;
         else
-            fft_work( Fout + m*q, f+q*fstride, fstride*p,factors,st);
+            fft_work( Fout + m*q, f, fstride*p,factors,st);
+        f+= fstride;
     }
 
     for ( u=0; u<m; ++u ) {
@@ -169,6 +221,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
                 p =  primes[i];
                 break;
             }
+            ++i;
         }
         st->factors[2*nstages] = p;
         nfft /= p;
