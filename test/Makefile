@@ -13,6 +13,7 @@ BENCHKISS=bm_kiss_$(DATATYPE)
 BENCHFFTW=bm_fftw_$(DATATYPE)
 SELFTEST=st_$(DATATYPE)
 TESTREAL=tr_$(DATATYPE)
+TESTKFC=tc_$(DATATYPE)
 FFTUTIL=kf_$(DATATYPE)
 
 ifeq  "$(DATATYPE)" "short"
@@ -31,7 +32,7 @@ else
 endif
 
 
-all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(FFTUTIL)
+all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(FFTUTIL) $(TESTKFC)
 
 #CFLAGS=-Wall -O3 -ansi -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer
 # If the above flags do not work, try the following
@@ -43,6 +44,8 @@ $(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fft2d.c kiss_fftr.c
 $(SELFTEST): ../kiss_fft.c $(SELFTESTSRC)
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
+$(TESTKFC): ../kiss_fft.c kiss_fftr.c test_real.c
+	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 $(TESTREAL): ../kiss_fft.c kiss_fftr.c test_real.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
@@ -53,6 +56,7 @@ $(BENCHFFTW): benchfftw.c pstats.c
 	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) benchfftw.c pstats.c -lm -l$(FFTWLIB) -L/usr/local/lib/ || echo "FFTW not available for comparison"
 
 test: all
+	@./$(TESTKFC)
 	@echo "======SELF TEST $(DATATYPE)"
 	@./$(SELFTEST)
 	@echo "======REAL FFT TEST $(DATATYPE)"
