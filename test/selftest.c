@@ -1,4 +1,6 @@
 #include "kiss_fft.h"
+#include "kiss_fft2d.h"
+#include "_kiss_fft_guts.h"
 
 #define xstr(s) str(s)
 #define str(s) #s
@@ -26,7 +28,8 @@ double snr_compare( kiss_fft_cpx * test_vec_out,kiss_fft_cpx * testbuf, int n)
     return snr;
 }
 
-void test_stride();
+int test_stride();
+int test2d();
 
 int main() { int exit_code=0;
 
@@ -132,7 +135,64 @@ int main() { int exit_code=0;
     }
 #undef NFFT    
 
-    test_stride();
+    if ( test_stride() ) 
+        exit_code++;
+    if ( test2d() ) 
+        exit_code++;
+
     return exit_code;
 }
 
+int test_stride()
+{
+#define SKIP_FACTOR 7
+#define FFT_SIZE 1800
+    void *cfg;
+    kiss_fft_cpx buf1in[FFT_SIZE],buf1out[FFT_SIZE];
+    kiss_fft_cpx buf2in[SKIP_FACTOR*FFT_SIZE],buf2out[FFT_SIZE];
+    int i;
+    memset(buf2in,0,sizeof(buf2in));
+    for (i=0;i<FFT_SIZE;++i) {
+        buf1in[i].r = rand();
+        buf1in[i].i = rand();
+        buf2in[SKIP_FACTOR*i] = buf1in[i];
+    }
+    cfg= kiss_fft_alloc(FFT_SIZE,0,0,0);
+
+    kiss_fft(cfg,buf1in,buf1out);
+    kiss_fft_stride(cfg,buf2in,buf2out,SKIP_FACTOR);
+    if ( memcmp(buf1out,buf2out,sizeof(buf1out) ) ){
+        printf("kiss_fft_stride not working for stride =%d\n",SKIP_FACTOR);
+        for (i=0;i<FFT_SIZE;++i) {
+            printf(stderr,"good[%d]=",i);pcpx(buf1out+i);
+            printf(stderr,"bad [%d]=",i);pcpx(buf2out+i);
+        }
+        free(cfg);
+        return 1;
+    }
+    printf("kiss_fft_stride seems to be working (stride = %d)\n",SKIP_FACTOR);
+    free(cfg);
+    return 0;
+}
+
+int test2d()
+{
+    void *cfg;
+    kiss_fft_cpx in[3*9]={
+        {1,0},{0,0},{0,0},{0,0},{0,0},{0,0},{3,0},{0,0},{0,0},
+        {0,0},{0,0},{0,0},{0,0},{5,0},{0,0},{0,0},{0,0},{0,0},
+        {0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{7,0} };
+    kiss_fft_cpx out[3*9];
+    kiss_fft_cpx ver[3*9]= {
+    {16.00000,0.00000},{0.16385,5.38749},{4.54576,7.50952},{-2.00000,1.73205},{-6.20961,9.91626},{-6.20961,-9.91626},{-2.00000,-1.73205},{4.54576,-7.50952},{0.16385,-5.38749},{-2.00000,1.73205},{-6.20961,9.91626},{-6.20961,-9.91626},{-2.00000,-1.73205},{4.54576,-7.50952},{0.16385,-5.38749},{16.00000,0.00000},{0.16385,5.38749},{4.54576,7.50952},{-2.00000,-1.73205},{4.54576,-7.50952},{0.16385,-5.38749},{16.00000,-0.00000},{0.16385,5.38749},{4.54576,7.50952},{-2.00000,1.73205},{-6.20961,9.91626},{-6.20961,-9.91626} };
+    
+    cfg = kiss_fft2d_alloc(3,9,0,0,0);
+    kiss_fft2d(cfg,in,out);
+    free(cfg);
+
+    if ( snr_compare( out,ver, 3*9) < 100 ) {
+        return 1;
+    }
+    printf("2d complex fft seems to be working\n");
+    return 0;
+}

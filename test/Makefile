@@ -42,7 +42,7 @@ CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer
 $(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fft2d.c kiss_fftr.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
-$(SELFTEST): ../kiss_fft.c $(SELFTESTSRC)
+$(SELFTEST): ../kiss_fft.c $(SELFTESTSRC) kiss_fft2d.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
 $(TESTKFC): ../kiss_fft.c kfc.c
