@@ -100,18 +100,19 @@ void fft_work(
     }
 
     for ( u=0; u<m; ++u ) {
+        k=u;
         for ( q1=0 ; q1<p ; ++q1 ) {
+            scratch[q1] = Fout[ k  ];
 #ifdef FIXED_POINT
-            scratch[q1].r = Fout[ u+q1*m  ].r>>1;
-            scratch[q1].i = Fout[ u+q1*m  ].i>>1;
-#else
-            scratch[q1] = Fout[ u+q1*m  ];
+            scratch[q1].r = Fout[ k  ].r>>1;
+            scratch[q1].i = Fout[ k  ].i>>1;
 #endif            
+            k += m;
         }
 
+        k=u;
         for ( q1=0 ; q1<p ; ++q1 ) {
             int twidx=0;
-            k=q1*m+u;
             Fout[ k ] = scratch[0];
             for (q=1;q<p;++q ) {
                 twidx += fstride * k;
@@ -121,6 +122,7 @@ void fft_work(
                 Fout[ k ].r += t.r;
                 Fout[ k ].i += t.i;
             }
+            k += m;
         }
     }
 }
