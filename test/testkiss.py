@@ -1,15 +1,33 @@
 #!/usr/local/bin/python2.3
 import math
 import sys
+import os
 import random
 import Numeric
+import FFT
 import struct
+import popen2
 
 pi=math.pi
 e=math.e
 j=complex(0,1)
 
-def dopack(x,fmt='f',cpx=1):
+doreal=0
+
+datatype = os.environ.get('DATATYPE','float')
+
+util = '../tools/fft'
+fmt='f'
+minsnr=90
+if datatype == 'double':
+    util = '../tools/fft_double'
+    fmt='d'
+elif datatype=='short':
+    util = '../tools/fft_short'
+    fmt='h'
+    minsnr=10
+
+def dopack(x,cpx=1):
     x = Numeric.reshape( x, ( Numeric.size(x),) )
     if cpx:
         s = ''.join( [ struct.pack(fmt*2,c.real,c.imag) for c in x ] )
@@ -17,51 +35,15 @@ def dopack(x,fmt='f',cpx=1):
         s = ''.join( [ struct.pack(fmt,c) for c in x ] )
     return s
 
-def dounpack(x,fmt,cpx):
-    uf = fmt * ( len(x) / 4 )
+def dounpack(x,cpx):
+    uf = fmt * ( len(x) / struct.calcsize(fmt) )
     s = struct.unpack(uf,x)
     if cpx:
         return Numeric.array(s[::2]) + Numeric.array( s[1::2] )*j
     else:
         return Numeric.array(s )
 
-
-def main():
-    #fft_func = fft
-    fft_func = real_fft
-
-    tvec = [0.309655,0.815653,0.768570,0.591841,0.404767,0.637617,0.007803,0.012665]
-    Ftvec = [ complex(r,i) for r,i in zip(
-                [3.548571,-0.378761,-0.061950,0.188537,-0.566981,0.188537,-0.061950,-0.378761],
-                [0.000000,-1.296198,-0.848764,0.225337,0.000000,-0.225337,0.848764,1.296198] ) ]
-
-    F = fft_func( tvec,0 )
-
-    nerrs= 0
-    for i in range(len(Ftvec)/2 + 1):
-        if abs( F[i] - Ftvec[i] )> 1e-5:
-            print 'F[%d]: %s != %s' % (i,F[i],Ftvec[i])
-            nerrs += 1
-
-    print '%d errors in forward fft' % nerrs
-    if nerrs:
-        return
-
-    trec = fft_func( F , 1 )
-
-    for i in range(len(trec) ):
-        trec[i] /= len(trec)
-
-    for i in range(len(tvec) ):
-        if abs( trec[i] - tvec[i] )> 1e-5:
-            print 't[%d]: %s != %s' % (i,tvec[i],trec[i])
-            nerrs += 1
-
-    print '%d errors in reverse fft' % nerrs
-
-
 def make_random(dims=[1]):
-    import Numeric 
     res = []
     for i in range(dims[0]):
         if len(dims)==1:
@@ -73,7 +55,6 @@ def make_random(dims=[1]):
     return Numeric.array(res)
 
 def flatten(x):
-    import Numeric
     ntotal = Numeric.product(Numeric.shape(x))
     return Numeric.reshape(x,(ntotal,))
 
@@ -84,63 +65,60 @@ def randmat( ndims ):
         dims.append( curdim )
     return make_random(dims )
 
-def test_fftnd(ndims=3):
-    import FFT
-    import Numeric
+def test_fft(ndims):
+    if ndims == 1:
+        x=Numeric.array(make_random( [ int(random.uniform(500,1025)) ] ))
+    else:
+        x=randmat( ndims )
 
-    x=randmat( ndims )
-    print 'dimensions=%s' % str( Numeric.shape(x) )
-    #print 'x=%s' %str(x)
     xver = FFT.fftnd(x)
-    x2=myfftnd(x)
+    x2=dofft(x)
     err = xver - x2
     errf = flatten(err)
     xverf = flatten(xver)
     errpow = Numeric.vdot(errf,errf)+1e-10
     sigpow = Numeric.vdot(xverf,xverf)+1e-10
     snr = 10*math.log10(abs(sigpow/errpow) )
-    print 'SNR(compared to Python FFT module) =%sdB' % str( snr )
-    if snr<80:
-        print xver
-        print x2
+    print 'dimensions=%s' % str( Numeric.shape(x) ),
+    print 'SNR (compared to NumPy) : %.1fdB' % float(snr)
+
+    if snr<minsnr:
+        print 'xver=',xver
+        print 'x2=',x2
+        print 'err',err
         sys.exit(1)
  
-def myfftnd(x):
-    import Numeric
-    xf = flatten(x)
-    Xf = fftndwork( xf , Numeric.shape(x) )
-    return Numeric.reshape(Xf,Numeric.shape(x) )
+def dofft(x):
+    dims=Numeric.shape(x)
+    x = flatten(x)
+    iscomp = (type(x[0]) == complex)
 
-def fftndwork(x,dims):
-    import popen2
+    scale=1
+    if datatype=='short':
+        x = 32767 * x
+        scale = len(x) / 32767.0
 
-    cmd = '../tools/fft -n '
+    cmd='%s -n ' % util
     cmd += ','.join([str(d) for d in dims])
-    p = popen2.Popen3(cmd )
-    p.tochild.write( dopack( x , 'f' ,1 ) )
-    p.tochild.close()
-    res = dounpack( p.fromchild.read() , 'f' ,1 )
-    p.wait()
-    return res
 
-    #import Numeric
-    #dimprod=Numeric.product( dims )
-#
-    #for k in range( len(dims) ):
-        #cur_dim=dims[ k ]
-        #stride=dimprod/cur_dim
-        #next_x = [complex(0,0)]*len(x)
-        #for i in range(stride):
-            #next_x[i*cur_dim:(i+1)*cur_dim] = fft(x[i:(i+cur_dim)*stride:stride],0)
-        #x = next_x
-    #return x
+    p = popen2.Popen3(cmd )
+
+    p.tochild.write( dopack( x , iscomp ) )
+    p.tochild.close()
+
+    res = dounpack( p.fromchild.read() , iscomp )
+
+    res = scale * res
+
+    p.wait()
+    return Numeric.reshape(res,dims)
+
+def main():
+    for dim in range(1,9):
+        test_fft( dim )
+    print 'We crossed the 8th dimension.  Buckaroo would be proud'
+
 
 if __name__ == "__main__":
-    try:
-        nd = int(sys.argv[1])
-    except:
-        nd=None
-    if nd:    
-        test_fftnd( nd )
-    else:    
-        sys.exit(0)
+    main()
+
