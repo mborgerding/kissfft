@@ -37,10 +37,6 @@ typedef struct {
     kiss_fft_cpx * scratch;
 }kiss_fft_state;
 
-#define C_ADD(x,a,b) \
-    do{ (x).r = (a).r+(b).r;\
-        (x).i = (a).i+(b).i;}while(0)
-
 #ifdef FIXED_POINT
     /*  We don't have to worry about overflow from multiplying by twiddle factors since they
      *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
@@ -121,7 +117,7 @@ void fft_work(
                 twidx += fstride * k;
                 if (twidx>=Norig)
                     twidx-=Norig;
-                t = cmul(scratch[q] , twiddles[twidx] );
+                C_MUL(t,scratch[q] , twiddles[twidx] );
                 Fout[ k ].r += t.r;
                 Fout[ k ].i += t.i;
             }
