@@ -51,12 +51,19 @@ typedef struct {
 #   define C_FIXDIV(c,div) \
     do{ (c).r /= div; (c).i /=div; }while(0)
 
+#   define C_MULBYSCALAR( c, s ) \
+    do{ (c).r = ( ( (c).r*(s) ) + (1<<14) ) >> 15;\
+        (c).i = ( ( (c).i*(s) ) + (1<<14) ) >> 15; }while(0)
+
 #else  /* not FIXED_POINT*/
 
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
 #   define C_FIXDIV(c,div) /* NOOP */
+#   define C_MULBYSCALAR( c, s ) \
+    do{ (c).r *= (s);\
+        (c).i *= (s); }while(0)
 #endif
 
 #define  C_ADD( res, a,b)\
@@ -174,46 +181,39 @@ void bfly3(
      kiss_fft_cpx *Fout0,*Fout1,*Fout2;
      kiss_fft_cpx *tw1,*tw2;
      kiss_fft_cpx * scratch = st->scratch;
-     kiss_fft_cpx * twiddles = st->twiddles;
      kiss_fft_cpx epi3;
-     epi3 = twiddles[fstride*m];
+     epi3 = st->twiddles[fstride*m];
 
      Fout0=Fout;
      Fout1=Fout0+m;
      Fout2=Fout0+2*m;
-     tw1=tw2=twiddles;
+     tw1=tw2=st->twiddles;
 
      do{
-
          C_FIXDIV(*Fout,3); C_FIXDIV(*Fout1,3); C_FIXDIV(*Fout2,3);
-
-         scratch[0] = *Fout0;
 
          C_MUL(scratch[1],*Fout1 , *tw1);
          C_MUL(scratch[2],*Fout2 , *tw2);
-         tw1 += fstride;
-         tw2 += fstride*2;
 
          C_ADD(scratch[4],scratch[1],scratch[2]);
-         C_ADD(*Fout0,scratch[0],scratch[4]);
+         C_SUB(scratch[0],scratch[1],scratch[2]);
 
-         scratch[4].r /= -2;
-         scratch[4].i /= -2;
+         Fout1->r = Fout0->r - scratch[4].r/2;
+         Fout1->i = Fout0->i - scratch[4].i/2;
 
-         C_SUB(scratch[5],scratch[1],scratch[2]);
-         scratch[5].r *= epi3.i;
-         scratch[5].i *= epi3.i;
+         C_MULBYSCALAR( scratch[0] , epi3.i );
 
-         scratch[3].r = scratch[4].r - scratch[5].i ;
-         scratch[3].i = scratch[4].i + scratch[5].r ;
+         C_ADDTO(*Fout0,scratch[4]);
 
-         C_ADD( *Fout1, scratch[0] , scratch[3] );
+         Fout2->r = Fout1->r + scratch[0].i;
+         Fout2->i = Fout1->i - scratch[0].r;
 
-         scratch[3].r = scratch[4].r + scratch[5].i;
-         scratch[3].i = scratch[4].i - scratch[5].r;
-         C_ADD( *Fout2, scratch[0] , scratch[3] );
+         Fout1->r -= scratch[0].i;
+         Fout1->i += scratch[0].r;
 
          ++Fout0;++Fout1;++Fout2;
+         tw1 += fstride;
+         tw2 += fstride*2;
      }while(--m);
 }
 
@@ -277,9 +277,7 @@ void fft_work(
 
     switch (p) {
         case 2: bfly2(Fout,fstride,st,m); break;
-#if 1
         case 3: bfly3(Fout,fstride,st,m); break;
-#endif                
         case 4: bfly4(Fout,fstride,st,m); break;
         default: bfly_generic(Fout,fstride,st,m,p); break;
     }
