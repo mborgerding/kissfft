@@ -34,9 +34,10 @@ endif
 
 all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(FFTUTIL) $(TESTKFC)
 
-#CFLAGS=-Wall -O3 -ansi -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer
+CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer 
+#-DUSE_SKIP 
 # If the above flags do not work, try the following
-CFLAGS=-Wall -O3
+#CFLAGS=-Wall -O3
 
 $(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fft2d.c kiss_fftr.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+

@@ -62,6 +62,7 @@ void* kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem);
  * */
 void kiss_fft(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout);
 
+void kiss_fft_stride(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,int fin_stride);
 
 /* If kiss_fft_alloc allocated a buffer, it is one contiguous 
    buffer and can be simply free()d when no longer needed*/

@@ -26,6 +26,8 @@ double snr_compare( kiss_fft_cpx * test_vec_out,kiss_fft_cpx * testbuf, int n)
     return snr;
 }
 
+void test_stride();
+
 int main() { int exit_code=0;
 
 #define NFFT 10
@@ -130,7 +132,7 @@ int main() { int exit_code=0;
     }
 #undef NFFT    
 
-
+    test_stride();
     return exit_code;
 }
 

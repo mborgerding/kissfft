@@ -103,6 +103,14 @@ int main(int argc,char ** argv)
             case 'r':nrows = atoi(optarg);break;
             case 'i':isinverse=1;break;
             case 'R':isreal=1;break;
+            case '?':
+                     fprintf(stderr,"usage options:\n"
+                            "\t-n NFFT: fft size\n"
+                            "\t-r nrows: # rows (implies 2d FFT)\n"
+                            "\t-i : inverse\n"
+                            "\t-R : real input samples, not complex\n");
+                     exit (1);
+            default:fprintf(stderr,"bad %c\n",c);break;
         }
     }
 

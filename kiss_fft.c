@@ -244,6 +244,7 @@ void kf_work(
         kiss_fft_cpx * Fout,
         const kiss_fft_cpx * f,
         int fstride,
+        int in_stride,
         int * factors,
         const kiss_fft_state * st
         )
@@ -256,8 +257,8 @@ void kf_work(
         if (m==1)
             Fout[q] = *f;
         else
-            kf_work( Fout + m*q, f, fstride*p,factors,st);
-        f += fstride;
+            kf_work( Fout + m*q, f, fstride*p, in_stride, factors,st);
+        f += fstride*in_stride;
     }
 
     switch (p) {
@@ -341,7 +342,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem )
     return st;
 }
 
-void kiss_fft(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
+void kiss_fft_stride(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,int in_stride)
 {
     const kiss_fft_state * st = cfg;
     if (st->nfft < 0) {
@@ -350,9 +351,43 @@ void kiss_fft(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
     }
 
     if (fin == fout) {
-        memcpy(st->tmpbuf,fin,sizeof(kiss_fft_cpx)*st->nfft);
-        fin = st->tmpbuf;
+        kf_work(st->tmpbuf,fin,1,in_stride, st->factors,st);
+        memcpy(fout,st->tmpbuf,sizeof(kiss_fft_cpx)*st->nfft);
+    }else{
+        kf_work( fout, fin, 1,in_stride, st->factors,st );
     }
+}
 
-    kf_work( fout, fin, 1, st->factors,st );
+void kiss_fft(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
+{
+    kiss_fft_stride(cfg,fin,fout,1);
+}
+
+void test_stride()
+{
+#define SKIP_FACTOR 7
+#define FFT_SIZE 1800
+    void *cfg;
+    kiss_fft_cpx buf1in[FFT_SIZE],buf1out[FFT_SIZE];
+    kiss_fft_cpx buf2in[SKIP_FACTOR*FFT_SIZE],buf2out[FFT_SIZE];
+    int i;
+    memset(buf2in,0,sizeof(buf2in));
+    for (i=0;i<FFT_SIZE;++i) {
+        buf1in[i].r = rand();
+        buf1in[i].i = rand();
+        buf2in[SKIP_FACTOR*i] = buf1in[i];
+    }
+    cfg= kiss_fft_alloc(FFT_SIZE,0,0,0);
+
+    kiss_fft(cfg,buf1in,buf1out);
+    kiss_fft_stride(cfg,buf2in,buf2out,SKIP_FACTOR);
+    if ( 0==memcmp(buf1out,buf2out,sizeof(buf1out) ) )
+        printf("kiss_fft_stride is working for stride = %d\n",SKIP_FACTOR);
+    else{
+        printf("kiss_fft_stride not working for stride =%d\n",SKIP_FACTOR);
+        for (i=0;i<FFT_SIZE;++i) {
+            fprintf(stderr,"good[%d]=",i);pcpx(buf1out+i);
+            fprintf(stderr,"bad [%d]=",i);pcpx(buf2out+i);
+        }
+    }
 }
