@@ -1,11 +1,11 @@
-function snr= testkiss( nfft , prec ,scale_t2f ,scale_f2t )
-if nargin<1, nfft=1024
-endif
-if nargin<2, prec='float'
-endif
-if nargin<3, scale_t2f=1
-endif
-if nargin<4, scale_f2t=1
+function snr= testkiss( nfft , prec )
+
+if strcmp( prec ,'short')
+    scale_t2f=nfft;
+    scale_f2t=nfft;
+else
+    scale_t2f=1;
+    scale_f2t=1/nfft;
 endif
 
 kfft= sprintf('./fftutil_%s',prec);
