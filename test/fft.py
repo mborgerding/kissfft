@@ -174,33 +174,15 @@ def myfftnd(x):
 
 def fftndwork(x,dims):
     import Numeric
-    kk=1
+    gg=Numeric.product( dims )
+
     for k in range( len(dims) ):
         d=dims[ k ]
-        g=Numeric.product( dims ) / d
-        #print 'dimension %d==%d, g=%d' % ( k ,d,g )
-        #print 'x=%s' % str(x)
-        next_stage = []
-        chunk = 0
-        for ii in range(kk):
-            start = ii*d*g
-            for i in range(start,start+g):
-                xslice = x[i:(i+d)*g:g]
-                if len(xslice) != d:
-                    print 'len(xslice)= %d' % len(xslice)
-                    sys.exit(0)
-
-                fxslice = fft(xslice,0)
-                #print 'fft( x[%d:%d:%d] ) ' %( i,(i+d)*g,g),
-                #print 'fft( %s ) == %s ' % (str(xslice),str(fxslice))
-                next_stage.extend( fxslice )
-        if  len(next_stage) != len(x):
-            print 'len(next_stage)= %d' % len(next_stage)
-            sys.exit(1)
-
-        #kk *= d
-        #print 'next_stage=%s' % str(next_stage)
-        x = next_stage[:]
+        g=gg/d
+        next_stage = [complex(0,0)]*len(x)
+        for i in range(g):
+            next_stage[i*d:(i+1)*d] = fft(x[i:(i+d)*g:g],0)
+        x = next_stage
     return x
 
 if __name__ == "__main__":
