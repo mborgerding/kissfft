@@ -37,14 +37,6 @@ typedef struct {
 }kiss_fft_state;
 
 #ifdef FIXED_POINT
-/*
-#define  C_SUB( res, a,b)\
-    do {    (res).r=((a).r-b.r+1)>>1;  (res).i=((a).i-b.i+1)>>1;  }while(0)
-#define C_ADDTO( res , a)\
-    do {    (res).r=((res).r+(a).r+1)>>1;  (res).i=((res).i+(a).i+1)>>1;  }while(0)
-#define C_SUBFROM( res , a)\
-    do {    (res).r=((res).r-(a).r+1)>>1;  (res).i=((res).i-(a).i+1)>>1;  }while(0)
-*/    
     /*  We don't have to worry about overflow from multiplying by twiddle factors since they
      *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
      *  rounding. */
@@ -84,32 +76,6 @@ void  printcpx(const char * desc,kiss_fft_cpx c)
 {
     printf("%s = (%e,%e)\n",desc,(double)c.r,(double)c.i);
 }
-        
-static
-inline
-kiss_fft_cpx crot(kiss_fft_cpx c, int numquads)
-{
-    kiss_fft_cpx out;
-    switch (numquads&3) {
-        case 0:
-            out.r = c.r;
-            out.i = c.i;
-            break;
-        case 1:
-            out.r = c.i;
-            out.i = -c.r;
-            break;
-        case 2:
-            out.r = -c.r;
-            out.i = -c.i;
-            break;
-        case 3:
-            out.r = -c.i;
-            out.i = c.r;
-            break;
-    }
-    return out;
-}
 
 #define C_ROTADDTO(sum,c,q) \
     do{\
@@ -132,7 +98,6 @@ kiss_fft_cpx crot(kiss_fft_cpx c, int numquads)
                 break;\
         }\
     }while(0) 
-
 
 static 
 void fft_work(
@@ -278,13 +243,11 @@ void fft_work(
     kiss_fft_cpx t;
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
-
-#if 1    
+#if 1
     switch (*factors) {
         case 4: fft4work(Fout,f,fstride,factors,st); return;
         case 2: fft2work(Fout,f,fstride,factors,st); return;
-        default:
-            break;
+        default: break;
     }
 #endif
     p=*factors++;
@@ -295,7 +258,7 @@ void fft_work(
             Fout[q] = *f;
         else
             fft_work( Fout + m*q, f, fstride*p,factors,st);
-        f+= fstride;
+        f += fstride;
     }
 
     for ( u=0; u<m; ++u ) {
@@ -303,15 +266,15 @@ void fft_work(
         for ( q1=0 ; q1<p ; ++q1 ) {
             scratch[q1] = Fout[ k  ];
 #ifdef FIXED_POINT
-            scratch[q1].r >>= 1;
-            scratch[q1].i >>= 1;
+            scratch[q1].r /= p;
+            scratch[q1].i /= p;
 #endif            
             k += m;
         }
 
         k=u;
         for ( q1=0 ; q1<p ; ++q1 ) {
-            int twidx=3;
+            int twidx=0;
             Fout[ k ] = scratch[0];
             for (q=1;q<p;++q ) {
                 int Norig = st->nfft;
