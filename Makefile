@@ -1,4 +1,8 @@
+KFVER=111
 
+DISTDIR=kiss_fft_v$(KFVER)
+TARBALL=kiss_fft_v$(KFVER).tar.gz
+ZIPFILE=kiss_fft_v$(KFVER).zip
 
 
 testall:
@@ -7,11 +11,21 @@ testall:
 	export DATATYPE=double && cd test && make test
 
 tarball: clean
-	find | grep -i -v cvs | zip kiss_fft.zip -@
-	tar --exclude CVS --exclude .cvsignore --exclude kiss_fft.zip -cvzf kiss_fft.tar.gz .
+	tar --exclude CVS --exclude .cvsignore --exclude $(TARBALL) -cvzf $(TARBALL) .
 
 clean:
 	cd test && make clean
 	cd tools && make clean
-	rm -f kiss_fft.tar.gz *~ *.pyc kiss_fft.zip 
+	rm -f kiss_fft*.tar.gz *~ *.pyc kiss_fft*.zip 
+	rm -rf $(DISTDIR)
 
+dist: tarball
+	mkdir $(DISTDIR)
+	cd $(DISTDIR) && tar -zxf ../$(TARBALL)
+	rm $(TARBALL)
+	tar -czf $(TARBALL) $(DISTDIR)
+	zip -r $(ZIPFILE) $(DISTDIR)
+	rm -rf $(DISTDIR)
+
+upload: dist
+	ncftpput upload.sourceforge.net incoming $(ZIPFILE) $(TARBALL)

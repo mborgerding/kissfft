@@ -8,26 +8,40 @@ incorporated into someone's C program in a few minutes with trivial licensing.
 
 USAGE:
 
-    The basic usage is:
+    The basic usage for 1-d complex FFT is:
+
+        #include "kiss_fft.h"
 
         void * cfg = kiss_fft_alloc( nfft ,inverse_fft );
+
         while ...
+        
             ... // put kth sample in cx_in[k].r and cx_in[k].i
+            
             kiss_fft( cfg , cx_in , cx_out );
-            ... // transformed 
+            
+            ... // transformed. DC is in cx_out[0].r and cx_out[0].i 
+            
         free(cfg);
 
     Note: frequency-domain data is stored from dc up to 2pi.
     so cx_out[0] is the dc bin of the FFT
-    and cx_out[nfft/2] is the Nyquist bin (if even length FFT)
+    and cx_out[nfft/2] is the Nyquist bin (if exists)
 
     Declarations are in "kiss_fft.h", along with a brief description of the 
-functions you'll need to use. Code definitions for 1d complex FFTs are in kiss_fft.c.
-with sample usage code.  For more functionality, like 2d FFTs you may need to add 
-other source files to your project.
+functions you'll need to use. 
 
-    The code can be compiled to use float, double or 16bit short samples.
-The default is float.
+Code definitions for 1d complex FFTs are in kiss_fft.c.
+
+You can do other cool stuff with the extras you'll find in tools/
+
+    * arbitrary dimension FFTs (complex only currently, apologies to Steve DeKorte -- mebbe next time )
+    * real FFTs
+    * fast convolution filtering
+
+The core fft and most tools/ code can be compiled to use float, double 
+or 16bit short samples. The default is float.
+
 
 BACKGROUND:
 
@@ -68,11 +82,18 @@ UNDER THE HOOD:
     Kiss FFT uses a time decimation, mixed-radix, out-of-place FFT. 
 No scaling is done.  Optimized butterflies are used for factors 2,3,4, and 5. 
 
+    The real optimization code only works for even length ffts.  It does two half-length
+    FFTs in parallel (packed into real&imag) then twiddles.
+
+    The fast convolution filtering uses the overlap-scrap method, slightly 
+    modified to put the scrap at the tail.
+    
+
 LICENSE:
     BSD, see COPYING for details. Basically, "free to use, give credit where due, no guarantees"
 
 TODO:
-    *) Add real optimization for odd length FFTs
+    *) Add real optimization for odd length FFTs (DST)
     *) Add real optimization to the n-dimensional FFT
     *) Add simple windowing function, e.g. Hamming : w(i)=.54-.46*cos(2pi*i/(n-1))
     *) Make the fixed point scaling and bit shifts more easily configurable.
