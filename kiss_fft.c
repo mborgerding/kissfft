@@ -15,6 +15,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <memory.h>
 #include "kiss_fft.h"
 /*
  * kiss_fft.h
@@ -32,15 +33,20 @@ typedef struct {
     kiss_fft_cpx * twiddle;
 }kiss_fft_stage;
 
+const double pi=3.14159265358979323846264338327;
 
 
 #define MAX_STAGES 20
 typedef struct {
+    int nfft;
     int nstages;
     int allocsize;
     kiss_fft_stage stages[MAX_STAGES];
     int * unscramble_indices;
+    kiss_fft_cpx * buf1;
 }kiss_fft_state;
+
+
 
 #ifdef FIXED_POINT
 
@@ -81,17 +87,26 @@ typedef struct {
 #endif
 
 
+static
+kiss_fft_cpx cexp(double phase)
+{
+    kiss_fft_cpx x;
+    x.r = cos(phase);
+    x.i = -sin(phase);
+    return x;
+}
+
 // create the twiddle factors
 static 
 void make_twiddles(kiss_fft_cpx * twiddle,int ntwid,int symmetry,int inverse_fft) 
 {
-    const double pi=3.14159265358979323846264338327;
     int n;
     int denom = ntwid*symmetry;
     
     for (n=0;n<ntwid;++n) {
-        twiddle[n].r = cos(2*pi*n/denom);
-        twiddle[n].i = -sin(2*pi*n/denom);
+        twiddle[n] = cexp( 2*pi*n/denom );
+        //twiddle[n].r = cos(2*pi*n/denom);
+        //twiddle[n].i = -sin(2*pi*n/denom);
         // inverse fft uses complex conjugate twiddle factors
         if (inverse_fft)
             twiddle[n].i *= -1;
@@ -144,35 +159,68 @@ void undo_bit_rev( kiss_fft_cpx * f, const int * swap_indices,int nswap)
     }
 }
 
+static kiss_fft_cpx cadd(kiss_fft_cpx a,kiss_fft_cpx b)
+{
+    kiss_fft_cpx c;
+    C_ADD(c,a,b);
+    return c;
+}
+
+static kiss_fft_cpx cmul(kiss_fft_cpx a,kiss_fft_cpx b)
+{
+    kiss_fft_cpx c;
+    C_MUL(c,a,b);
+    return c;
+}
+
+
 
 // the heart of the fft
 static 
-void fft_work( kiss_fft_cpx * f,const  kiss_fft_stage * stage , int nstages )
+void fft_work( kiss_fft_cpx * h,kiss_fft_cpx * h2,const  kiss_fft_stage * stage , int nstages )
 {
     int n;
-    // only works for 2s
-    
     {   // declare automatic variables in here to reduce stack usage
-        kiss_fft_cpx csum,cdiff;
-        kiss_fft_cpx *f1 = f;
-        kiss_fft_cpx *f2 = f+ stage->nr;
-        const kiss_fft_cpx * twid = stage->twiddle;
-        for ( n = 0 ; n < stage->nr ; ++n )
-        {
-            C_ADD( csum,  *f1 , *f2 );
-            C_SUB( cdiff, *f1 , *f2 );
-            *f1++ = csum;
-            C_MUL(*f2, cdiff, *twid);
-            ++f2;
-            ++twid;
+        int nx,ny,Nx,Ny;
+        kiss_fft_cpx twid;
+        double inc1 = -2*pi/(stage->radix * stage->nr);
+        Ny = stage->nr;
+        Nx = stage->radix;
+
+        for (ny=0;ny<Ny; ++ny) {
+            for ( nx=0 ; nx<Nx ; ++nx ) {
+               h2[ny] = h[ny];
+
+                h2[ny] = cadd( h2[ny] , cmul( twid ,h[ nx * nr + ny ]  ) );
+            }
+
+            twid = cexp();
+            cmul(h2[ny]);
         }
+/*
+            h2[n] =  h[n] + h[n+N/2]
+            h2[n+N/2] = ( h[n] - h[n+N/2] ) * exp ( n * j*2*pi/N)
+
+            for ( n = 0 ; n < stage->nr ; ++n )
+            {
+                C_ADD( csum,  *f1 , *f2 );
+                C_SUB( cdiff, *f1 , *f2 );
+                C_MUL(*f2, cdiff, *twid);
+                *f1++ = csum;
+                ++f2;
+                ++twid;
+            }
+*/            
     }
     if ( nstages == 1 )
         return;
-    
-    for (n=0;n<stage->radix;++n)
-        fft_work( f + n * stage->nr ,stage+1,nstages-1);
+
+    for (n=0;n<stage->radix;++n) {
+        int offset = n * stage->nr;
+        fft_work( h2 + offset , h + offset ,stage+1,nstages-1);
+    }
 }
+
 static
 kiss_fft_state * decompose( kiss_fft_state * st, int * pnfft,int radix,int inverse_fft)
 {
@@ -213,12 +261,14 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     kiss_fft_state * st=NULL;
     int tmp;
     int i;
-    int allocsize=sizeof(kiss_fft_state) + nfft*sizeof(int);
+    int allocsize=sizeof(kiss_fft_state) + nfft*( sizeof(int) + sizeof(kiss_fft_cpx) );
 
     st = ( kiss_fft_state *)malloc( allocsize );
+    st->nfft=nfft;
     st->nstages=0;
     st->allocsize=allocsize;
     st->unscramble_indices = (int*)(st+1);// just past end of buffer
+    st->buf1 = (kiss_fft_cpx*)( st->unscramble_indices + nfft);
 
     for (i=0;i<nfft;++i)
         st->unscramble_indices[i] = i;
@@ -242,5 +292,8 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
 void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
     const kiss_fft_state * st = cfg;
-    fft_work( f, st->stages , st->nstages );
+    fft_work( f,st->buf1, st->stages , st->nstages );
+    if (st->nstages&1) {
+        memcpy( st->buf1 , f,sizeof(kiss_fft_cpx) * st->nfft );
+    }
 }
