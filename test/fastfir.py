@@ -50,7 +50,7 @@ def main():
     opts=dict(opts)
 
     siglen = int(opts.get('-l',1e4 ) )
-    hlen = 50
+    hlen =50 
  
     nfft = int(opts.get('-n',128) )
     usereal = opts.has_key('-r')
@@ -77,8 +77,10 @@ def main():
     snr = 10*log10( abs( vdot(yslow,yslow) / vdot(diff,diff) ) )
     print 'snr=%s' % snr
     if snr < 10.0:
-        print yslow[:5]
-        print yfast[:5]
+        print 'h=',h
+        print 'sig=',sig[:5],'...'
+        print 'yslow=',yslow[:5],'...'
+        print 'yfast=',yfast[:5],'...'
 
 def utilfastfilter(sig,h,nfft,usereal):
     import compfft

@@ -14,16 +14,19 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 #include "_kiss_fft_guts.h"
 
+
 /*
  Some definitions that allow real or complex filtering
 */
 #ifdef REAL_FASTFIR
+#define MIN_FFT_LEN 2048
 #include "kiss_fftr.h"
 typedef kiss_fft_scalar kffsamp_t;
 #define FFT_ALLOC kiss_fftr_alloc
 #define FFTFWD kiss_fftr
 #define FFTINV kiss_fftri
 #else
+#define MIN_FFT_LEN 1024
 typedef kiss_fft_cpx kffsamp_t;
 #define FFT_ALLOC kiss_fft_alloc
 #define FFTFWD kiss_fft
@@ -76,13 +79,17 @@ void * kiss_fastfir_alloc(
         do{
              nfft<<=1;
         }while (i>>=1);
+#ifdef MIN_FFT_LEN
+        if ( nfft < MIN_FFT_LEN )
+            nfft=MIN_FFT_LEN;
+#endif        
     }
     if (pnfft)
         *pnfft = nfft;
 
 #ifdef REAL_FASTFIR
     n_freq_bins = nfft/2 + 1;
-#else    
+#else
     n_freq_bins = nfft;
 #endif
     /*fftcfg*/
@@ -243,22 +250,25 @@ void direct_file_filter(
     size_t nlag = n_imp_resp - 1;
 
     const kffsamp_t *tmph;
-    kffsamp_t *buf, *lagbuf;
+    kffsamp_t *buf, *circbuf;
     kffsamp_t outval;
     size_t nread;
     size_t nbuf;
     size_t oldestlag = 0;
-    size_t i, ii;
+    size_t k, tap;
+#ifndef REAL_FASTFIR
+    kffsamp_t tmp;
+#endif    
 
     nbuf = 4096;
     buf = (kffsamp_t *) malloc ( sizeof (kffsamp_t) * nbuf);
-    lagbuf = (kffsamp_t *) malloc (sizeof (kffsamp_t) * nlag);
-    if (!lagbuf || !buf) {
-        perror("lagbuf allocation");
+    circbuf = (kffsamp_t *) malloc (sizeof (kffsamp_t) * nlag);
+    if (!circbuf || !buf) {
+        perror("circbuf allocation");
         exit(1);
     }
 
-    if ( fread (lagbuf, sizeof (kffsamp_t), nlag, fin) !=  nlag ) {
+    if ( fread (circbuf, sizeof (kffsamp_t), nlag, fin) !=  nlag ) {
         perror ("insufficient data to overcome transient");
         exit (1);
     }
@@ -268,25 +278,36 @@ void direct_file_filter(
         if (nread <= 0)
             break;
 
-        for (i = 0; i < nread; ++i) {
+        for (k = 0; k < nread; ++k) {
+            tmph = imp_resp+nlag;
+#ifdef REAL_FASTFIR
             outval = 0;
-            tmph = imp_resp;
+            for (tap = oldestlag; tap < nlag; ++tap)
+                outval += circbuf[tap] * *tmph--;
+            for (tap = 0; tap < oldestlag; ++tap)
+                outval += circbuf[tap] * *tmph--;
+            outval += buf[k] * *tmph;
+#else
+            outval.r = outval.i = 0;
+            for (tap = oldestlag; tap < nlag; ++tap){
+                C_MUL(tmp,circbuf[tap],*tmph);
+                --tmph;
+                C_ADDTO(outval,tmp);
+            }
+            
+            for (tap = 0; tap < oldestlag; ++tap) {
+                C_MUL(tmp,circbuf[tap],*tmph);
+                --tmph;
+                C_ADDTO(outval,tmp);
+            }
+            C_MUL(tmp,buf[k],*tmph);
+            C_ADDTO(outval,tmp);
+#endif
 
+            circbuf[oldestlag++] = buf[k];
+            buf[k] = outval;
 
-            for (ii = oldestlag; ii < nlag; ++ii)
-                outval += lagbuf[ii] * *tmph++;
-
-
-            for (ii = 0; ii < oldestlag; ++ii)
-                outval += lagbuf[ii] * *tmph++;
-
-            outval += buf[i] * *tmph++;
-
-
-            lagbuf[oldestlag] = buf[i];
-            buf[i] = outval;
-
-            if (++oldestlag == nlag)
+            if (oldestlag == nlag)
                 oldestlag = 0;
         }
 
@@ -296,7 +317,7 @@ void direct_file_filter(
         }
     } while (nread);
     free (buf);
-    free (lagbuf);
+    free (circbuf);
 }
 
 void do_file_filter(
@@ -306,7 +327,6 @@ void do_file_filter(
         size_t n_imp_resp,
         size_t nfft )
 {
-    size_t n_bytes_cfg;
     size_t n_samps_buf;
 
     void * cfg;
@@ -314,20 +334,14 @@ void do_file_filter(
     size_t nread,nwrite;
     size_t idx_inbuf;
 
-    /*Note this is probably more difficult than it needs to be since 
-      I like to only have one malloc if possible.  */
+    cfg=kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,0);
 
-    /*figure out how big cfg will be */
-    kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,&n_bytes_cfg);
-
-    /* how much space for the input & output buffers */
-    n_samps_buf = 4*nfft;
+    /* use length to minimize buffer shift*/
+    n_samps_buf = nfft + 5*(nfft-n_imp_resp+1);
 
     /*allocate space and initialize pointers */
-    cfg = malloc( n_samps_buf * sizeof(kffsamp_t) *2 + n_bytes_cfg );
-    kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,cfg,&n_bytes_cfg);
-    inbuf = (kffsamp_t*)((char*)cfg+n_bytes_cfg);
-    outbuf = inbuf + n_samps_buf;
+    inbuf = (kffsamp_t*)malloc(sizeof(kffsamp_t)*n_samps_buf);
+    outbuf = (kffsamp_t*)malloc(sizeof(kffsamp_t)*n_samps_buf);
 
     idx_inbuf=0;
     do{
@@ -345,6 +359,8 @@ void do_file_filter(
         }
     }while ( nread );
     free(cfg);
+    free(inbuf);
+    free(outbuf);
 }
 
 int main(int argc,char**argv)
