@@ -47,7 +47,7 @@ void * kiss_fftr_alloc(int nfft,int inverse_fft)
     kf_init_state (st->substate, nfft, inverse_fft);
 
     for (i=0;i<nfft;++i) {
-        double phase = -3.14159265358979323846264338327 * i / nfft;
+        double phase = -3.14159265358979323846264338327 * ( (double)i / nfft + .5);
         st->super_twiddles[i] = kf_cexp( phase );
     }
     return st;
@@ -78,25 +78,20 @@ void kiss_fftr(const void * cfg,const kiss_fft_scalar *fin,kiss_fft_cpx *fout)
     fout[0].i = 0;
 
     for (k=1;k<N;++k) {
-        kiss_fft_cpx fpnk,fpk,f1k,f2k,scr[2];
-        
-        fpk = st->tmpbuf[k]; 
+        kiss_fft_cpx fpnk,fpk,f1k;
 
+        fpk = st->tmpbuf[k]; 
         fpnk.r =  st->tmpbuf[N-k].r;
         fpnk.i = -st->tmpbuf[N-k].i;
 
         C_ADD( f1k, fpk , fpnk );
         C_SUBFROM( fpk , fpnk );
+        C_MUL( fout[k], fpk , st->super_twiddles[k] );
+        C_ADDTO(fout[k],f1k);
 
-        f2k.r = fpk.i;
-        f2k.i = -fpk.r;
-
-        C_MUL( scr[1], f2k , st->super_twiddles[k] );
-
-        C_ADD(fout[k],f1k,scr[1]);
-        
         fout[k].r /= 2;
         fout[k].i /= 2;
     }
 }
+
 
