@@ -42,10 +42,27 @@ def fft(f,inv):
 
     return Fout
 
+def rifft(F):
+    N = len(F) - 1
+    Z = [0] * (N)
+    for k in range(N):
+        Fek = ( F[k] + F[-k-1].conjugate() )
+        Fok = ( F[k] - F[-k-1].conjugate() ) * e ** (j*pi*k/N)
+        Z[k] = Fek + j*Fok
+
+    #print 'Z', Z
+
+    fp = fft(Z , 1)
+
+    f = []
+    for c in fp:
+        f.append(c.real)
+        f.append(c.imag)
+    return f
+
 def real_fft( f,inv ):
     if inv:
-        sys.stderr.write('not impl\n')
-        sys.exit(1)
+        return rifft(f)
 
     N = len(f) / 2
 
@@ -54,6 +71,7 @@ def real_fft( f,inv ):
 
     fp = [ complex(r,i) for r,i in zip(res,ims) ]
     Fp = fft( fp ,0 )
+    #print 'F=',Fp
 
     F = []
     for k in range(N):
