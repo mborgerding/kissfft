@@ -43,9 +43,9 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse,int useascii,int tim
         if (useascii) {
             int i;
             for (i=0;i<nfft;++i) 
-                fprintf(fout, "(%g,%g) ", (double)buf[i].r,(double)buf[i].i);
+                fprintf(fout, "(%g,%g) ", (double)bufout[i].r,(double)bufout[i].i);
         }else{            
-            fwrite( buf , sizeof(kiss_fft_cpx) , nfft , fout );
+            fwrite( bufout , sizeof(kiss_fft_cpx) , nfft , fout );
         }
     }
     free(st);

@@ -206,6 +206,11 @@ void bfly3(
      }while(--m);
 }
 
+void cprint(const char * desc,kiss_fft_cpx c)
+{
+    fprintf(stderr,"%s(%e,%e)",desc,c.r,c.i);
+}
+
 void bfly5(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -213,33 +218,70 @@ void bfly5(
         int m
         )
 {
-    int u,k,q1,q;
-    const int p=5;
-    kiss_fft_cpx * scratch = st->scratch;
+    kiss_fft_cpx *Fout0,*Fout1,*Fout2,*Fout3,*Fout4;
+    int u;
+    kiss_fft_cpx scratch[20];
     kiss_fft_cpx * twiddles = st->twiddles;
-    kiss_fft_cpx t;
-    int Norig = st->nfft;
+    kiss_fft_cpx *tw1,*tw2,*tw3,*tw4;
+    kiss_fft_cpx y1,y2,y3,y4;
+    y1 = twiddles[fstride*m];
+    y2 = twiddles[fstride*2*m];
+    y3.r = y2.r;
+    y3.i = -y2.i;
+    y4.r = y1.r;
+    y4.i = -y1.i;
 
+    Fout0=Fout;
+    Fout1=Fout0+m;
+    Fout2=Fout0+2*m;
+    Fout3=Fout0+3*m;
+    Fout4=Fout0+4*m;
+
+    tw1=tw2=tw3=tw4 =  st->twiddles;
     for ( u=0; u<m; ++u ) {
-        k=u;
-        for ( q1=0 ; q1<p ; ++q1 ) {
-            scratch[q1] = Fout[ k  ];
-            C_FIXDIV(scratch[q1],p);
-            k += m;
-        }
+        C_FIXDIV( *Fout0,5); C_FIXDIV( *Fout1,5); C_FIXDIV( *Fout2,5); C_FIXDIV( *Fout3,5); C_FIXDIV( *Fout4,5);
 
-        k=u;
-        for ( q1=0 ; q1<p ; ++q1 ) {
-            int twidx=0;
-            Fout[ k ] = scratch[0];
-            for (q=1;q<p;++q ) {
-                twidx += fstride * k;
-                if (twidx>=Norig) twidx-=Norig;
-                C_MUL(t,scratch[q] , twiddles[twidx] );
-                C_ADDTO( Fout[ k ] ,t);
-            }
-            k += m;
-        }
+        scratch[0] = *Fout0;
+        C_MUL(scratch[1] ,*Fout1, *tw1);
+        C_MUL(scratch[2] ,*Fout2, *tw2);
+        C_MUL(scratch[3] ,*Fout3, *tw3);
+        C_MUL(scratch[4] ,*Fout4, *tw4);
+        Fout0->r += scratch[1].r + scratch[2].r + scratch[3].r + scratch[4].r;
+        Fout0->i += scratch[1].i + scratch[2].i + scratch[3].i + scratch[4].i;
+
+        C_MUL( scratch[5] , scratch[1] , y1 );
+        C_MUL( scratch[6] , scratch[2] , y2 );
+        C_MUL( scratch[7] , scratch[3] , y3 );
+        C_MUL( scratch[8] , scratch[4] , y4 );
+        Fout1->r = scratch[0].r + scratch[5].r + scratch[6].r + scratch[7].r + scratch[8].r;
+        Fout1->i = scratch[0].i + scratch[5].i + scratch[6].i + scratch[7].i + scratch[8].i;
+
+        C_MUL( scratch[5] , scratch[1] , y2 );
+        C_MUL( scratch[6] , scratch[2] , y4 );
+        C_MUL( scratch[7] , scratch[3] , y1 );
+        C_MUL( scratch[8] , scratch[4] , y3 );
+        Fout2->r = scratch[0].r + scratch[5].r + scratch[6].r + scratch[7].r + scratch[8].r;
+        Fout2->i = scratch[0].i + scratch[5].i + scratch[6].i + scratch[7].i + scratch[8].i;
+
+        C_MUL( scratch[5] , scratch[1] , y3 );
+        C_MUL( scratch[6] , scratch[2] , y1 );
+        C_MUL( scratch[7] , scratch[3] , y4 );
+        C_MUL( scratch[8] , scratch[4] , y2 );
+        Fout3->r = scratch[0].r + scratch[5].r + scratch[6].r + scratch[7].r + scratch[8].r;
+        Fout3->i = scratch[0].i + scratch[5].i + scratch[6].i + scratch[7].i + scratch[8].i;
+
+        C_MUL( scratch[5] , scratch[1] , y4 );
+        C_MUL( scratch[6] , scratch[2] , y3 );
+        C_MUL( scratch[7] , scratch[3] , y2 );
+        C_MUL( scratch[8] , scratch[4] , y1 );
+        Fout4->r = scratch[0].r + scratch[5].r + scratch[6].r + scratch[7].r + scratch[8].r;
+        Fout4->i = scratch[0].i + scratch[5].i + scratch[6].i + scratch[7].i + scratch[8].i;
+
+        ++Fout0;++Fout1;++Fout2;++Fout3;++Fout4;
+        tw1+=m;
+        tw2+=2*m;
+        tw3+=3*m;
+        tw4+=4*m;
     }
 }
 
@@ -305,7 +347,9 @@ void fft_work(
         case 2: bfly2(Fout,fstride,st,m); break;
         case 3: bfly3(Fout,fstride,st,m); break;
         case 4: bfly4(Fout,fstride,st,m); break;
+#if 1                
         case 5: bfly5(Fout,fstride,st,m); break;
+#endif                
         default: bfly_generic(Fout,fstride,st,m,p); break;
     }
 }
