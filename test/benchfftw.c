@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fftw3.h>
-#include <getopt.h>
+#include <unistd.h>
 #include "pstats.h"
 
 #ifdef DATATYPEdouble

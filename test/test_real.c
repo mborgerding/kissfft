@@ -1,5 +1,6 @@
-#include "kiss_fft.h"
+#include "_kiss_fft_guts.h"
 #include <sys/times.h>
+#include <time.h>
 #include <unistd.h>
 
 static double cputime()
@@ -9,8 +10,6 @@ static double cputime()
     return (double)(t.tms_utime + t.tms_stime)/  sysconf(_SC_CLK_TCK) ;
 }
 
-
-
 double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 {
     int k;
@@ -18,15 +17,19 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
     sigpow = noisepow = .00000000000000000001; 
 
     for (k=0;k<n;++k) {
-        sigpow += vec1[k].r * vec1[k].r + 
-                  vec1[k].i * vec1[k].i;
-        err = vec1[k].r - vec2[k].r;
+        sigpow += (double)vec1[k].r * (double)vec1[k].r + 
+                  (double)vec1[k].i * (double)vec1[k].i;
+        err = (double)vec1[k].r - (double)vec2[k].r;
         noisepow += err * err;
-        err = vec1[k].i - vec2[k].i;
+        err = (double)vec1[k].i - (double)vec2[k].i;
         noisepow += err * err;
 
         if (vec1[k].r)
-            scale += vec2[k].r / vec1[k].r;
+            scale +=(double) vec2[k].r / (double)vec1[k].r;
+        /*
+        fprintf(stderr,"vec1=");pcpx(vec1+k);
+        fprintf(stderr,"vec2=");pcpx(vec2+k);
+        */
     }
     snr = 10*log10( sigpow / noisepow );
     scale /= n;
@@ -38,17 +41,13 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 #ifndef RANDOM
 #define NFFT 8
 #else
-#define NFFT 2*3*5*7*11
+#define NFFT 8*3*5
 #endif
 
 #ifndef NUMFFTS
 #define NUMFFTS 1000
 #endif
 
-void pcpx(const char * msg, kiss_fft_cpx * c)
-{
-    printf("%s: %g + %gi\n",msg,c->r,c->i);
-}
 
 int main()
 {
@@ -62,6 +61,7 @@ int main()
     void * kiss_fft_state;
     void * kiss_fftr_state;
     
+    srand(time(0));
 
     for (i=0;i<NFFT;++i) {
 #ifdef RANDOM        
@@ -69,7 +69,6 @@ int main()
 #endif        
         cin[i].r = sin[i];
         cin[i].i = 0;
-/*        printf("in[%d]",i);pcpx("",cin+i); */
     }
 
     kiss_fft_state = kiss_fft_alloc(NFFT,0,0,0);
@@ -106,9 +105,6 @@ int main()
     for (i=0;i<NFFT;++i) {
         sout[i].r = sin[i];
         sout[i].i = 0;
-        /* printf("sin[%d] = %f\t",i,sin[i]); 
-        printf("cin[%d]",i);pcpx("",cin+i); 
-        printf("sout[%d]",i);pcpx("",sout+i); */ 
     }
     
     printf( "nfft=%d, inverse=%d, snr=%g\n",

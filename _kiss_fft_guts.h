@@ -95,5 +95,5 @@ void kf_work(
 /* a debugging function */
 static void pcpx( kiss_fft_cpx * c)
 {
-    fprintf(stderr,"%g + %gi\n",c->r,c->i);
+    fprintf(stderr,"%g + %gi\n",(double)(c->r),(double)(c->i) );
 }

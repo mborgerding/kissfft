@@ -80,6 +80,7 @@ void kiss_fftr(const void * cfg,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
  
     freqdata[0].r = st->tmpbuf[0].r + st->tmpbuf[0].i;
     freqdata[0].i = 0;
+    C_FIXDIV(freqdata[0],2);
 
     for (k=1;k <= N/2 ; ++k ) {
         kiss_fft_cpx fpnk,fpk,f1k,f2k,tw;
@@ -87,22 +88,23 @@ void kiss_fftr(const void * cfg,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
         fpk = st->tmpbuf[k]; 
         fpnk.r =  st->tmpbuf[N-k].r;
         fpnk.i = -st->tmpbuf[N-k].i;
+        C_FIXDIV(fpk,2);
+        C_FIXDIV(fpnk,2);
 
         C_ADD( f1k, fpk , fpnk );
         C_SUB( f2k, fpk , fpnk );
         C_MUL( tw , f2k , st->super_twiddles[k]);
 
         C_ADD( freqdata[k] , f1k ,tw);
-        freqdata[k].r /= 2;
-        freqdata[k].i /= 2;
+        freqdata[k].r = (f1k.r + tw.r) / 2;
+        freqdata[k].i = (f1k.i + tw.i) / 2;
 
-        freqdata[N-k].r =    f1k.r - tw.r;
-        freqdata[N-k].i = - (f1k.i - tw.i);
-        freqdata[N-k].r /= 2;
-        freqdata[N-k].i /= 2;
+        freqdata[N-k].r =   (f1k.r - tw.r)/2;
+        freqdata[N-k].i = - (f1k.i - tw.i)/2;
     }
     freqdata[N].r = st->tmpbuf[0].r - st->tmpbuf[0].i;
     freqdata[N].i = 0;
+    C_FIXDIV(freqdata[N],2);
 }
 
 void kiss_fftri(const void * cfg,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata)
@@ -120,6 +122,7 @@ void kiss_fftri(const void * cfg,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
 
     st->tmpbuf[0].r = freqdata[0].r + freqdata[N].r;
     st->tmpbuf[0].i = freqdata[0].r - freqdata[N].r;
+
     for (k = 1; k <= N / 2; ++k) {
         kiss_fft_cpx fk, fnkc, fek, fok, tmpbuf;
         fk = freqdata[k];

@@ -23,6 +23,10 @@ def c_format(v,round=0):
 def test_cpx( n,inverse ,short):
     v = randvec(n,1)
     scale = 1
+    if short:
+        minsnr=30
+    else:
+        minsnr=100
 
     if inverse:
         tvecout = FFT.inverse_fft(v)
@@ -44,12 +48,13 @@ def test_cpx( n,inverse ,short):
         kiss_fft_cpx test_vec_in[NFFT] = { """  + c_format(v) + """};
         kiss_fft_cpx test_vec_out[NFFT] = {"""  + c_format( tvecout ) + """};
         kiss_fft_cpx testbuf[NFFT];
-        void * cfg = kiss_fft_alloc(NFFT,%d);""" % inverse + """
+        void * cfg = kiss_fft_alloc(NFFT,%d,0,0);""" % inverse + """
 
         kiss_fft(cfg,test_vec_in,testbuf);
-
         snr = snr_compare(test_vec_out,testbuf,NFFT);
-        printf("FFT n=%d, inverse=%d, snr = %g dB\\n",NFFT,""" + str(inverse) + """,snr);
+        printf("DATATYPE=" xstr(kiss_fft_scalar) ", FFT n=%d, inverse=%d, snr = %g dB\\n",NFFT,""" + str(inverse) + """,snr);
+        if (snr<""" + str(minsnr) + """)
+            exit_code++;
         free(cfg);
     }
 #undef NFFT    
@@ -58,6 +63,8 @@ def test_cpx( n,inverse ,short):
 
 def compare_func():
     s="""
+#define xstr(s) str(s)
+#define str(s) #s
 double snr_compare( kiss_fft_cpx * test_vec_out,kiss_fft_cpx * testbuf, int n)
 {
     int k;
@@ -96,13 +103,13 @@ def main():
         fftsizes = [ 1800 ]
     print '#include "kiss_fft.h"'
     print compare_func()
-    print "int main() {"
+    print "int main() { int exit_code=0;\n"
     for n in fftsizes:
         n = int(n)
         print test_cpx(n,0,short)
         print test_cpx(n,1,short)
     print """
-    return 0;
+    return exit_code;
 }
 """
 
