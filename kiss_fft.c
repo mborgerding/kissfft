@@ -71,13 +71,8 @@ kiss_fft_cpx cexp(double phase)
     return x;
 }
 
-void  printcpx(const char * desc,kiss_fft_cpx c)
-{
-    printf("%s = (%e,%e)\n",desc,(double)c.r,(double)c.i);
-}
-
 #define C_ROTADDTO(sum,c,q) \
-    do{ switch ((q)&3) {\
+    do{ switch (q) {\
             case 0: (sum).r += (c).r; (sum).i += (c).i; break;\
             case 1: (sum).r += (c).i; (sum).i -= (c).r; break;\
             case 2: (sum).r -= (c).r; (sum).i -= (c).i; break;\
@@ -234,7 +229,6 @@ void fft_work(
         case 2: bfly2(Fout,fstride,st,m); break;
         default: bflyp(Fout,fstride,st,m,p); break;
     }
-    return;
 }
 
 /*
