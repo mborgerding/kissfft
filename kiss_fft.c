@@ -45,7 +45,6 @@ typedef struct {
           (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (1<<14) ) >> 15;\
       }while(0)
 #else  // not FIXED_POINT
-
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
@@ -78,101 +77,57 @@ void  printcpx(const char * desc,kiss_fft_cpx c)
 }
 
 #define C_ROTADDTO(sum,c,q) \
-    do{\
-        switch ((q)&3) {\
-            case 0:\
-                (sum).r += (c).r;\
-                (sum).i += (c).i;\
-                break;\
-            case 1:\
-                (sum).r += (c).i;\
-                (sum).i -= (c).r;\
-                break;\
-            case 2:\
-                (sum).r -= (c).r;\
-                (sum).i -= (c).i;\
-                break;\
-            case 3:\
-                (sum).r -= (c).i;\
-                (sum).i += (c).r;\
-                break;\
-        }\
-    }while(0) 
+    do{ switch ((q)&3) {\
+            case 0: (sum).r += (c).r; (sum).i += (c).i; break;\
+            case 1: (sum).r += (c).i; (sum).i -= (c).r; break;\
+            case 2: (sum).r -= (c).r; (sum).i -= (c).i; break;\
+            case 3: (sum).r -= (c).i; (sum).i += (c).r; break;\
+        } }while(0) 
 
 static 
-void fft_work(
+inline
+void bfly4(
         kiss_fft_cpx * Fout,
-        const kiss_fft_cpx * f,
         int fstride,
-        int * factors,
-        const kiss_fft_state * st
-        );
-
-static 
-void fft4work(
-        kiss_fft_cpx * Fout,
-        const kiss_fft_cpx * f,
-        int fstride,
-        int * factors,
-        const kiss_fft_state * st
+        const kiss_fft_state * st,
+        int m
         )
 {
-    kiss_fft_cpx * Fout1;
-    kiss_fft_cpx * Fout2;
-    kiss_fft_cpx * Fout3;
-    int m,u;
-    kiss_fft_cpx * scratch = st->scratch;
-    kiss_fft_cpx * twiddles = st->twiddles;
-    int phase_dir = st->inverse ? -1 : 1;
-
-    factors++;
-    m=*factors++;
+    kiss_fft_cpx *Fout1,*Fout2,*Fout3;
+    kiss_fft_cpx t1,t2,t3;
+    kiss_fft_cpx *tw1,*tw2,*tw3;
 
     Fout1 = Fout + m;
     Fout2 = Fout + 2*m;
     Fout3 = Fout + 3*m;
+    tw3 = tw2 = tw1 = st->twiddles;
 
-    if (m==1) {
-        Fout[0] = f[0];
-        Fout[1] = f[fstride*1];
-        Fout[2] = f[fstride*2];
-        Fout[3] = f[fstride*3];
-    }else{
-        fft_work( Fout , f,           fstride*4,factors,st);
-        fft_work( Fout1 ,f+fstride,   fstride*4,factors,st);
-        fft_work( Fout2 ,f+fstride*2, fstride*4,factors,st);
-        fft_work( Fout3 ,f+fstride*3, fstride*4,factors,st);
-    }
-
-    for ( u=0; u<m; ++u ) {
-        kiss_fft_cpx t1,t2,t3;
-        scratch[1]= *Fout1;
-        scratch[2]= *Fout2;
-        scratch[3]= *Fout3;
-
+    do {
 #ifdef FIXED_POINT
         Fout->r >>=2; Fout->i >>=2;
-        scratch[1].r >>=2; scratch[1].i >>=2;
-        scratch[2].r >>=2; scratch[2].i >>=2;
-        scratch[3].r >>=2; scratch[3].i >>=2;
+        Fout1->r >>=2; Fout1->i >>=2;
+        Fout2->r >>=2; Fout2->i >>=2;
+        Fout3->r >>=2; Fout3->i >>=2;
 #endif
-        *Fout3 = *Fout2 = *Fout1 = *Fout;
+        C_MUL(t1,*Fout1 , *tw1 );
+        tw1 += fstride;
+        C_MUL(t2,*Fout2 , *tw2 );
+        tw2 += fstride*2;
+        C_MUL(t3,*Fout3 , *tw3 );
+        tw3 += fstride*3;
 
-        // start loop
-        C_MUL(t1,scratch[1] , twiddles[fstride * u * 1] );
-        C_MUL(t2,scratch[2] , twiddles[fstride * u * 2] );
-        C_MUL(t3,scratch[3] , twiddles[fstride * u * 3] );
+        *Fout3 = *Fout2 = *Fout1 = *Fout;
 
         C_ADDTO(*Fout,t1);
         C_ADDTO(*Fout,t2);
         C_ADDTO(*Fout,t3);
-        C_SUBFROM(*Fout2,t1); 
         C_SUBFROM(*Fout2,t3);
-        C_ADDTO(*Fout2,t2);
+        C_SUBFROM(*Fout2,t1); 
+        C_ADDTO(  *Fout2,t2);
         C_SUBFROM(*Fout3,t2);
         C_SUBFROM(*Fout1,t2);
 
-        if(phase_dir==-1) {
+        if(st->inverse) {
             C_ROTADDTO(*Fout1,t1,3);
             C_ROTADDTO(*Fout1,t3,1);
             C_ROTADDTO(*Fout3,t1,1);
@@ -184,82 +139,46 @@ void fft4work(
             C_ROTADDTO(*Fout3,t3,1);
         }
         ++Fout; ++Fout1; ++Fout2; ++Fout3;
-    }
-    
+    }while(--m);
 }
-// the heart of the fft
+
 static 
-void fft2work(
+inline
+void bfly2(
         kiss_fft_cpx * Fout,
-        const kiss_fft_cpx * f,
         int fstride,
-        int * factors,
-        const kiss_fft_state * st
+        const kiss_fft_state * st,
+        int m
         )
 {
-    int m;
     kiss_fft_cpx * Fout2;
-
-    factors++;
-    m=*factors++;
+    kiss_fft_cpx * twiddles = st->twiddles;
+    kiss_fft_cpx t;
     Fout2 = Fout + m;
-
-    if (m==1) {
-        Fout[0] = f[0];
-        Fout[1] = f[fstride];
-    } else if (*factors == 2) {
-        fft2work(Fout,f,fstride*2,factors,st);
-        fft2work(Fout2,f+fstride,fstride*2,factors,st);
-    } else {
-        fft_work( Fout , f, fstride*2,factors,st);
-        fft_work( Fout + m, f+fstride, fstride*2,factors,st);
-    }
-
-    {
-        kiss_fft_cpx * twiddles = st->twiddles;
-        kiss_fft_cpx t;
-        do{
-            C_MUL (t,  *Fout2 , *twiddles);
-            twiddles += fstride;
-            C_SUB( *Fout2 ,  *Fout , t );
-            C_ADDTO( *Fout ,  t );
-            ++Fout2;
-            ++Fout;
-        }while (--m);
-    }
+    do{
+        C_MUL (t,  *Fout2 , *twiddles);
+        twiddles += fstride;
+        C_SUB( *Fout2 ,  *Fout , t );
+        C_ADDTO( *Fout ,  t );
+        ++Fout2;
+        ++Fout;
+    }while (--m);
 }
 
-
 static 
-void fft_work(
+inline
+void bflyp(
         kiss_fft_cpx * Fout,
-        const kiss_fft_cpx * f,
         int fstride,
-        int * factors,
-        const kiss_fft_state * st
+        const kiss_fft_state * st,
+        int m,
+        int p
         )
 {
-    int m,p,q,q1,u,k;
-    kiss_fft_cpx t;
+    int u,k,q1,q;
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
-#if 1
-    switch (*factors) {
-        case 4: fft4work(Fout,f,fstride,factors,st); return;
-        case 2: fft2work(Fout,f,fstride,factors,st); return;
-        default: break;
-    }
-#endif
-    p=*factors++;
-    m=*factors++;
-
-    for (q=0;q<p;++q) {
-        if (m==1) 
-            Fout[q] = *f;
-        else
-            fft_work( Fout + m*q, f, fstride*p,factors,st);
-        f += fstride;
-    }
+    kiss_fft_cpx t;
 
     for ( u=0; u<m; ++u ) {
         k=u;
@@ -287,6 +206,35 @@ void fft_work(
             k += m;
         }
     }
+}
+
+static inline
+void fft_work(
+        kiss_fft_cpx * Fout,
+        const kiss_fft_cpx * f,
+        int fstride,
+        int * factors,
+        const kiss_fft_state * st
+        )
+{
+    int m,p,q;
+    p=*factors++;
+    m=*factors++;
+
+    for (q=0;q<p;++q) {
+        if (m==1) 
+            Fout[q] = *f;
+        else
+            fft_work( Fout + m*q, f, fstride*p,factors,st);
+        f += fstride;
+    }
+
+    switch (p) {
+        case 4: bfly4(Fout,fstride,st,m); break;
+        case 2: bfly2(Fout,fstride,st,m); break;
+        default: bflyp(Fout,fstride,st,m,p); break;
+    }
+    return;
 }
 
 /*
@@ -345,11 +293,8 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
         nfft /= p;
         st->factors[2*nstages+1] = nfft;
         
-        //printf("%d,%d ",p,nfft);
-
         ++nstages;
     }
-    //printf("\n");
 
     // reverse the factors list so that the 2s are packed to the back
     nfft=st->nfft;
@@ -363,7 +308,6 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     for ( i=0 ; i< nstages*2 ;i+=2 ) {
         nfft /= st->factors[i];
         st->factors[i+1] = nfft;
-        //printf("%d,%d ",st->factors[i], st->factors[i+1] );
     }
 
     memset(st->tmpbuf,0,sizeof(kiss_fft_cpx)*nfft);
