@@ -317,14 +317,15 @@ void bfly_generic(
         for ( q=1 ; q<p ; ++q ) {
             C_MUL( scratch[q] , Fout[  m*q ] ,  tw[u*fstride*q] );
             Fout[  m*q ] = scratch[0];
-            C_ADDTO(*Fout , scratch[q] );
         }
-
+        
         for ( q=1; q<p ; ++q ) {
-            int twidx = q*fsm;
+            
 
+            C_ADDTO(*Fout , scratch[q] );
             Foutlo=Fout;
             Fouthi=Fout + mp;
+            
 
             for ( d=1; d<=halfp;++d) {
                 Foutlo += m;
@@ -369,7 +370,7 @@ void fft_work(
 
     switch (p) {
         case 2: bfly2(Fout,fstride,st,m); break;
-#if 0
+#if 0                
         case 3: bfly3(Fout,fstride,st,m); break;
 #endif                
         case 4: bfly4(Fout,fstride,st,m); break;
