@@ -150,11 +150,10 @@ def test_fftnd(ndims=3):
     import Numeric
 
     x=randmat( ndims )
+    print 'dimensions=%s' % str( Numeric.shape(x) )
     xver = FFT.fftnd(x)
     x2=myfftnd(x)
-    err = xver-x2
-    #print xver
-    #print x2
+    err = xver - x2
     errf = flatten(err)
     xverf = flatten(xver)
     errpow = Numeric.vdot(errf,errf)+1e-10
@@ -173,16 +172,16 @@ def fftndwork(x,dims):
         return fft(x,0)
     else:
         samples_per_chunk = Numeric.product( dims[1:] )
-        precomp=[]
-        curfftlen = dims[0]
-        for i in range(curfftlen):
-            xslice = x[i*samples_per_chunk:(i+1)*samples_per_chunk]
-            precomp.extend( fftndwork(xslice,dims[1:] ) )
-
-        xout=[ complex(0,0) ] * samples_per_chunk * dims[0]
-        for i in range(samples_per_chunk):
-            xout[i::samples_per_chunk] = fft( precomp[i::samples_per_chunk],0 )
-        return xout    
+        precomp = [ ]
+        curfftlen = dims[ 0 ]
+        for i in range( curfftlen ):
+            xslice = x[ i*samples_per_chunk : (i+1)*samples_per_chunk ]
+            precomp.extend( fftndwork( xslice,dims[1:] ) )
+        xout = [ complex(0,0) ] * samples_per_chunk * dims[0]
+        for i in range( samples_per_chunk ):
+            pfx = fft( precomp[ i::samples_per_chunk ],0 )
+            xout[ i::samples_per_chunk ] = pfx
+        return xout
 
 if __name__ == "__main__":
     main()
