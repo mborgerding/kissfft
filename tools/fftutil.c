@@ -43,7 +43,11 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int nrows,int isinverse,int useasc
 
     while ( fread( buf , sizeof(kiss_fft_cpx) * nfft * nrows ,1, fin ) > 0 ) {
         for (i=0;i<times;++i)
-            kiss_fft( st , buf ,bufout);
+            if (nrows!=1)
+                kiss_fft2d( st , buf ,bufout);
+            else
+                kiss_fft( st , buf ,bufout);
+
         if (useascii) {
             int i;
             for (i=0;i<nfft*nrows;++i) 
@@ -68,12 +72,12 @@ int main(int argc,char ** argv)
     int nrows=1;
 
     while (1) {
-        int c=getopt(argc,argv,"n:iax:c:");
+        int c=getopt(argc,argv,"n:iax:r:");
         if (c==-1) break;
         switch (c) {
             case 'a':useascii=1;break;
             case 'n':nfft = atoi(optarg);break;
-            case 'c':nrows = atoi(optarg);break;
+            case 'r':nrows = atoi(optarg);break;
             case 'i':isinverse=1;break;
             case 'x':times=atoi(optarg);break;
         }

@@ -4,6 +4,8 @@ endif
 ifeq "$(NUMFFTS)" ""
  NUMFFTS=10000
 endif
+NROWS=30
+
 ifeq "$(DATATYPE)" ""
  DATATYPE=float
 endif
@@ -51,8 +53,8 @@ mtime: all $(BENCHFFTW)
 	done
 
 snr: all
-	@echo "### testing SNR for $(NFFT) point $(DATATYPE) FFTs"
-	@echo "testkiss( $(NFFT) , '$(DATATYPE)' );" | octave -q
+	@echo "testkiss( $(NFFT) , 1, '$(DATATYPE)' );" | octave -q
+	@echo "testkiss( $(NFFT) , $(NROWS), '$(DATATYPE)' );" | octave -q
 
 test: snr time fftw
 
