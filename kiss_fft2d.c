@@ -15,7 +15,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "_kiss_fft_guts.h"
 
 typedef struct {
-    int minus2; /*signify a 2-d transform*/
+    int minus2; /*magic to signify a 2-d transform*/
     kiss_fft_state * rowst;
     kiss_fft_state * colst;
     kiss_fft_cpx * tmpbuf;

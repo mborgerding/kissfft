@@ -71,8 +71,11 @@ typedef struct {
     do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
 
 kiss_fft_cpx kf_cexp(double phase);
+
 int kf_allocsize(int nfft);
+
 void kf_init_state(kiss_fft_state * st,int nfft,int inverse_fft);
+
 void kf_work(
         kiss_fft_cpx * Fout,
         const kiss_fft_cpx * f,
