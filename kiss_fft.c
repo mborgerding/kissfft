@@ -27,9 +27,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  * }kiss_fft_cpx;
  */
 
-const double pi=3.14159265358979323846264338327;
 
-#define MAX_STAGES 20
 typedef struct {
     int nfft;
     int inverse;
@@ -46,15 +44,12 @@ typedef struct {
 #ifdef FIXED_POINT
     /*  We don't have to worry about overflow from multiplying by twiddle factors since they
      *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
-     *  rounding.
-     *  */
+     *  rounding. */
 #   define C_MUL(m,a,b) \
       do{ (m).r = ( ( (a).r*(b).r - (a).i*(b).i)  + (1<<14) ) >> 15;\
           (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (1<<14) ) >> 15;\
       }while(0)
-
 #else  // not FIXED_POINT
-
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
@@ -72,13 +67,6 @@ kiss_fft_cpx cexp(double phase)
     x.i = -sin(phase);
 #endif
     return x;
-}
-
-static kiss_fft_cpx cadd(kiss_fft_cpx a,kiss_fft_cpx b)
-{
-    kiss_fft_cpx c;
-    C_ADD(c,a,b);
-    return c;
 }
 
 static kiss_fft_cpx cmul(kiss_fft_cpx a,kiss_fft_cpx b)
@@ -105,12 +93,6 @@ void fft_work(
     int m,p=0,q,q1,u,k;
     kiss_fft_cpx t;
 
-    /*
-    if (n==1) {
-        *Fout = *f;
-        return;
-    }
-    */
     p=*factors++;
     m=*factors++;//m = n/p;
 
@@ -139,9 +121,9 @@ void fft_work(
                 twidx += fstride * k;
                 if (twidx>=Norig)
                     twidx-=Norig;
-                t = twiddles[twidx];
-                Fout[ k ] = cadd( Fout[ k ] , 
-                                  cmul( scratch[q] , t ) );
+                t = cmul(scratch[q] , twiddles[twidx] );
+                Fout[ k ].r += t.r;
+                Fout[ k ].i += t.i;
             }
         }
     }
@@ -170,6 +152,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     st->factors = (int*)malloc( sizeof(int)*nfft );
 
     for (i=0;i<nfft;++i) {
+        const double pi=3.14159265358979323846264338327;
         double phase = ( 2*pi /nfft ) * i;
         if (st->inverse)
             phase *= -1;
@@ -197,7 +180,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
 
 void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
-    int i,n;
+    int n;
     const kiss_fft_state * st = cfg;
 
     n = st->nfft;
