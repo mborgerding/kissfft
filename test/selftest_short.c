@@ -11,7 +11,7 @@ double snr_compare( kiss_fft_cpx * test_vec_out,kiss_fft_cpx * testbuf, int n)
     sigpow = noisepow = .000000000000000000000000000001; 
 
     for (k=0;k<n;++k) {
-        sigpow += test_vec_out[k].r * test_vec_out[k].i + 
+        sigpow += test_vec_out[k].r * test_vec_out[k].r + 
                   test_vec_out[k].i * test_vec_out[k].i;
         err = test_vec_out[k].r - testbuf[k].r;
         noisepow += err * err;
