@@ -37,10 +37,14 @@ typedef struct {
 }kiss_fft_state;
 
 #ifdef FIXED_POINT
+/*
 #define  C_SUB( res, a,b)\
     do {    (res).r=((a).r-b.r+1)>>1;  (res).i=((a).i-b.i+1)>>1;  }while(0)
 #define C_ADDTO( res , a)\
     do {    (res).r=((res).r+(a).r+1)>>1;  (res).i=((res).i+(a).i+1)>>1;  }while(0)
+#define C_SUBFROM( res , a)\
+    do {    (res).r=((res).r-(a).r+1)>>1;  (res).i=((res).i-(a).i+1)>>1;  }while(0)
+*/    
     /*  We don't have to worry about overflow from multiplying by twiddle factors since they
      *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
      *  rounding. */
@@ -50,14 +54,17 @@ typedef struct {
       }while(0)
 #else  // not FIXED_POINT
 
-#define  C_SUB( res, a,b)\
-    do {    (res).r=(a).r-(b).r;  (res).i=(a).i-(b).i;  }while(0)
-#define C_ADDTO( res , a)\
-    do {    (res).r += (a).r;  (res).i += (a).i;  }while(0)
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
 #endif
+
+#define  C_SUB( res, a,b)\
+    do {    (res).r=(a).r-(b).r;  (res).i=(a).i-(b).i;  }while(0)
+#define C_ADDTO( res , a)\
+    do {    (res).r += (a).r;  (res).i += (a).i;  }while(0)
+#define C_SUBFROM( res , a)\
+    do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
 
 static
 kiss_fft_cpx cexp(double phase)
@@ -72,6 +79,59 @@ kiss_fft_cpx cexp(double phase)
 #endif
     return x;
 }
+
+void  printcpx(const char * desc,kiss_fft_cpx c)
+{
+    printf("%s = (%e,%e)\n",desc,(double)c.r,(double)c.i);
+}
+        
+static
+inline
+kiss_fft_cpx crot(kiss_fft_cpx c, int numquads)
+{
+    kiss_fft_cpx out;
+    switch (numquads&3) {
+        case 0:
+            out.r = c.r;
+            out.i = c.i;
+            break;
+        case 1:
+            out.r = c.i;
+            out.i = -c.r;
+            break;
+        case 2:
+            out.r = -c.r;
+            out.i = -c.i;
+            break;
+        case 3:
+            out.r = -c.i;
+            out.i = c.r;
+            break;
+    }
+    return out;
+}
+
+#define C_ROTADDTO(sum,c,q) \
+    do{\
+        switch ((q)&3) {\
+            case 0:\
+                (sum).r += (c).r;\
+                (sum).i += (c).i;\
+                break;\
+            case 1:\
+                (sum).r += (c).i;\
+                (sum).i -= (c).r;\
+                break;\
+            case 2:\
+                (sum).r -= (c).r;\
+                (sum).i -= (c).i;\
+                break;\
+            case 3:\
+                (sum).r -= (c).i;\
+                (sum).i += (c).r;\
+                break;\
+        }\
+    }while(0) 
 
 
 static 
@@ -95,11 +155,10 @@ void fft4work(
     kiss_fft_cpx * Fout1;
     kiss_fft_cpx * Fout2;
     kiss_fft_cpx * Fout3;
-    int m,q,u;
-    kiss_fft_cpx t;
+    int m,u;
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
-    int Norig = st->nfft;
+    int phase_dir = st->inverse ? -1 : 1;
 
     factors++;
     m=*factors++;
@@ -121,38 +180,47 @@ void fft4work(
     }
 
     for ( u=0; u<m; ++u ) {
-        int twidx;
-        scratch[0]= *Fout;
+        kiss_fft_cpx t1,t2,t3;
         scratch[1]= *Fout1;
         scratch[2]= *Fout2;
         scratch[3]= *Fout3;
 
-        *Fout1 = scratch[0];
-        *Fout2 = scratch[0];
-        *Fout3 = scratch[0];
+#ifdef FIXED_POINT
+        Fout->r >>=2; Fout->i >>=2;
+        scratch[1].r >>=2; scratch[1].i >>=2;
+        scratch[2].r >>=2; scratch[2].i >>=2;
+        scratch[3].r >>=2; scratch[3].i >>=2;
+#endif
+        *Fout3 = *Fout2 = *Fout1 = *Fout;
 
-        for (q=1;q<4;++q ) {
-            twidx = (fstride * (u+0*m) * q)%Norig;
-            C_MUL(t,scratch[q] , twiddles[twidx] );
-            C_ADDTO(*Fout,t);
+        // start loop
+        C_MUL(t1,scratch[1] , twiddles[fstride * u * 1] );
+        C_MUL(t2,scratch[2] , twiddles[fstride * u * 2] );
+        C_MUL(t3,scratch[3] , twiddles[fstride * u * 3] );
 
-            twidx = (fstride * (u+1*m) * q)%Norig;
-            C_MUL(t,scratch[q] , twiddles[twidx] );
-            C_ADDTO(*Fout1,t);
-            
-            twidx = (fstride * (u+2*m) * q)%Norig;
-            C_MUL(t,scratch[q] , twiddles[twidx] );
-            C_ADDTO(*Fout2,t);
+        C_ADDTO(*Fout,t1);
+        C_ADDTO(*Fout,t2);
+        C_ADDTO(*Fout,t3);
+        C_SUBFROM(*Fout2,t1); 
+        C_SUBFROM(*Fout2,t3);
+        C_ADDTO(*Fout2,t2);
+        C_SUBFROM(*Fout3,t2);
+        C_SUBFROM(*Fout1,t2);
 
-            twidx = (fstride * (u+3*m) * q)%Norig;
-            C_MUL(t,scratch[q] , twiddles[twidx] );
-            C_ADDTO(*Fout3,t);
+        if(phase_dir==-1) {
+            C_ROTADDTO(*Fout1,t1,3);
+            C_ROTADDTO(*Fout1,t3,1);
+            C_ROTADDTO(*Fout3,t1,1);
+            C_ROTADDTO(*Fout3,t3,3);
+        }else{
+            C_ROTADDTO(*Fout1,t1,1);
+            C_ROTADDTO(*Fout1,t3,3);
+            C_ROTADDTO(*Fout3,t1,3);
+            C_ROTADDTO(*Fout3,t3,1);
         }
-        ++Fout;
-        ++Fout1;
-        ++Fout2;
-        ++Fout3;
+        ++Fout; ++Fout1; ++Fout2; ++Fout3;
     }
+    
 }
 // the heart of the fft
 static 
@@ -243,7 +311,7 @@ void fft_work(
 
         k=u;
         for ( q1=0 ; q1<p ; ++q1 ) {
-            int twidx=0;
+            int twidx=3;
             Fout[ k ] = scratch[0];
             for (q=1;q<p;++q ) {
                 int Norig = st->nfft;
@@ -335,6 +403,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
         //printf("%d,%d ",st->factors[i], st->factors[i+1] );
     }
 
+    memset(st->tmpbuf,0,sizeof(kiss_fft_cpx)*nfft);
     return st;
 }
 
