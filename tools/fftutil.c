@@ -19,7 +19,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <unistd.h>
 
 #include "kiss_fft.h"
-#include "kiss_fft2d.h"
+#include "kiss_fftnd.h"
 #include "kiss_fftr.h"
 
 void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
@@ -41,19 +41,22 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
     free(bufout);
 }
 
-void fft_file2d(FILE * fin,FILE * fout,int nfft,int nrows,int isinverse)
+void fft_filend(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
 {
     void *st;
     kiss_fft_cpx *buf;
     kiss_fft_cpx *bufout;
+    int dimprod=1,i;
+    for (i=0;i<ndims;++i) 
+        dimprod *= dims[i];
 
-    buf = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * nfft * nrows);
-    bufout = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * nfft * nrows);
-    st = kiss_fft2d_alloc (nrows, nfft, isinverse, 0, 0);
+    buf = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * dimprod);
+    bufout = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * dimprod);
+    st = kiss_fftnd_alloc (dims, ndims, isinverse, 0, 0);
 
-    while (fread (buf, sizeof (kiss_fft_cpx) * nfft * nrows, 1, fin) > 0) {
-        kiss_fft2d (st, buf, bufout);
-        fwrite (bufout, sizeof (kiss_fft_cpx), nfft * nrows, fout);
+    while (fread (buf, sizeof (kiss_fft_cpx) * dimprod, 1, fin) > 0) {
+        kiss_fftnd (st, buf, bufout);
+        fwrite (bufout, sizeof (kiss_fft_cpx), dimprod, fout);
     }
     free (st);
     free (buf);
@@ -86,27 +89,44 @@ void fft_file_real(FILE * fin,FILE * fout,int nfft,int isinverse)
     free(cbuf);
 }
 
+int get_dims(char * arg,int * dims)
+{
+    char *p0;
+    int ndims=0;
+
+    do{
+        p0 = strchr(arg,',');
+        if (p0)
+            *p0++ = '\0';
+        dims[ndims++] = atoi(arg);
+        fprintf(stderr,"dims[%d] = %d\n",ndims-1,dims[ndims-1]);
+        arg = p0;
+    }while (p0);
+    return ndims;
+}
+
 int main(int argc,char ** argv)
 {
-    int nfft=1024;
     int isinverse=0;
     int isreal=0;
     FILE *fin=stdin;
     FILE *fout=stdout;
-    int nrows=1;
+    int ndims=1;
+    int dims[32];
+    dims[0] = 1024; /*default fft size*/
 
     while (1) {
-        int c=getopt(argc,argv,"n:ir:R");
+        int c=getopt(argc,argv,"n:iR");
         if (c==-1) break;
         switch (c) {
-            case 'n':nfft = atoi(optarg);break;
-            case 'r':nrows = atoi(optarg);break;
+            case 'n':
+                ndims = get_dims(optarg,dims);
+                break;
             case 'i':isinverse=1;break;
             case 'R':isreal=1;break;
             case '?':
                      fprintf(stderr,"usage options:\n"
-                            "\t-n NFFT: fft size\n"
-                            "\t-r nrows: # rows (implies 2d FFT)\n"
+                            "\t-n d1[,d2,d3...]: fft dimension(s)\n"
                             "\t-i : inverse\n"
                             "\t-R : real input samples, not complex\n");
                      exit (1);
@@ -126,12 +146,12 @@ int main(int argc,char ** argv)
         ++optind;
     }
 
-    if (nrows>1 && !isreal)
-        fft_file2d(fin,fout,nfft,nrows,isinverse);
-    else if (nrows==1 && !isreal)
-        fft_file(fin,fout,nfft,isinverse);
-    else if (nrows==1 && isreal)
-        fft_file_real(fin,fout,nfft,isinverse);
+    if (ndims>1 && !isreal)
+        fft_filend(fin,fout,dims,ndims,isinverse);
+    else if (ndims==1 && !isreal)
+        fft_file(fin,fout,dims[0],isinverse);
+    else if (ndims==1 && isreal)
+        fft_file_real(fin,fout,dims[0],isinverse);
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);

@@ -1,5 +1,5 @@
 #include "kiss_fft.h"
-#include "kiss_fft2d.h"
+#include "kiss_fftnd.h"
 #include "_kiss_fft_guts.h"
 
 #define xstr(s) str(s)
@@ -164,8 +164,8 @@ int test_stride()
     if ( memcmp(buf1out,buf2out,sizeof(buf1out) ) ){
         printf("kiss_fft_stride not working for stride =%d\n",SKIP_FACTOR);
         for (i=0;i<FFT_SIZE;++i) {
-            printf(stderr,"good[%d]=",i);pcpx(buf1out+i);
-            printf(stderr,"bad [%d]=",i);pcpx(buf2out+i);
+            printf("good[%d]=",i);pcpx(buf1out+i);
+            printf("bad [%d]=",i);pcpx(buf2out+i);
         }
         free(cfg);
         return 1;
@@ -178,6 +178,7 @@ int test_stride()
 int test2d()
 {
     void *cfg;
+    int dims[]={3,9};
     kiss_fft_cpx in[3*9]={
         {1,0},{0,0},{0,0},{0,0},{0,0},{0,0},{3,0},{0,0},{0,0},
         {0,0},{0,0},{0,0},{0,0},{5,0},{0,0},{0,0},{0,0},{0,0},
@@ -186,8 +187,8 @@ int test2d()
     kiss_fft_cpx ver[3*9]= {
     {16.00000,0.00000},{0.16385,5.38749},{4.54576,7.50952},{-2.00000,1.73205},{-6.20961,9.91626},{-6.20961,-9.91626},{-2.00000,-1.73205},{4.54576,-7.50952},{0.16385,-5.38749},{-2.00000,1.73205},{-6.20961,9.91626},{-6.20961,-9.91626},{-2.00000,-1.73205},{4.54576,-7.50952},{0.16385,-5.38749},{16.00000,0.00000},{0.16385,5.38749},{4.54576,7.50952},{-2.00000,-1.73205},{4.54576,-7.50952},{0.16385,-5.38749},{16.00000,-0.00000},{0.16385,5.38749},{4.54576,7.50952},{-2.00000,1.73205},{-6.20961,9.91626},{-6.20961,-9.91626} };
     
-    cfg = kiss_fft2d_alloc(3,9,0,0,0);
-    kiss_fft2d(cfg,in,out);
+    cfg = kiss_fftnd_alloc(dims,2,0,0,0);
+    kiss_fftnd(cfg,in,out);
     free(cfg);
 
     if ( snr_compare( out,ver, 3*9) < 100 ) {

@@ -39,10 +39,10 @@ CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer
 # If the above flags do not work, try the following
 #CFLAGS=-Wall -O3
 
-$(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fft2d.c kiss_fftr.c
+$(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fftnd.c kiss_fftr.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
-$(SELFTEST): ../kiss_fft.c $(SELFTESTSRC) kiss_fft2d.c
+$(SELFTEST): ../kiss_fft.c $(SELFTESTSRC) kiss_fftnd.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
 $(TESTKFC): ../kiss_fft.c kfc.c

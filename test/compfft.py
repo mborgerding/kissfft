@@ -7,6 +7,7 @@ import math
 import random
 import sys
 import struct
+import fft
 
 pi=math.pi
 e=math.e
@@ -28,23 +29,24 @@ def main():
     util = opts.get('-u','./kf_float')
 
     try:
-        n = int(opts['-n'])
+        dims = [ int(d) for d in opts['-n'].split(',')]
         cpx = opts.get('-R') is None
         fmt=opts.get('-t','f')
     except KeyError:
         sys.stderr.write("""
         usage: compfft.py 
-        -n nfft
-        -u utilname : see sample_code/fftutil.c
+        -n d1[,d2,d3...]  : FFT dimension(s)
+        -u utilname : see sample_code/fftutil.c, default = ./kf_float
         -R : real-optimized version\n""")
         sys.exit(1)
 
-    x = randbuf(n,cpx)
+    x = fft.make_random( dims )
 
-    cmd = '%s -n %d ' % ( util, n )
+    cmd = '%s -n %s ' % ( util, ','.join([ str(d) for d in dims]) )
     if cpx:
-        xout = FFT.fft(x)
-    else:        
+        xout = FFT.fftnd(x)
+        xout = reshape(xout,(size(xout),))
+    else:
         cmd += '-R '
         xout = FFT.real_fft(x)
 
@@ -53,18 +55,22 @@ def main():
     proc.tochild.write( dopack( x , fmt ,cpx ) )
     proc.tochild.close()
     xoutcomp = dounpack( proc.fromchild.read( ) , fmt ,1 )
+    #xoutcomp = reshape( xoutcomp , dims )
 
-    sigpow = sum( xout * conjugate(xout) )
-    print len(xout)
-    print len(xoutcomp)
-    
+    sig = xout * conjugate(xout)
+    sigpow = sum( sig )
+
     diff = xout-xoutcomp
     noisepow = sum( diff * conjugate(diff) )
 
     snr = 10 * math.log10(abs( sigpow / noisepow ) )
-    print 'NFFT=%d,SNR = %f dB' % (n,snr)
+    if snr<100:
+        print xout
+        print xoutcomp
+    print 'NFFT=%s,SNR = %f dB' % (str(dims),snr)
 
 def dopack(x,fmt,cpx):
+    x = reshape( x, ( size(x),) )
     if cpx:
         s = ''.join( [ struct.pack('ff',c.real,c.imag) for c in x ] )
     else:

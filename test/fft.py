@@ -148,7 +148,6 @@ def randmat( ndims ):
 def test_fftnd(ndims=3):
     import FFT
     import Numeric
-    random.seed(2)
 
     x=randmat( ndims )
     print 'dimensions=%s' % str( Numeric.shape(x) )
@@ -174,15 +173,15 @@ def myfftnd(x):
 
 def fftndwork(x,dims):
     import Numeric
-    gg=Numeric.product( dims )
+    dimprod=Numeric.product( dims )
 
     for k in range( len(dims) ):
-        d=dims[ k ]
-        g=gg/d
-        next_stage = [complex(0,0)]*len(x)
-        for i in range(g):
-            next_stage[i*d:(i+1)*d] = fft(x[i:(i+d)*g:g],0)
-        x = next_stage
+        cur_dim=dims[ k ]
+        stride=dimprod/cur_dim
+        next_x = [complex(0,0)]*len(x)
+        for i in range(stride):
+            next_x[i*cur_dim:(i+1)*cur_dim] = fft(x[i:(i+cur_dim)*stride:stride],0)
+        x = next_x
     return x
 
 if __name__ == "__main__":
