@@ -12,10 +12,14 @@ USAGE:
 
         void * cfg = kiss_fft_alloc( nfft ,inverse_fft );
         while ...
-            ... 
+            ... // put kth sample in cx_buf_in_out[k].r and cx_buf_in_out[k].i
             kiss_fft( cfg , cx_buf_in_out );
-            ...
+            ... // transformed 
         free(cfg);
+        
+    Note: frequency-domain data is stored from dc to 2pi.
+    so cx_buf_in_out[0] is the dc bin of the FFT
+    and cx_buf_in_out[nfft/2] is the Nyquist bin
 
     Declarations are in "kiss_fft.h", along with a brief description of the 
 two functions you'll need to use. Code definitions are in kiss_fft.c, along 
@@ -53,8 +57,8 @@ last bit of performance.
 PERFORMANCE:
     (on Athlon XP 2100+, with gcc 2.96, optimization O3, float data type)
 
-    Kiss performed 1000 1024-pt ffts in 136 ms. This translates to 7.5 Msamples/s.
-    Just for comparison, it took md5sum 160 ms to process the same amount of data
+    Kiss performed 1000 1024-pt ffts in 110 ms of cpu time (132ms real time). 
+    For comparison, it took md5sum 160ms cputime to process the same amount of data
 
 DO NOT:
     ... use Kiss if you need the absolute fastest fft in the world
@@ -67,13 +71,16 @@ UNDER THE HOOD:
 addressing is corrected as the last step in the transform.  No scaling is done.
 
 LICENSE:
-    BSD, see COPYING for details.
+    BSD, see COPYING for details. Basically, "free to use, give credit where due, no guarantees"
 
 TODO:
-    Make the fixed point scaling and bit shifts more easily configurable.
-    Document/revisit the input/output fft scaling
-    See if the fixed point code can be optimized a little without adding complexity.
+    *) Add sample code for parallel ffts (stereo) packed into re,im components of time sequence.
+    *) Add simple windowing function, e.g. Hamming : w(i)=.54-.46*cos(2pi*i/(n-1))
+    *) Could mixed-radix FFTs be made simple enough to stand by the KISS principle?
+    *) Make the fixed point scaling and bit shifts more easily configurable.
+    *) Document/revisit the input/output fft scaling
+    *) See if the fixed point code can be optimized a little without adding complexity.
 
 AUTHOR:
     Mark Borgerding
-    mark@borgerding.net
+    Mark@Borgerding.net

@@ -140,7 +140,6 @@ void undo_bit_rev( kiss_fft_cpx * f, const int * swap_indices,int nswap)
 }
 
 
-#define OPT1
 // the heart of the fft
 static
 void fft_work(int N,kiss_fft_cpx *f,const kiss_fft_cpx * twid,int twid_step)
@@ -149,23 +148,10 @@ void fft_work(int N,kiss_fft_cpx *f,const kiss_fft_cpx * twid,int twid_step)
     {   // declare automatic variables in here to reduce stack usage
         int n;
         kiss_fft_cpx csum,cdiff;
-#ifdef OPT1
-        const kiss_fft_cpx * cur_twid = twid+twid_step;
-        kiss_fft_cpx *f1 = f;
-        kiss_fft_cpx *f2 = f+N;
-
-        C_SUB( cdiff, *f1 , *f2 );
-        C_ADD( csum,  *f1 , *f2 );
-        *f1++ = csum;
-        *f2++ = cdiff;
-
-        for (n=1;n<N;++n)
-#else
         const kiss_fft_cpx * cur_twid = twid;
         kiss_fft_cpx *f1 = f;
         kiss_fft_cpx *f2 = f+N;
         for (n=0;n<N;++n)
-#endif
         {
             C_ADD( csum,  *f1 , *f2 );
             C_SUB( cdiff, *f1 , *f2 );

@@ -1,5 +1,7 @@
+SPEEDTESTFILE=/dev/shm/kissfft_speedtest
+SPEEDTESTNSAMPS=1000
 
-all: kiss_fft_s kiss_fft_f kiss_fft_d freqpeak tones testsig
+all: kiss_fft_s kiss_fft_f kiss_fft_d
 
 kiss_fft_s: kiss_fft.h kiss_fft.c
 	gcc -Wall -O3 -o kiss_fft_s -DFIXED_POINT -DFFT_UTIL kiss_fft.c -lm
@@ -10,27 +12,17 @@ kiss_fft_f: kiss_fft.h kiss_fft.c
 kiss_fft_d: kiss_fft.h kiss_fft.c
 	gcc -Wall -O3 -o kiss_fft_d -Dkiss_fft_scalar=double -DFFT_UTIL kiss_fft.c -lm
 	
-freqpeak: kiss_fft.h kiss_fft.c freqpeak.c
-	gcc -Wall -O3 -o freqpeak freqpeak.c kiss_fft.c -lm
-
-testsig: testsig.c
-	gcc -Wall -O3 -o testsig testsig.c -lm
-
-tones: tones.c
-	gcc -Wall -O3 -o tones tones.c -lm
-	
 clean:
-	rm -f kiss_fft_s kiss_fft_f kiss_fft_d *~ fftin.dat fftout.dat \
-	freqpeak testsig tones
+	rm -f kiss_fft_s kiss_fft_f kiss_fft_d *~ fftin.dat fftout.dat $(SPEEDTESTFILE)
 
 test: all
 	./test.oct
 
-speedtest: /dev/shm/junk kiss_fft_f
-	time ./kiss_fft_f < /dev/shm/junk > /dev/null
+speedf: kiss_fft_f  $(SPEEDTESTFILE)
+	time ./kiss_fft_f < $(SPEEDTESTFILE) > /dev/null
 
-/dev/shm/junk:
-	dd if=/dev/urandom bs=8192 count=1000 of=/dev/shm/junk
+$(SPEEDTESTFILE):
+	dd if=/dev/zero bs=8192 count=$(SPEEDTESTNSAMPS) of=$(SPEEDTESTFILE)
 
 tarball: clean
 	tar -czf kiss_fft.tar.gz .
