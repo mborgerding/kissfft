@@ -16,6 +16,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <getopt.h>
 
 #include "kiss_fft.h"
 
@@ -23,25 +24,56 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 # define NFFT 1024
 #endif
 
+
+
+void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
+{
+    void *st;
+    kiss_fft_cpx * buf;
+
+    buf = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft );
+    st = kiss_fft_alloc( nfft ,isinverse );
+
+    while ( fread( buf , sizeof(kiss_fft_cpx) * nfft ,1, fin ) > 0 ) {
+        kiss_fft( st , buf );
+        fwrite( buf , sizeof(kiss_fft_cpx) , nfft , fout );
+    }
+    free(st);
+    free(buf);
+}
+
 int main(int argc,char ** argv)
 {
-    kiss_fft_cpx buf[NFFT];
-    void *st;
-
-#ifdef INVERSE_FFT
-    int inverse_fft=1;
-#else    
-    int inverse_fft=0;
-#endif    
-
-    st = kiss_fft_alloc( NFFT ,inverse_fft );
-
-    while ( fread( buf , sizeof(kiss_fft_cpx) , NFFT , stdin ) > 0 ) {
-        kiss_fft( st , buf );
-        fwrite( buf , sizeof(kiss_fft_cpx) , NFFT , stdout );
+    int nfft=1024;
+    int isinverse=0;
+    FILE *fin=stdin;
+    FILE *fout=stdout;
+        
+    while (1) {
+        int c=getopt(argc,argv,"n:i");
+        if (c==-1) break;
+        switch (c) {
+            case 'n':nfft = atoi(optarg);break;
+            case 'i':isinverse=1;break;
+        }
     }
 
-    free(st);
+    if ( optind < argc ) {
+        if (strcmp("-",argv[optind]) !=0)
+            fin = fopen(argv[optind],"rb");
+        ++optind;
+    }
+
+    if ( optind < argc ) {
+        if ( strcmp("-",argv[optind]) !=0 ) 
+            fout = fopen(argv[optind],"wb");
+        ++optind;
+    }
+
+    fft_file(fin,fout,nfft,isinverse);
+
+    if (fout!=stdout) fclose(fout);
+    if (fin!=stdin) fclose(fin);
 
     return 0;
 }
