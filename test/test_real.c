@@ -34,9 +34,7 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
         printf( "\npoor snr, try a scaling factor %f\n" , scale );
     return snr;
 }
-
 #define RANDOM
- 
 #ifndef RANDOM
 #define NFFT 8
 #else
@@ -80,6 +78,22 @@ int main()
     kiss_fftr(kiss_fftr_state,sin,sout);
     printf( "nfft=%d, inverse=%d, snr=%g\n",
             NFFT,0, snr_compare(cout,sout,(NFFT/2)+1) );
+#ifdef RANDOM        
+    ts = cputime();
+    for (i=0;i<NUMFFTS;++i) {
+        kiss_fft(kiss_fft_state,cin,cout);
+    }
+    tfft = cputime() - ts;
+    
+    ts = cputime();
+    for (i=0;i<NUMFFTS;++i) {
+        kiss_fftr( kiss_fftr_state, sin, cout );
+        /* kiss_fftri(kiss_fftr_state,cout,sin); */
+    }
+    trfft = cputime() - ts;
+
+    printf("%d complex ffts took %gs, real took %gs\n",NUMFFTS,tfft,trfft);
+#endif        
     free(kiss_fft_state);
     free(kiss_fftr_state);
 
@@ -99,22 +113,6 @@ int main()
     
     printf( "nfft=%d, inverse=%d, snr=%g\n",
             NFFT,1, snr_compare(cin,cin,NFFT/2) );
-#ifdef RANDOM        
-    ts = cputime();
-    for (i=0;i<NUMFFTS;++i) {
-        kiss_fft(kiss_fft_state,cin,cout);
-    }
-    tfft = cputime() - ts;
-    
-    ts = cputime();
-    for (i=0;i<NUMFFTS;++i) {
-        /* kiss_fftr(kiss_fftr_state,sin,cout); */
-        kiss_fftri(kiss_fftr_state,cout,sin);
-    }
-    trfft = cputime() - ts;
-
-    printf("%d complex ffts took %gs, real took %gs\n",NUMFFTS,tfft,trfft);
-#endif        
     free(kiss_fft_state);
     free(kiss_fftr_state);
 

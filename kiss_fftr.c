@@ -79,25 +79,30 @@ void kiss_fftr(const void * cfg,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
     freqdata[0].r = st->tmpbuf[0].r + st->tmpbuf[0].i;
     freqdata[0].i = 0;
 
-    for (k=1;k<N;++k) {
-        kiss_fft_cpx fpnk,fpk,f1k;
+    for (k=1;k <= N/2 ; ++k ) {
+        kiss_fft_cpx fpnk,fpk,f1k,f2k,tw;
 
         fpk = st->tmpbuf[k]; 
         fpnk.r =  st->tmpbuf[N-k].r;
         fpnk.i = -st->tmpbuf[N-k].i;
 
         C_ADD( f1k, fpk , fpnk );
-        C_SUBFROM( fpk , fpnk );
-        C_MUL( freqdata[k], fpk , st->super_twiddles[k] );
-        C_ADDTO(freqdata[k],f1k);
+        C_SUB( f2k, fpk , fpnk );
+        C_MUL( tw , f2k , st->super_twiddles[k]);
 
+        C_ADD( freqdata[k] , f1k ,tw);
         freqdata[k].r /= 2;
         freqdata[k].i /= 2;
+
+        freqdata[N-k].r =    f1k.r - tw.r;
+        freqdata[N-k].i = - (f1k.i - tw.i);
+        freqdata[N-k].r /= 2;
+        freqdata[N-k].i /= 2;
     }
     freqdata[N].r = st->tmpbuf[0].r - st->tmpbuf[0].i;
     freqdata[N].i = 0;
 }
-    
+
 void kiss_fftri(const void * cfg,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata)
 {
     /* input buffer timedata is stored row-wise */

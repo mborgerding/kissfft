@@ -77,10 +77,11 @@ def real_fft( f,inv ):
         
         F1k = Fp[k] + Fp[N-k].conjugate()
         F2k = Fp[k] - Fp[N-k].conjugate()
-        F[k] = ( F1k + tw * F2k ) * .5
-        
+        F2k *= tw
+        F[k] = ( F1k + F2k ) * .5
+        F[N-k] = ( F1k - F2k ).conjugate() * .5
         #F[N-k] = ( F1kp + e ** ( -j*pi*(.5+float(N-k)/N ) ) * F2kp ) * .5
-        F[N-k] = ( F1k.conjugate() - tw.conjugate() * F2k.conjugate() ) * .5
+        #F[N-k] = ( F1k.conjugate() - tw.conjugate() * F2k.conjugate() ) * .5
 
     F[N] = complex( Fp[0].real - Fp[0].imag , 0 ) 
     return F
