@@ -223,13 +223,9 @@ void bfly5(
     kiss_fft_cpx scratch[20];
     kiss_fft_cpx * twiddles = st->twiddles;
     kiss_fft_cpx *tw1,*tw2,*tw3,*tw4;
-    kiss_fft_cpx y1,y2,y3,y4;
+    kiss_fft_cpx y1,y2;
     y1 = twiddles[fstride*m];
     y2 = twiddles[fstride*2*m];
-    y3.r = y2.r;
-    y3.i = -y2.i;
-    y4.r = y1.r;
-    y4.i = -y1.i;
 
     Fout0=Fout;
     Fout1=Fout0+m;
@@ -240,49 +236,56 @@ void bfly5(
     tw1=tw2=tw3=tw4 =  st->twiddles;
     for ( u=0; u<m; ++u ) {
         C_FIXDIV( *Fout0,5); C_FIXDIV( *Fout1,5); C_FIXDIV( *Fout2,5); C_FIXDIV( *Fout3,5); C_FIXDIV( *Fout4,5);
-
         scratch[0] = *Fout0;
+
         C_MUL(scratch[1] ,*Fout1, *tw1);
         C_MUL(scratch[2] ,*Fout2, *tw2);
         C_MUL(scratch[3] ,*Fout3, *tw3);
         C_MUL(scratch[4] ,*Fout4, *tw4);
+
         Fout0->r += scratch[1].r + scratch[2].r + scratch[3].r + scratch[4].r;
         Fout0->i += scratch[1].i + scratch[2].i + scratch[3].i + scratch[4].i;
+        
+        scratch[5].r = scratch[1].r*y1.r + scratch[2].r*y2.r + scratch[3].r*y2.r + scratch[4].r*y1.r;
+        scratch[6].r = scratch[1].i*y1.i + scratch[2].i*y2.i - scratch[3].i*y2.i - scratch[4].i*y1.i;
 
-        C_MUL( scratch[5] , scratch[1] , y1 );
-        C_MUL( scratch[6] , scratch[2] , y2 );
-        C_MUL( scratch[7] , scratch[3] , y3 );
-        C_MUL( scratch[8] , scratch[4] , y4 );
-        Fout1->r = scratch[0].r + scratch[5].r + scratch[6].r + scratch[7].r + scratch[8].r;
-        Fout1->i = scratch[0].i + scratch[5].i + scratch[6].i + scratch[7].i + scratch[8].i;
+        scratch[5].i = scratch[1].r*y1.i + scratch[2].r*y2.i - scratch[3].r*y2.i - scratch[4].r*y1.i;
+        scratch[6].i = scratch[1].i*y1.r + scratch[2].i*y2.r + scratch[3].i*y2.r + scratch[4].i*y1.r;
 
-        C_MUL( scratch[5] , scratch[1] , y2 );
-        C_MUL( scratch[6] , scratch[2] , y4 );
-        C_MUL( scratch[7] , scratch[3] , y1 );
-        C_MUL( scratch[8] , scratch[4] , y3 );
-        Fout2->r = scratch[0].r + scratch[5].r + scratch[6].r + scratch[7].r + scratch[8].r;
-        Fout2->i = scratch[0].i + scratch[5].i + scratch[6].i + scratch[7].i + scratch[8].i;
+        Fout1->r =  scratch[0].r + scratch[5].r - scratch[6].r;
+        Fout1->i = scratch[0].i + scratch[5].i + scratch[6].i;
 
-        C_MUL( scratch[5] , scratch[1] , y3 );
-        C_MUL( scratch[6] , scratch[2] , y1 );
-        C_MUL( scratch[7] , scratch[3] , y4 );
-        C_MUL( scratch[8] , scratch[4] , y2 );
-        Fout3->r = scratch[0].r + scratch[5].r + scratch[6].r + scratch[7].r + scratch[8].r;
-        Fout3->i = scratch[0].i + scratch[5].i + scratch[6].i + scratch[7].i + scratch[8].i;
+        Fout4->r =  scratch[0].r + scratch[5].r + scratch[6].r;
+        Fout4->i = scratch[0].i - scratch[5].i + scratch[6].i;
 
-        C_MUL( scratch[5] , scratch[1] , y4 );
-        C_MUL( scratch[6] , scratch[2] , y3 );
-        C_MUL( scratch[7] , scratch[3] , y2 );
-        C_MUL( scratch[8] , scratch[4] , y1 );
-        Fout4->r = scratch[0].r + scratch[5].r + scratch[6].r + scratch[7].r + scratch[8].r;
-        Fout4->i = scratch[0].i + scratch[5].i + scratch[6].i + scratch[7].i + scratch[8].i;
+        Fout2->r =  scratch[0].r +
+                    scratch[1].r*y2.r - scratch[1].i*y2.i +
+                    scratch[2].r*y1.r + scratch[2].i*y1.i +
+                    scratch[3].r*y1.r - scratch[3].i*y1.i +
+                    scratch[4].r*y2.r + scratch[4].i*y2.i;
+        Fout2->i = scratch[0].i + 
+                    scratch[1].r*y2.i + scratch[1].i*y2.r -
+                    scratch[2].r*y1.i + scratch[2].i*y1.r +
+                    scratch[3].r*y1.i + scratch[3].i*y1.r -
+                    scratch[4].r*y2.i + scratch[4].i*y2.r;
+
+        Fout3->r =  scratch[0].r +
+                    scratch[1].r*y2.r + scratch[1].i*y2.i +
+                    scratch[2].r*y1.r - scratch[2].i*y1.i +
+                    scratch[3].r*y1.r + scratch[3].i*y1.i +
+                    scratch[4].r*y2.r - scratch[4].i*y2.i;
+        Fout3->i = scratch[0].i - 
+                    scratch[1].r*y2.i + scratch[1].i*y2.r +
+                    scratch[2].r*y1.i + scratch[2].i*y1.r -
+                    scratch[3].r*y1.i + scratch[3].i*y1.r +
+                    scratch[4].r*y2.i + scratch[4].i*y2.r;
+
 
         ++Fout0;++Fout1;++Fout2;++Fout3;++Fout4;
         tw1+=fstride;
         tw2+=2*fstride;
         tw3+=3*fstride;
         tw4+=4*fstride;
-
     }
 }
 
