@@ -20,13 +20,23 @@ def c_format(v,round=0):
         s= ','.join( [ '{%.60f ,%.60f }' %(c.real,c.imag) for c in v ] ) 
         return re.sub(r'\.?0+ ',' ',s)
 
-def test_vec( n,inverse ):
+def test_cpx( n,inverse ,short):
     v = randvec(n,1)
+    scale = 1
+
     if inverse:
         tvecout = FFT.inverse_fft(v)
-        tvecout = [ c * len(v) for c in tvecout ]
+        if short:
+            scale = 1
+        else:            
+            scale = len(v)
     else:
         tvecout = FFT.fft(v)
+        if short:
+            scale = 1.0/len(v)
+
+    tvecout = [ c * scale for c in tvecout ]
+
 
     s="""#define NFFT %d""" % len(v) + """
     {
@@ -75,7 +85,13 @@ double snr_compare( kiss_fft_cpx * test_vec_out,kiss_fft_cpx * testbuf, int n)
     return s
 
 def main():
-    fftsizes = sys.argv[1:]
+
+    from getopt import getopt
+    opts,args = getopt(sys.argv[1:],'s')
+    opts = dict(opts)
+    short = int( opts.has_key('-s') )
+
+    fftsizes = args
     if not fftsizes:
         fftsizes = [ 1800 ]
     print '#include "kiss_fft.h"'
@@ -83,8 +99,8 @@ def main():
     print "int main() {"
     for n in fftsizes:
         n = int(n)
-        print test_vec(n,0)
-        print test_vec(n,1)
+        print test_cpx(n,0,short)
+        print test_cpx(n,1,short)
     print """
     return 0;
 }

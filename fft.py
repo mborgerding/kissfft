@@ -64,12 +64,15 @@ def real_fft( f,inv ):
     ims = f[1::2]
 
     fp = [ complex(r,i) for r,i in zip(res,ims) ]
+    print 'fft input ', fp
     Fp = fft( fp ,0 )
+    print 'fft output ', Fp
 
     F = []
     for k in range(N):
         F1k = Fp[k] + Fp[-k].conjugate()
         F2k = -j*(Fp[k] - Fp[-k].conjugate())
+        print 'F2k[%d]=%s' % (k,F2k)
 
         F.append( ( F1k + e ** ( -j*pi*k/N ) * F2k ) * .5 )
 

@@ -11,10 +11,11 @@ ifeq "$(DATATYPE)" ""
 endif
 
 UTIL=fftutil_$(DATATYPE)
+TESTREAL=tr_$(DATATYPE)
 BENCHKISS=bm_kiss_$(DATATYPE)
 BENCHFFTW=bm_fftw_$(DATATYPE)
 
-all: $(UTIL) $(BENCHKISS)
+all: $(UTIL) $(BENCHKISS) $(TESTREAL)
 
 ifeq  "$(DATATYPE)" "short"
  TYPEFLAGS=-DFIXED_POINT -Dkiss_fft_scalar=short
@@ -28,6 +29,9 @@ CFLAGS=-Wall -O3 -ansi -pedantic -march=pentiumpro -ffast-math -fomit-frame-poin
 
 $(UTIL): ../kiss_fft.c ../kiss_fft2d.c fftutil.c
 	gcc -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) ../kiss_fft.c ../kiss_fft2d.c fftutil.c -lm
+
+$(TESTREAL): ../kiss_fft.c ../kiss_fftr.c test_real.c
+	gcc -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
 $(BENCHKISS): benchkiss.c ../kiss_fft.c pstats.c
 	gcc -o $@ $(CFLAGS) -I.. benchkiss.c $(TYPEFLAGS) ../kiss_fft.c pstats.c -lm 
