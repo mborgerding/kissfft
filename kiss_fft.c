@@ -246,40 +246,26 @@ void bfly5(
         Fout0->r += scratch[1].r + scratch[2].r + scratch[3].r + scratch[4].r;
         Fout0->i += scratch[1].i + scratch[2].i + scratch[3].i + scratch[4].i;
         
-        scratch[5].r = scratch[1].r*y1.r + scratch[2].r*y2.r + scratch[3].r*y2.r + scratch[4].r*y1.r;
+        scratch[5].r = scratch[0].r + scratch[1].r*y1.r + scratch[2].r*y2.r + scratch[3].r*y2.r + scratch[4].r*y1.r;
+        scratch[5].i = scratch[0].i + scratch[1].i*y1.r + scratch[2].i*y2.r + scratch[3].i*y2.r + scratch[4].i*y1.r;
         scratch[6].r = scratch[1].i*y1.i + scratch[2].i*y2.i - scratch[3].i*y2.i - scratch[4].i*y1.i;
+        scratch[6].i = scratch[1].r*y1.i + scratch[2].r*y2.i - scratch[3].r*y2.i - scratch[4].r*y1.i;
 
-        scratch[5].i = scratch[1].r*y1.i + scratch[2].r*y2.i - scratch[3].r*y2.i - scratch[4].r*y1.i;
-        scratch[6].i = scratch[1].i*y1.r + scratch[2].i*y2.r + scratch[3].i*y2.r + scratch[4].i*y1.r;
+        Fout1->r = scratch[5].r - scratch[6].r;
+        Fout4->r = scratch[5].r + scratch[6].r;
 
-        Fout1->r =  scratch[0].r + scratch[5].r - scratch[6].r;
-        Fout1->i = scratch[0].i + scratch[5].i + scratch[6].i;
+        Fout1->i = scratch[5].i + scratch[6].i;
+        Fout4->i = scratch[5].i - scratch[6].i;
+ 
+        scratch[5].r = scratch[0].r + scratch[1].r*y2.r + scratch[2].r*y1.r + scratch[3].r*y1.r + scratch[4].r*y2.r;
+        scratch[6].r =  - scratch[1].i*y2.i + scratch[2].i*y1.i - scratch[3].i*y1.i + scratch[4].i*y2.i;
+        scratch[5].i = scratch[0].i + scratch[1].i*y2.r + scratch[2].i*y1.r + scratch[3].i*y1.r + scratch[4].i*y2.r;
+        scratch[6].i = scratch[1].r*y2.i - scratch[2].r*y1.i + scratch[3].r*y1.i - scratch[4].r*y2.i;
 
-        Fout4->r =  scratch[0].r + scratch[5].r + scratch[6].r;
-        Fout4->i = scratch[0].i - scratch[5].i + scratch[6].i;
-
-        Fout2->r =  scratch[0].r +
-                    scratch[1].r*y2.r - scratch[1].i*y2.i +
-                    scratch[2].r*y1.r + scratch[2].i*y1.i +
-                    scratch[3].r*y1.r - scratch[3].i*y1.i +
-                    scratch[4].r*y2.r + scratch[4].i*y2.i;
-        Fout2->i = scratch[0].i + 
-                    scratch[1].r*y2.i + scratch[1].i*y2.r -
-                    scratch[2].r*y1.i + scratch[2].i*y1.r +
-                    scratch[3].r*y1.i + scratch[3].i*y1.r -
-                    scratch[4].r*y2.i + scratch[4].i*y2.r;
-
-        Fout3->r =  scratch[0].r +
-                    scratch[1].r*y2.r + scratch[1].i*y2.i +
-                    scratch[2].r*y1.r - scratch[2].i*y1.i +
-                    scratch[3].r*y1.r + scratch[3].i*y1.i +
-                    scratch[4].r*y2.r - scratch[4].i*y2.i;
-        Fout3->i = scratch[0].i - 
-                    scratch[1].r*y2.i + scratch[1].i*y2.r +
-                    scratch[2].r*y1.i + scratch[2].i*y1.r -
-                    scratch[3].r*y1.i + scratch[3].i*y1.r +
-                    scratch[4].r*y2.i + scratch[4].i*y2.r;
-
+        Fout2->r = scratch[5].r + scratch[6].r;
+        Fout2->i = scratch[5].i + scratch[6].i;
+        Fout3->r = scratch[5].r - scratch[6].r;
+        Fout3->i = scratch[5].i - scratch[6].i;
 
         ++Fout0;++Fout1;++Fout2;++Fout3;++Fout4;
         tw1+=fstride;
