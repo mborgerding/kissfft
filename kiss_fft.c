@@ -36,6 +36,7 @@ typedef struct {
     int minus2; /*signify a 2-d transform*/
     kiss_fft_state * rowst;
     kiss_fft_state * colst;
+    kiss_fft_cpx * tmpbuf;
 }kiss_fft2d_state;
 
 
@@ -417,36 +418,46 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
 void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft)
 {
     kiss_fft2d_state *st = NULL;
-    int size1,size2;
+    int size1,size2,sizetmp;
     size1 = allocsize(ncols);
     size2 = allocsize(nrows);
+    sizetmp = ncols > nrows ? ncols : nrows;
 
-    st = (kiss_fft2d_state *) malloc ( sizeof(kiss_fft2d_state) + size1 + size2 );
+    st = (kiss_fft2d_state *) malloc ( sizeof(kiss_fft2d_state) + size1 + size2 + sizetmp );
     if (!st)
         return NULL;
     
+    st->minus2 = -2;
     st->rowst = (kiss_fft_state *)(st+1); /*just beyond kiss_fft2d_state struct */
     st->colst = (kiss_fft_state *)( (char*)(st->rowst) + size1 );
+    st->tmpbuf = (kiss_fft_cpx *)( (char*)(st->rowst) + size1 + size2 );
     init_state (st->rowst, ncols, inverse_fft);
     init_state (st->colst, nrows, inverse_fft);
     return st;
 }
 
-void kiss_fft2d(const void * cfg,kiss_fft_cpx *f)
+void kiss_fft2d(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 {
-    /* 
-     f is stored row-wise
-     * */
-    fprintf(stderr,"not yet implemented\n");
-    exit(1);
-}
+    /* input buffer fin is stored row-wise */
+    kiss_fft2d_state *st = ( kiss_fft2d_state *)cfg;
+    int row,col;
+    int nrows,ncols;
+    nrows = st->colst->nfft;
+    ncols = st->rowst->nfft;
 
-void kiss_fft2d_io(const void * cfg,const kiss_fft_cpx * fin,kiss_fft_cpx * fout)
-{
-    /*just use the in-place version sinc the multi-dim needs two passes anyway*/
-    kiss_fft2d_state *st = (kiss_fft2d_state *)cfg;
-    memcpy(fout,fin,sizeof(kiss_fft_cpx) * st->rowst->nfft * st->colst->nfft );
-    kiss_fft2d(cfg,fout);
+    /*fft each column*/
+    for (col=0;col<ncols;++col) {
+        for (row=0;row< nrows ;++row) 
+            st->tmpbuf[row] = fin[row*ncols + col];
+        kiss_fft(st->colst,st->tmpbuf);
+        for (row=0;row< nrows ;++row) {
+            fout[row*ncols + col] = st->tmpbuf[row];
+        }
+    }
+
+    /*fft each row */
+    for (row=0;row< nrows ;++row) 
+        kiss_fft(st->rowst , fout + row*ncols );
 }
 
 /* original form of processing function, first release of KISS FFT was in-place.  This maintains API. */
@@ -454,7 +465,7 @@ void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
     const kiss_fft_state * st = cfg;
     if (st->nfft < 0) {
-        kiss_fft2d(cfg,f);
+        kiss_fft2d(cfg,f,f);
     }else{
         memcpy(st->tmpbuf,f,sizeof(kiss_fft_cpx)*st->nfft);
         fft_work( f, st->tmpbuf, 1, st->factors,st );
@@ -466,7 +477,7 @@ void kiss_fft_io(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 {
     const kiss_fft_state * st = cfg;
     if (st->nfft < 0) {
-        kiss_fft2d_io(cfg,fin,fout);
+        kiss_fft2d(cfg,fin,fout);
     }else{
         fft_work( fout, fin, 1, st->factors,st );
     }

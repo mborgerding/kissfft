@@ -26,26 +26,30 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
 
-void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse,int useascii,int times)
+void fft_file(FILE * fin,FILE * fout,int nfft,int nrows,int isinverse,int useascii,int times)
 {
     int i;
     void *st;
     kiss_fft_cpx * buf;
     kiss_fft_cpx * bufout;
+            
 
-    buf = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft );
-    bufout = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft );
-    st = kiss_fft_alloc( nfft ,isinverse );
+    buf = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft *nrows );
+    bufout = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft *nrows);
+    if (nrows!=1)
+        st = kiss_fft2d_alloc( nrows,nfft ,isinverse );
+    else
+        st = kiss_fft_alloc( nfft ,isinverse );
 
-    while ( fread( buf , sizeof(kiss_fft_cpx) * nfft ,1, fin ) > 0 ) {
+    while ( fread( buf , sizeof(kiss_fft_cpx) * nfft * nrows ,1, fin ) > 0 ) {
         for (i=0;i<times;++i)
             kiss_fft_io( st , buf ,bufout);
         if (useascii) {
             int i;
-            for (i=0;i<nfft;++i) 
+            for (i=0;i<nfft*nrows;++i) 
                 fprintf(fout, "(%g,%g) ", (double)bufout[i].r,(double)bufout[i].i);
-        }else{            
-            fwrite( bufout , sizeof(kiss_fft_cpx) , nfft , fout );
+        }else{
+            fwrite( bufout , sizeof(kiss_fft_cpx) , nfft*nrows , fout );
         }
     }
     free(st);
@@ -61,13 +65,15 @@ int main(int argc,char ** argv)
     FILE *fout=stdout;
     int useascii=0;
     int times=1;
+    int nrows=1;
 
     while (1) {
-        int c=getopt(argc,argv,"n:iax:");
+        int c=getopt(argc,argv,"n:iax:c:");
         if (c==-1) break;
         switch (c) {
             case 'a':useascii=1;break;
             case 'n':nfft = atoi(optarg);break;
+            case 'c':nrows = atoi(optarg);break;
             case 'i':isinverse=1;break;
             case 'x':times=atoi(optarg);break;
         }
@@ -85,7 +91,7 @@ int main(int argc,char ** argv)
         ++optind;
     }
 
-    fft_file(fin,fout,nfft,isinverse,useascii,times);
+    fft_file(fin,fout,nfft,nrows,isinverse,useascii,times);
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);

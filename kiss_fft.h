@@ -42,6 +42,12 @@ void kiss_fft( const void* cfg_from_alloc , kiss_fft_cpx *f ); /* call for each 
 /* two buffer version */
 void kiss_fft_io(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout);
 
+/* allocate a 2-dimensional FFT
+   kiss_fft() is used as in the 1d case, but the data should be stored rowwise,
+   in other words, an array made up of row[0], then row[1], etc
+ */
+void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft);
+
 /* when done with the cfg for a given fft size and direction, simply free it*/
 #define kiss_fft_free free
 
