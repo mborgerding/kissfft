@@ -180,16 +180,14 @@ void bfly3(
     int u;
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
-    kiss_fft_cpx t[6];
+    kiss_fft_cpx t[2];
     kiss_fft_cpx epi3;
-    //kiss_fft_cpx epi3 = { -0.5 , -0.866025403784439 };
-        epi3 = twiddles[fstride*m];
+    epi3 = twiddles[fstride*m];
 
     Fout0=Fout;
     Fout1=Fout0+m;
     Fout2=Fout0+2*m;
 
-    //printf("epi3=%e,%ei\n",epi3.r,epi3.i);
     for ( u=0; u<m; ++u ) {
         kiss_fft_cpx sum23,t0pt1,t0mt1;
 
@@ -198,7 +196,6 @@ void bfly3(
         Fout1->r /= 3; Fout1->i /= 3;
         Fout2->r /= 3; Fout2->i /= 3;
 #endif        
-
         scratch[0] = *Fout0;
 
         C_MUL(t[0],*Fout1 , twiddles[fstride*u    ] ); 
@@ -206,7 +203,7 @@ void bfly3(
 
         C_ADD(t0pt1,t[0],t[1]);
         C_ADD(*Fout0,scratch[0],t0pt1);
-        
+
         t0pt1.r /= -2;
         t0pt1.i /= -2;
       
@@ -214,8 +211,8 @@ void bfly3(
         t0mt1.r *= epi3.i;
         t0mt1.i *= epi3.i;
 
-        sum23.r = t0pt1.r - t0mt1.i ;
-        sum23.i = t0pt1.i + t0mt1.r ;
+        sum23.r = t0pt1.r - t0mt1.i;
+        sum23.i = t0pt1.i + t0mt1.r;
 
         C_ADD( *Fout1, scratch[0] , sum23 );
 
