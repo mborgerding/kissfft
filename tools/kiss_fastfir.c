@@ -14,6 +14,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 #include "_kiss_fft_guts.h"
 
+/*
+ Some definitions that allow real or complex filtering
+*/
 #ifdef REAL_FASTFIR
 #include "kiss_fftr.h"
 typedef kiss_fft_scalar kffsamp_t;
@@ -32,6 +35,13 @@ static int verbose=0;
 void * kiss_fastfir_alloc(const kffsamp_t * imp_resp,size_t n_imp_resp,
         size_t * nfft,void * mem,size_t*lenmem);
 
+/* n : the size of inbuf and outbuf in samples
+   return value: the number of samples completely processed
+   n-retval samples should be copied to the front of the next input buffer */
+size_t kff_nocopy( void *st, const kffsamp_t * inbuf, kffsamp_t * outbuf, size_t n);
+
+
+
 typedef struct {
     int nfft;
     size_t ngood;
@@ -43,7 +53,6 @@ typedef struct {
     kffsamp_t * tmpbuf;
 }kiss_fastfir_state;
 
-static const kiss_fft_cpx CZERO={0,0};
 
 void * kiss_fastfir_alloc(
         const kffsamp_t * imp_resp,size_t n_imp_resp,
@@ -64,7 +73,7 @@ void * kiss_fastfir_alloc(
     if (nfft<=0) {
         /* determine fft size as next power of two at least 2x 
          the impulse response length*/
-        int i=n_imp_resp-1;
+        i=n_imp_resp-1;
         nfft=2;
         do{
              nfft<<=1;
@@ -147,9 +156,9 @@ void * kiss_fastfir_alloc(
 static void fastconv1buf(const kiss_fastfir_state *st,const kffsamp_t * in,kffsamp_t * out)
 {
     int i;
+    /* multiply the frequency response of the input signal by
+     that of the fir filter*/
     FFTFWD( st->fftcfg, in , st->freqbuf );
-    /* multiply the frequency response of the input signal by*/
-    /* that of the fir filter*/
     for ( i=0; i<st->n_freq_bins; ++i ) {
         kiss_fft_cpx tmpsamp; 
         C_MUL(tmpsamp,st->freqbuf[i],st->fir_freq_resp[i]);
@@ -160,19 +169,17 @@ static void fastconv1buf(const kiss_fastfir_state *st,const kffsamp_t * in,kffsa
     FFTINV(st->ifftcfg,st->freqbuf,out);
 }
 
-/*
-    n : the size of inbuf and outbuf in samples
-    return value: the number of samples completely processed
-    n-retval samples should be copied to the front of the next input buffer
-*/
+/* n : the size of inbuf and outbuf in samples
+   return value: the number of samples completely processed
+   n-retval samples should be copied to the front of the next input buffer */
 size_t kff_nocopy(
         void *vst,
         const kffsamp_t * inbuf, 
         kffsamp_t * outbuf,
         size_t n)
 {
-    size_t norig=n;
     kiss_fastfir_state *st=(kiss_fastfir_state *)vst;
+    size_t norig=n;
     while (n >= st->nfft ) {
         fastconv1buf(st,inbuf,outbuf);
         inbuf += st->ngood;
@@ -182,17 +189,74 @@ size_t kff_nocopy(
     return norig - n;
 }
 
-#ifdef FAST_FILT_UTIL
+size_t kff_flush(void *vst,const kffsamp_t * inbuf,kffsamp_t * outbuf,size_t n)
+{
+    kiss_fastfir_state *st=(kiss_fastfir_state *)vst;
+    n -= kff_nocopy(vst,inbuf,outbuf,n);
+    if (n) {
+        memset(st->tmpbuf,0,sizeof(kffsamp_t)*st->nfft );
+        memcpy(st->tmpbuf,inbuf,sizeof(kffsamp_t)*n );
+        fastconv1buf(st,st->tmpbuf,st->tmpbuf);
+        memcpy(outbuf,st->tmpbuf,sizeof(kffsamp_t)*n);
+    }
+    return n;
+}
 
-void do_filter(
+#ifdef FAST_FILT_UTIL
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+
+int do_mmap_filter(int fd_src,int fd_dst,const kffsamp_t * imp_resp, size_t n_imp_resp, size_t nfft )
+{
+    int error_code=1;
+    off_t src_len=0;
+    void *psrc=NULL;
+    void *pdst=NULL;
+
+    src_len = lseek(fd_src,0,SEEK_END );
+    if (src_len == (off_t)-1 ) goto nommap;
+    if ( ftruncate(fd_dst,src_len) ) goto nommap;
+    if ( lseek(fd_src,0,SEEK_SET) == (off_t)-1 ) goto nommap;
+    if ( lseek(fd_dst,0,SEEK_SET) == (off_t)-1 ) goto nommap;
+    psrc = mmap(0,src_len,PROT_READ,MAP_SHARED,fd_src,0);
+    if (psrc==NULL) goto nommap;
+    pdst = mmap(0,src_len,PROT_WRITE,MAP_SHARED,fd_dst,0);
+    if (psrc==NULL) goto nommap;
+    {
+        const kffsamp_t *inbuf= (const kffsamp_t *)psrc;
+        kffsamp_t *outbuf= (kffsamp_t *)pdst;
+
+        size_t noutbuf;
+        size_t nsamps_in = src_len / sizeof(kffsamp_t);
+        
+        void * cfg = kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,0);
+        
+        noutbuf = kff_nocopy( cfg, (kffsamp_t*)psrc, (kffsamp_t*)pdst, nsamps_in );
+
+        kff_flush( cfg,inbuf+noutbuf,outbuf+noutbuf,nsamps_in-noutbuf);
+
+        free(cfg);
+    }
+    error_code=0;
+nommap:
+    if (psrc) munmap(psrc,src_len);
+    if (pdst) munmap(pdst,src_len);
+    if (error_code)
+        perror("mapping");
+    return error_code;
+}
+
+
+void do_file_filter(
         FILE * fin,
         FILE * fout,
         const kffsamp_t * imp_resp,
         size_t n_imp_resp,
-        size_t nfft)
+        size_t nfft )
 {
     void * cfg = kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,0);
-    size_t max_buf=5*nfft;
+    size_t max_buf=4*nfft;
     kffsamp_t *inbuf = (kffsamp_t*)malloc(max_buf*sizeof(kffsamp_t));
     kffsamp_t *outbuf = (kffsamp_t*)malloc(max_buf*sizeof(kffsamp_t));
     size_t ninbuf,noutbuf;
@@ -239,7 +303,6 @@ void do_filter(
     free(outbuf);
 }
 
-#include <unistd.h>
 int main(int argc,char**argv)
 {
     kffsamp_t * h;
@@ -265,7 +328,7 @@ int main(int argc,char**argv)
                 }
                 break;
             case 'o':
-                fout = fopen(optarg,"wb");
+                fout = fopen(optarg,"w+b");
                 if (fout==NULL) {
                     perror(optarg);
                     exit(1);
@@ -299,7 +362,10 @@ int main(int argc,char**argv)
     fread(h,sizeof(kffsamp_t),nh,filtfile);
     fclose(filtfile);
  
-    do_filter( fin, fout, h,nh,nfft);
+#if 0
+    if (do_mmap_filter( fileno(fin), fileno(fout), h,nh,nfft ) )
+#endif        
+        do_file_filter( fin, fout, h,nh,nfft);
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);
