@@ -39,14 +39,11 @@ typedef struct {
     kiss_fft_cpx * scratch;
 }kiss_fft_state;
 
-#ifdef FIXED_POINT
+#define C_ADD(x,a,b) \
+    do{ (x).r = (a).r+(b).r;\
+        (x).i = (a).i+(b).i;}while(0)
 
-#   define C_ADD(x,a,b) \
-     do{ (x).r = ( ( (a).r+(b).r )  );\
-         (x).i = ( ( (a).i+(b).i )  ); }while(0)
-#   define C_SUB(x,a,b) \
-     do{ (x).r = ( ( (a).r-(b).r ) );\
-         (x).i = ( ( (a).i-(b).i ) ); }while(0)
+#ifdef FIXED_POINT
     /*  We don't have to worry about overflow from multiplying by twiddle factors since they
      *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
      *  rounding.
@@ -58,12 +55,6 @@ typedef struct {
 
 #else  // not FIXED_POINT
 
-#define C_ADD(x,a,b) \
-    do{ (x).r = (a).r+(b).r;\
-        (x).i = (a).i+(b).i;}while(0)
-#define C_SUB(x,a,b) \
-    do{ (x).r = (a).r-(b).r;\
-        (x).i = (a).i-(b).i;}while(0)
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
@@ -83,12 +74,6 @@ kiss_fft_cpx cexp(double phase)
     return x;
 }
 
-static kiss_fft_cpx csub(kiss_fft_cpx a,kiss_fft_cpx b)
-{
-    kiss_fft_cpx c;
-    C_SUB(c,a,b);
-    return c;
-}
 static kiss_fft_cpx cadd(kiss_fft_cpx a,kiss_fft_cpx b)
 {
     kiss_fft_cpx c;
@@ -120,15 +105,20 @@ void fft_work(
     int m,p=0,q,q1,u,k;
     kiss_fft_cpx t;
 
+    /*
     if (n==1) {
         *Fout = *f;
         return;
     }
+    */
     p=*factors++;
     m=*factors++;//m = n/p;
 
     for (q=0;q<p;++q) {
-        fft_work( Fout + m*q, f+q*fstride, fstride*p, m,Norig,inverse, scratch ,twiddles,factors);
+        if (m==1) 
+            *(Fout + m*q) = *(f+q*fstride);
+        else
+            fft_work( Fout + m*q, f+q*fstride, fstride*p, m,Norig,inverse, scratch ,twiddles,factors);
     }
 
     for ( u=0; u<m; ++u ) {
@@ -177,7 +167,6 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     st->twiddles = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
     st->tmpbuf = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
     st->scratch = (kiss_fft_cpx*)malloc( sizeof(kiss_fft_cpx)*nfft );
-
     st->factors = (int*)malloc( sizeof(int)*nfft );
 
     for (i=0;i<nfft;++i) {
@@ -212,9 +201,6 @@ void kiss_fft(const void * cfg,kiss_fft_cpx *f)
     const kiss_fft_state * st = cfg;
 
     n = st->nfft;
-
-    for (i=0;i<n;++i)
-        st->tmpbuf[i] = f[i];
-
+    memcpy(st->tmpbuf,f,sizeof(kiss_fft_cpx)*n);
     fft_work( f, st->tmpbuf, 1, n,n, st->inverse, st->scratch ,st->twiddles,st->factors);
 }
