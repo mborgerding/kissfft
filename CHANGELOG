@@ -1,3 +1,5 @@
+1.1.1 (Feb 1, 2004 )
+    minor bug fix -- only affects odd rank, in-place, multi-dimensional FFTs
 
 1.1 : (Jan 30,2004)
     split sample_code/ into test/ and tools/
