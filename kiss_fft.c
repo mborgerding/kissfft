@@ -23,13 +23,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
    typedef struct { kiss_fft_scalar r; kiss_fft_scalar i; }kiss_fft_cpx; */
 #include "kiss_fft.h"
 
-/*  Try static inline. Who knows? You might get a speed improvement. I didn't. YMMV   */
-#if 0
-#  define FUNCDECL static inline
-#else
-#  define FUNCDECL
-#endif
-
 typedef struct {
     int nfft;
     int inverse;
@@ -47,25 +40,15 @@ typedef struct {
       }while(0)
 #   define C_FIXDIV(c,div) \
     do{ (c).r /= div; (c).i /=div; }while(0)
-#define C_MUL_SCALAR(m,s) \
-     do{ (m).r = ( (m).r * (s) + (1<<14) ) >> 15;\
-         (m).i = ( (m).i * (s) + (1<<14) ) >> 15;\
-     }while(0)
 
 #else  /* not FIXED_POINT*/
 
-#define C_MUL_SCALAR(m,s) \
-     do{ (m).r *= (s);\
-         (m).i *= (s);\
-     }while(0)
 #   define C_FIXDIV(c,div) /* NOOP */
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
 #endif
 
-#define  C_ADD( res, a,b)\
-    do {    (res).r=(a).r+(b).r;  (res).i=(a).i+(b).i;  }while(0)
 #define  C_SUB( res, a,b)\
     do {    (res).r=(a).r-(b).r;  (res).i=(a).i-(b).i;  }while(0)
 #define C_ADDTO( res , a)\
@@ -93,7 +76,6 @@ kiss_fft_cpx cexp(double phase)
     return x;
 }
 
-FUNCDECL
 void bfly2(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -116,52 +98,6 @@ void bfly2(
     }while (--m);
 }
 
-FUNCDECL
-void bfly3(
-        kiss_fft_cpx * Fout,
-        int fstride,
-        const kiss_fft_state * st,
-        int m
-        )
-{
-    kiss_fft_cpx *Fout0,*Fout1,*Fout2;
-    
-    int u;
-    kiss_fft_cpx * scratch = st->scratch;
-    kiss_fft_cpx *tw1,*tw2;
-    tw2 = tw1 = st->twiddles;
-
-    Fout0=Fout;
-    Fout1=Fout0+m;
-    Fout2=Fout0+2*m;
-
-    scratch[3] = st->twiddles[ fstride*m ];
-
-    for ( u=0; u<m; ++u ) {
-        C_FIXDIV(*Fout0,3);
-        C_FIXDIV(*Fout1,3);
-        C_FIXDIV(*Fout2,3);
-        scratch[0] = *Fout0;
-        C_MUL(scratch[1],*Fout1 , *tw1 ); 
-        tw1 += fstride;
-        C_MUL(scratch[2],*Fout2 , *tw2 );
-        tw2 += 2*fstride;
-        C_ADD(scratch[5],scratch[1],scratch[2]);
-        C_SUB(scratch[6],scratch[1],scratch[2]);
-        C_ADDTO(*Fout0,scratch[5]);
-        C_MUL_SCALAR(scratch[5], scratch[3].r );
-        C_MUL_SCALAR(scratch[6], scratch[3].i );
-        scratch[4].r = scratch[5].r - scratch[6].i;
-        scratch[4].i = scratch[5].i + scratch[6].r;
-        C_ADD( *Fout1, scratch[0] , scratch[4] );
-        *Fout2 = *Fout1;
-        Fout2->r += 2*scratch[6].i;
-        Fout2->i -= 2*scratch[6].r;
-        ++Fout0;++Fout1;++Fout2;
-    }
-}
-
-FUNCDECL
 void bfly4(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -214,8 +150,7 @@ void bfly4(
     }while(--m);
 }
         
-FUNCDECL
-void bflyp(
+void bfly_generic(
         kiss_fft_cpx * Fout,
         int fstride,
         const kiss_fft_state * st,
@@ -227,6 +162,7 @@ void bflyp(
     kiss_fft_cpx * scratch = st->scratch;
     kiss_fft_cpx * twiddles = st->twiddles;
     kiss_fft_cpx t;
+    int Norig = st->nfft;
 
     for ( u=0; u<m; ++u ) {
         k=u;
@@ -241,7 +177,6 @@ void bflyp(
             int twidx=0;
             Fout[ k ] = scratch[0];
             for (q=1;q<p;++q ) {
-                int Norig = st->nfft;
                 twidx += fstride * k;
                 if (twidx>=Norig) twidx-=Norig;
                 C_MUL(t,scratch[q] , twiddles[twidx] );
@@ -252,7 +187,6 @@ void bflyp(
     }
 }
 
-FUNCDECL
 void fft_work(
         kiss_fft_cpx * Fout,
         const kiss_fft_cpx * f,
@@ -274,10 +208,9 @@ void fft_work(
     }
 
     switch (p) {
-        case 2: bfly2(Fout,fstride,st,m); break;
-        case 3: bfly3(Fout,fstride,st,m); break;
         case 4: bfly4(Fout,fstride,st,m); break;
-        default: bflyp(Fout,fstride,st,m,p); break;
+        case 2: bfly2(Fout,fstride,st,m); break;
+        default: bfly_generic(Fout,fstride,st,m,p); break;
     }
 }
 
@@ -324,7 +257,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
 
     while (nfft>1) {
         /* If you add a new radix, don't forget to put it here */
-        const int primes[] = {4,2,3,-1};
+        const int primes[] = {4,2,-1};
         int p=nfft;
         i=0;
         while ( primes[i] != -1 ) {
@@ -345,10 +278,13 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
 
 void kiss_fft(const void * cfg,kiss_fft_cpx *f)
 {
-    int n;
     const kiss_fft_state * st = cfg;
-
-    n = st->nfft;
-    memcpy(st->tmpbuf,f,sizeof(kiss_fft_cpx)*n);
+    memcpy(st->tmpbuf,f,sizeof(kiss_fft_cpx)*st->nfft);
     fft_work( f, st->tmpbuf, 1, st->factors,st );
+}
+
+void kiss_fft_io(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
+{
+    const kiss_fft_state * st = cfg;
+    fft_work( fout, fin, 1, st->factors,st );
 }

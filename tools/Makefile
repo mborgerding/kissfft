@@ -1,9 +1,17 @@
-NFFT=840
+
+ifeq "$(NFFT)" ""
+	NFFT=1024
+endif
+
 ALLUTILS=kfft kffts kfftd
-NUMFFTS=10000
+
+ifeq "$(NUMFFTS)" ""
+	NUMFFTS=10000
+endif
+
 UTILSRC=../kiss_fft.c fftutil.c
 
-CFLAGS=-Wall -O3 -lm -I.. -ansi -DFUNCDECL= -pedantic
+CFLAGS=-Wall -O3 -lm -I.. -ansi -pedantic
 
 all: $(ALLUTILS)
 
@@ -17,7 +25,7 @@ kfftd: $(UTILSRC)
 
 time: all
 	@echo 
-	@echo "#### timing $(NUMFFTS) x $(NFFT) point FFTs"
+	@echo -n "#### timing $(NUMFFTS) x $(NFFT) point FFTs.  "; factor $(NFFT)
 	@echo "#### DOUBLE"
 	@time -f 'Elapsed:%E user:%U sys:%S' \
 	 sh -c 'dd if=/dev/zero bs=$$((16*$(NFFT))) count=$(NUMFFTS) 2>/dev/null |./kfftd>/dev/null'
@@ -27,6 +35,14 @@ time: all
 	@echo "#### SHORT"
 	@time -f 'Elapsed:%E user:%U sys:%S' \
 	 sh -c 'dd if=/dev/zero bs=$$((4*$(NFFT))) count=$(NUMFFTS) 2>/dev/null |./kffts>/dev/null'
+
+
+POW2=256 512 1024 2048
+POW3=243 729 2187
+mtime: all
+	@for n in $(POW2) ;do \
+		export NFFT=$$n;make time; \
+		done
 
 snr: all
 	@which octave

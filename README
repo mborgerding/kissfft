@@ -1,4 +1,4 @@
-KISS FFT - A power-of-two Fast Fourier Transform based up on the principle, 
+KISS FFT - A mixed-radix Fast Fourier Transform based up on the principle, 
 "Keep It Simple, Stupid."
 
     There are many great fft libraries already around.  Kiss FFT is not trying
@@ -26,8 +26,8 @@ two functions you'll need to use. Code definitions are in kiss_fft.c, along
 with sample usage code.
 
 
-    The code can be easily recompiled to work with 16bit fixed point data,
-or various floating point types.  The default is float.
+    The code can be compiled to use float, double or 16bit short samples.
+The default is float.
 
 
 BACKGROUND:
@@ -35,22 +35,23 @@ BACKGROUND:
     I started coding this because I couldn't find a fixed point FFT that didn't 
 use assembly code.  I started with floating point numbers so I could get the 
 theory straight before working on fixed point issues.  In the end, I had a 
-little bit of code that could be recompiled easily to do ffts with short, float,
+little bit of code that could be recompiled easily to do ffts with short, float
 or double (other types should be easy too).  
 
     Once I got my FFT working, I wanted to get some performance numbers against 
 a well respected and highly optimized fft library.  I don't want to criticize 
-this great library, so let's call it FFT_BRANDX.  
+this great library, so let's call it FFT_BRANDX.
 During this process, I learned:
 
     1. FFT_BRANDX has 500 times as many lines of code as Kiss 
         (and that's just the C code).
     2. It took me an embarrassingly long time to get FFT_BRANDX working.
-    3. FFT_BRANDX is almost 3 times faster than Kiss
+    3. A simple program using FFT_BRANDX is 500K. A similar program using kiss_fft is 18k.
+    4. FFT_BRANDX is about 3-4 times faster than Kiss
 
     It is wonderful that free, highly optimized libraries like FFT_BRANDX exist.
 But such libraries carry a huge burden of complexity necessary to extract every 
-last bit of performance.  
+last bit of performance.
 
     Sometimes simpler is better, even if it's not better.
 
@@ -62,13 +63,12 @@ PERFORMANCE:
 
 DO NOT:
     ... use Kiss if you need the absolute fastest fft in the world
-    ... use Kiss if you need mixed radix FFTs 
     ... ask me to add features that will bloat the code
 
 UNDER THE HOOD:
 
-    Kiss uses a complex-only, frequency decimation, radix 2, in-place FFT. Bit reversed 
-addressing is corrected as the last step in the transform.  No scaling is done.
+    Kiss uses a complex-only, time decimation, mixed-radix , out-of-place FFT. 
+No scaling is done.
 
 LICENSE:
     BSD, see COPYING for details. Basically, "free to use, give credit where due, no guarantees"
@@ -76,7 +76,6 @@ LICENSE:
 TODO:
     *) Add sample code for parallel ffts (stereo) packed into re,im components of time sequence.
     *) Add simple windowing function, e.g. Hamming : w(i)=.54-.46*cos(2pi*i/(n-1))
-    *) Could mixed-radix FFTs be made simple enough to stand by the KISS principle?
     *) Make the fixed point scaling and bit shifts more easily configurable.
     *) Document/revisit the input/output fft scaling
     *) See if the fixed point code can be optimized a little without adding complexity.

@@ -2,10 +2,7 @@
 #define KISS_FFT_H
 
 #ifdef FIXED_POINT
-
 # define kiss_fft_scalar short
-# define FIXED_POINT_FRAC_BITS 15
-
 #else
 # ifndef kiss_fft_scalar
 #   define kiss_fft_scalar float
@@ -21,7 +18,7 @@ typedef struct {
 /* 
  *  fft_alloc
  *  
- *  Initialize a radix 2 FFT (or IFFT) algorithm.
+ *  Initialize a FFT (or IFFT) algorithm.
  *
  *  The return value from fft_alloc is a cfg buffer used internally
  *  by the fft routine.
@@ -41,6 +38,9 @@ void* kiss_fft_alloc(int nfft,int inverse_fft);
  * Note that each element is complex.
  * */
 void kiss_fft( const void* cfg_from_alloc , kiss_fft_cpx *f ); /* call for each buffer */
+
+/* two buffer version */
+void kiss_fft_io(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout);
 
 /* when done with the cfg for a given fft size and direction, simply free it*/
 #define kiss_fft_free free
