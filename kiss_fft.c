@@ -252,21 +252,24 @@ void kf_work(
 {
     kiss_fft_cpx * Fout_beg=Fout;
     kiss_fft_cpx * Fout_end;
-
     int m,p;
 
     p=*factors++; /* the radix  */
     m=*factors++; /* stage's fft length/p */
     Fout_end = Fout + p*m;
 
-    do{
-        if (m==1)
-            *Fout = *f;
-        else
+    if (m==1) {
+        do{
+            *Fout++ = *f;
+            f += fstride*in_stride;
+        }while(Fout != Fout_end );
+    }else{
+        do{
             kf_work( Fout , f, fstride*p, in_stride, factors,st);
-        Fout += m;
-        f += fstride*in_stride;
-    }while(Fout != Fout_end );
+            f += fstride*in_stride;
+            Fout += m;
+        }while(Fout != Fout_end );
+    }
 
     Fout=Fout_beg;
 
