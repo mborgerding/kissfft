@@ -190,7 +190,7 @@ void bfly3(
      tw1=tw2=st->twiddles;
 
      do{
-         C_FIXDIV(*Fout,3); C_FIXDIV(*Fout1,3); C_FIXDIV(*Fout2,3);
+         C_FIXDIV(*Fout0,3); C_FIXDIV(*Fout1,3); C_FIXDIV(*Fout2,3);
 
          C_MUL(scratch[1],*Fout1 , *tw1);
          C_MUL(scratch[2],*Fout2 , *tw2);
@@ -277,7 +277,9 @@ void fft_work(
 
     switch (p) {
         case 2: bfly2(Fout,fstride,st,m); break;
+#if 1                
         case 3: bfly3(Fout,fstride,st,m); break;
+#endif
         case 4: bfly4(Fout,fstride,st,m); break;
         default: bfly_generic(Fout,fstride,st,m,p); break;
     }
