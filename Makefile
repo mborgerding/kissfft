@@ -1,5 +1,5 @@
 
-all: kiss_fft_s kiss_fft_f kiss_fft_d freqpeak tones
+all: kiss_fft_s kiss_fft_f kiss_fft_d freqpeak tones testsig
 
 kiss_fft_s: kiss_fft.h kiss_fft.c
 	gcc -Wall -O3 -o kiss_fft_s -DFIXED_POINT -DFFT_UTIL kiss_fft.c -lm

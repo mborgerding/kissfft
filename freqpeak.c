@@ -28,18 +28,14 @@ int main(int argc, char ** argv)
     memset( rmag2 , 0 , sizeof(rmag2) );
 
     while ( fread( sampsin , sizeof(short) * 2*NFFT, 1 , stdin ) == 1 ) {
-        //perform two ffts in parallel by packing the channels into the real and imaginary
-        //
-        
+
+        //perform two ffts in parallel by packing the left&right channels into the real and imaginary
         for (k=0;k<NFFT;++k) {
-            //cbuf[k].r = 0;
-            //cbuf[k].i = 0;
             cbuf[k].r = sampsin[2*k];
             cbuf[k].i = sampsin[2*k+1];
-            //cbuf[k].i = sampsin[2*k+1];
         }
-        
-        if (removedc){
+
+        if (removedc) {
             float dcr=0,dci=0;
             for (k=0;k<NFFT;++k){
                 dcr += cbuf[k].r;
@@ -48,14 +44,16 @@ int main(int argc, char ** argv)
             dcr /= NFFT;
             dci /= NFFT;
 
-            for (k=0;k<NFFT;++k){
+            for (k=0;k<NFFT;++k) {
                 cbuf[k].r -= dcr;
                 cbuf[k].i -= dci;
             }
         }
 
+        // perform the fft on the L+R packed buffer
         kiss_fft( st , cbuf );
 
+        // get the half-symmetric FFTs for the Left and Right Channels
         for (k=0;k<NFFT/2;++k) {
             int k2 = (NFFT-k)%NFFT;
             kiss_fft_cpx r,l;
