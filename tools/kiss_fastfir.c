@@ -30,18 +30,16 @@ typedef kiss_fft_cpx kffsamp_t;
 #define FFTINV kiss_fft
 #endif
 
-static int verbose=0;
 
 void * kiss_fastfir_alloc(const kffsamp_t * imp_resp,size_t n_imp_resp,
         size_t * nfft,void * mem,size_t*lenmem);
 
-/* n : the size of inbuf and outbuf in samples
-   return value: the number of samples completely processed
-   n-retval samples should be copied to the front of the next input buffer */
-size_t kff_nocopy( void *st, const kffsamp_t * inbuf, kffsamp_t * outbuf, size_t n);
+/* see do_file_filter for usage */
+size_t kiss_fastfir( void * cfg, kffsamp_t * inbuf, kffsamp_t * outbuf, size_t n, int do_flush, size_t *offset);
 
 
 
+static int verbose=0;
 typedef struct {
     int nfft;
     size_t ngood;
@@ -79,6 +77,8 @@ void * kiss_fastfir_alloc(
              nfft<<=1;
         }while (i>>=1);
     }
+    if (pnfft)
+        *pnfft = nfft;
 
 #ifdef REAL_FASTFIR
     n_freq_bins = nfft/2 + 1;
@@ -148,8 +148,6 @@ void * kiss_fastfir_alloc(
         st->fir_freq_resp[i].r *= scale;
         st->fir_freq_resp[i].i *= scale;
     }
-    if (pnfft)
-        *pnfft = nfft;
     return st;
 }
 
@@ -172,7 +170,7 @@ static void fastconv1buf(const kiss_fastfir_state *st,const kffsamp_t * in,kffsa
 /* n : the size of inbuf and outbuf in samples
    return value: the number of samples completely processed
    n-retval samples should be copied to the front of the next input buffer */
-size_t kff_nocopy(
+static size_t kff_nocopy(
         void *vst,
         const kffsamp_t * inbuf, 
         kffsamp_t * outbuf,
@@ -189,6 +187,7 @@ size_t kff_nocopy(
     return norig - n;
 }
 
+static
 size_t kff_flush(void *vst,const kffsamp_t * inbuf,kffsamp_t * outbuf,size_t n)
 {
     size_t zpad=0,ntmp;
@@ -209,54 +208,29 @@ size_t kff_flush(void *vst,const kffsamp_t * inbuf,kffsamp_t * outbuf,size_t n)
     return ntmp + st->ngood - zpad;
 }
 
+size_t kiss_fastfir(
+        void * vst,
+        kffsamp_t * inbuf,
+        kffsamp_t * outbuf,
+        size_t n,
+        int do_flush,
+        size_t *offset)
+{
+    if (do_flush==0) {
+        size_t nwritten = kff_nocopy(vst,inbuf,outbuf,n);
+        *offset = n - nwritten;
+        memcpy( inbuf , inbuf+nwritten , *offset * sizeof(kffsamp_t) );
+        return nwritten;
+    }else{
+        /*flush*/
+        return kff_flush(vst,inbuf,outbuf,n);
+    }
+}
+
 #ifdef FAST_FILT_UTIL
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
-
-int do_mmap_filter(int fd_src,int fd_dst,const kffsamp_t * imp_resp, size_t n_imp_resp, size_t nfft )
-{
-    int error_code=1;
-    off_t src_len=0,dst_len=0;
-    void *psrc=NULL;
-    void *pdst=NULL;
-
-    src_len = lseek(fd_src,0,SEEK_END );
-    if (src_len == (off_t)-1 ) goto nommap;
-    if ( ftruncate(fd_dst,src_len) ) goto nommap;
-    if ( lseek(fd_src,0,SEEK_SET) == (off_t)-1 ) goto nommap;
-    if ( lseek(fd_dst,0,SEEK_SET) == (off_t)-1 ) goto nommap;
-    psrc = mmap(0,src_len,PROT_READ,MAP_SHARED,fd_src,0);
-    if (psrc==NULL) goto nommap;
-    pdst = mmap(0,src_len,PROT_WRITE,MAP_SHARED,fd_dst,0);
-    if (psrc==NULL) goto nommap;
-    {
-        const kffsamp_t *inbuf= (const kffsamp_t *)psrc;
-        kffsamp_t *outbuf= (kffsamp_t *)pdst;
-
-        size_t noutbuf;
-        size_t nsamps_in = src_len / sizeof(kffsamp_t);
-        
-        void * cfg = kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,0);
-        
-        noutbuf = kff_nocopy( cfg, (kffsamp_t*)psrc, (kffsamp_t*)pdst, nsamps_in );
-
-        noutbuf += kff_flush( cfg,inbuf+noutbuf,outbuf+noutbuf,nsamps_in-noutbuf);
-        dst_len = noutbuf* sizeof(kffsamp_t);
-        free(cfg);
-    }
-    error_code=0;
-nommap:
-    if (psrc) munmap(psrc,src_len);
-    if (pdst) {
-        munmap(pdst,src_len);
-        ftruncate(fd_dst,dst_len);
-    }
-    if (error_code)
-        perror("mapping");
-    return error_code;
-}
-
 
 void do_file_filter(
         FILE * fin,
@@ -265,27 +239,25 @@ void do_file_filter(
         size_t n_imp_resp,
         size_t nfft )
 {
-    void * cfg = kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,0);
-    size_t max_buf=4*nfft;
-    kffsamp_t *inbuf = (kffsamp_t*)malloc(max_buf*sizeof(kffsamp_t));
-    kffsamp_t *outbuf = (kffsamp_t*)malloc(max_buf*sizeof(kffsamp_t));
+    size_t memcfg,membuf;
+    void * cfg;
+    size_t max_samps;
+    kffsamp_t *inbuf,*outbuf;
     size_t ninbuf,noutbuf;
     size_t idx_inbuf=0;
 
-    do{
-        ninbuf = fread(&inbuf[idx_inbuf],sizeof(inbuf[0]),max_buf-idx_inbuf,fin );
-        if (ninbuf) {
-            /* add new input to saved input */
-            ninbuf += idx_inbuf;
-            noutbuf = kff_nocopy( cfg, inbuf, outbuf, ninbuf );
+    kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,&memcfg);
+    max_samps = 4*nfft;
+    membuf = max_samps*sizeof(kffsamp_t);
+    cfg = malloc(membuf*2+memcfg);
+    kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,cfg,&memcfg);
+    inbuf = (kffsamp_t*)((char*)cfg+memcfg);
+    outbuf = (kffsamp_t*)((char*)cfg+memcfg+membuf);
 
-            /* move the unconsumed input samples to the front of the input buffer */
-            idx_inbuf = ninbuf - noutbuf;
-            memmove( inbuf , &inbuf[noutbuf] , sizeof( inbuf[0] )*( ninbuf - noutbuf ) );
-        }else{
-            /* last read -- flush */
-            noutbuf = kff_flush(cfg, inbuf,outbuf,idx_inbuf);
-        }
+    do{
+        ninbuf = fread( &inbuf[idx_inbuf], sizeof(inbuf[0]), max_samps-idx_inbuf , fin );
+
+        noutbuf = kiss_fastfir(cfg, inbuf, outbuf,idx_inbuf+ninbuf,ninbuf==0,&idx_inbuf);
 
         if ( fwrite( outbuf, sizeof(outbuf[0]), noutbuf, fout) != noutbuf ) {
             perror("short write");
@@ -293,8 +265,6 @@ void do_file_filter(
         }
     }while ( ninbuf );
     free(cfg);
-    free(inbuf);
-    free(outbuf);
 }
 
 int main(int argc,char**argv)
@@ -356,10 +326,7 @@ int main(int argc,char**argv)
     fread(h,sizeof(kffsamp_t),nh,filtfile);
     fclose(filtfile);
  
-#if 0
-    if (do_mmap_filter( fileno(fin), fileno(fout), h,nh,nfft ) )
-#endif        
-        do_file_filter( fin, fout, h,nh,nfft);
+    do_file_filter( fin, fout, h,nh,nfft);
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);
