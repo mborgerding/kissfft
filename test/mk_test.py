@@ -20,7 +20,8 @@ def c_format(v,round=0):
         s= ','.join( [ '{%.60f ,%.60f }' %(c.real,c.imag) for c in v ] ) 
         return re.sub(r'\.?0+ ',' ',s)
 
-def test_vec( v,inverse ):
+def test_vec( n,inverse ):
+    v = randvec(n,1)
     if inverse:
         tvecout = FFT.inverse_fft(v)
         tvecout = [ c * len(v) for c in tvecout ]
@@ -81,9 +82,9 @@ def main():
     print compare_func()
     print "int main() {"
     for n in fftsizes:
-        v = randvec(int(n),1)
-        print test_vec(v,0)
-        print test_vec(v,1)
+        n = int(n)
+        print test_vec(n,0)
+        print test_vec(n,1)
     print """
     return 0;
 }
