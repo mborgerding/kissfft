@@ -82,7 +82,7 @@ def test_fft(ndims):
 
     print 'dimensions=%s' % str( Numeric.shape(x) ),
     if doreal:
-        xver = FFT.real_fft(x)
+        xver = FFT.real_fftnd(x)
     else:
         xver = FFT.fftnd(x)
     
