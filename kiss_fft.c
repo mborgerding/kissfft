@@ -176,7 +176,7 @@ void bfly3(
 {
      kiss_fft_cpx *Fout0,*Fout1,*Fout2;
      kiss_fft_cpx *tw1,*tw2;
-     kiss_fft_cpx * scratch = st->scratch;
+     kiss_fft_cpx scratch[5];
      kiss_fft_cpx epi3;
      epi3 = st->twiddles[fstride*m];
 
@@ -191,15 +191,15 @@ void bfly3(
          C_MUL(scratch[1],*Fout1 , *tw1);
          C_MUL(scratch[2],*Fout2 , *tw2);
 
-         C_ADD(scratch[4],scratch[1],scratch[2]);
+         C_ADD(scratch[3],scratch[1],scratch[2]);
          C_SUB(scratch[0],scratch[1],scratch[2]);
 
-         Fout1->r = Fout0->r - scratch[4].r/2;
-         Fout1->i = Fout0->i - scratch[4].i/2;
+         Fout1->r = Fout0->r - scratch[3].r/2;
+         Fout1->i = Fout0->i - scratch[3].i/2;
 
          C_MULBYSCALAR( scratch[0] , epi3.i );
 
-         C_ADDTO(*Fout0,scratch[4]);
+         C_ADDTO(*Fout0,scratch[3]);
 
          Fout2->r = Fout1->r + scratch[0].i;
          Fout2->i = Fout1->i - scratch[0].r;
