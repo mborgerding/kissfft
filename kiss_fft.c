@@ -180,7 +180,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
 {
     kiss_fft_state * st=NULL;
     // allocate one large buffer to hold the state, twiddle buffers, and bit-rev indices
-    int size = sizeof(kiss_fft_state) + (nfft>>1)*sizeof(kiss_fft_cpx) + (nfft>>1)*sizeof(int);
+    int size = sizeof(kiss_fft_state) + (nfft>>1)*sizeof(kiss_fft_cpx) + nfft*sizeof(int);
 
     st = ( kiss_fft_state *)malloc(size);
     if (st) {
