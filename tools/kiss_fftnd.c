@@ -17,12 +17,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "_kiss_fft_guts.h"
 
 typedef struct {
-    int minus4; /*magic to signify a N-d transform*/
     int dimprod; /* dimsum would be mighty tasty right now */
-    int ndims;
+    int ndims; 
     int *dims;
-    void **states;
-    kiss_fft_cpx * tmpbuf;
+    void **states; /* cfg states for each dimension */
+    kiss_fft_cpx * tmpbuf; /*buffer capable of hold the entire buffer */
 }kiss_fftnd_state;
 
 void * kiss_fftnd_alloc(int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
@@ -43,17 +42,16 @@ void * kiss_fftnd_alloc(int *dims,int ndims,int inverse_fft,void*mem,size_t*lenm
     memneeded += sizeof(void*) * ndims;/* st->states  */
     memneeded += sizeof(kiss_fft_cpx) * dimprod; /* st->tmpbuf */
 
-    if (lenmem == NULL) {
+    if (lenmem == NULL) {/* allocate for the caller*/
         st = (kiss_fftnd_state *) malloc (memneeded);
-    } else {
+    } else { /* initialize supplied buffer if big enough */
         if (*lenmem >= memneeded)
             st = (kiss_fftnd_state *) mem;
-        *lenmem = memneeded;
+        *lenmem = memneeded; /*tell caller how big struct is (or would be) */
     }
     if (!st)
-        return NULL;
+        return NULL; /*malloc failed or buffer too small */
 
-    st->minus4 = -4;
     st->dimprod = dimprod;
     st->ndims = ndims;
     ptr=(char*)(st+1);
@@ -140,7 +138,7 @@ Stage 2 ( D=4) treats this buffer as a 4*6 matrix,
    , i.e. the summation of all 24 input elements. 
 
 */
-void kiss_fftnd(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
+void kiss_fftnd(void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 {
     int i,k;
     kiss_fftnd_state *st = ( kiss_fftnd_state *)cfg;
@@ -156,6 +154,7 @@ void kiss_fftnd(const void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
     for ( k=0; k < st->ndims; ++k) {
         int curdim = st->dims[k];
         int stride = st->dimprod / curdim;
+        
         for ( i=0 ; i<stride ; ++i ) 
             kiss_fft_stride( st->states[k], bufin+i , bufout+i*curdim, stride );
 
