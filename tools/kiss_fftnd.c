@@ -34,7 +34,7 @@ kiss_fftnd_cfg kiss_fftnd_alloc(int *dims,int ndims,int inverse_fft,void*mem,siz
     char * ptr;
 
     for (i=0;i<ndims;++i) {
-        size_t sublen;
+        size_t sublen=0;
         kiss_fft_alloc (dims[i], inverse_fft, NULL, &sublen);
         memneeded += sublen;   /* st->states[i] */
         dimprod *= dims[i];
