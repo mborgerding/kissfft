@@ -146,15 +146,19 @@ void kiss_fftnd(void * cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
     kiss_fft_cpx * bufout;
 
     /*arrange it so the last bufout == fout*/
-    if ( st->ndims & 1 )
+    if ( st->ndims & 1 ) {
         bufout = fout;
-    else
+        if (fin==fout) {
+            memcpy( st->tmpbuf, fin, sizeof(kiss_fft_cpx) * st->dimprod );
+            bufin = st->tmpbuf;
+        }
+    }else
         bufout = st->tmpbuf;
 
     for ( k=0; k < st->ndims; ++k) {
         int curdim = st->dims[k];
         int stride = st->dimprod / curdim;
-        
+
         for ( i=0 ; i<stride ; ++i ) 
             kiss_fft_stride( st->states[k], bufin+i , bufout+i*curdim, stride );
 

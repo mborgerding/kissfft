@@ -45,22 +45,19 @@ void fft_filend(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
 {
     void *st;
     kiss_fft_cpx *buf;
-    kiss_fft_cpx *bufout;
     int dimprod=1,i;
     for (i=0;i<ndims;++i) 
         dimprod *= dims[i];
 
     buf = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * dimprod);
-    bufout = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * dimprod);
     st = kiss_fftnd_alloc (dims, ndims, isinverse, 0, 0);
 
     while (fread (buf, sizeof (kiss_fft_cpx) * dimprod, 1, fin) > 0) {
-        kiss_fftnd (st, buf, bufout);
-        fwrite (bufout, sizeof (kiss_fft_cpx), dimprod, fout);
+        kiss_fftnd (st, buf, buf);
+        fwrite (buf, sizeof (kiss_fft_cpx), dimprod, fout);
     }
     free (st);
     free (buf);
-    free (bufout);
 }
 
 void fft_file_real(FILE * fin,FILE * fout,int nfft,int isinverse)
@@ -99,7 +96,7 @@ int get_dims(char * arg,int * dims)
         if (p0)
             *p0++ = '\0';
         dims[ndims++] = atoi(arg);
-        fprintf(stderr,"dims[%d] = %d\n",ndims-1,dims[ndims-1]);
+        /* fprintf(stderr,"dims[%d] = %d\n",ndims-1,dims[ndims-1]); */
         arg = p0;
     }while (p0);
     return ndims;
