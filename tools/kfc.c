@@ -32,12 +32,12 @@ static const void * find_cached_fft(int nfft,int inverse)
     cached_fft * prev=NULL;
     while ( cur ) {
         if ( cur->nfft == nfft && inverse == cur->inverse )
-            break;//found the right node
+            break;/*found the right node*/
         prev = cur;
         cur = (cached_fft*)prev->next;
     }
     if (cur== NULL) {
-        // no cached node found, need to create a new one
+        /* no cached node found, need to create a new one*/
         kiss_fft_alloc(nfft,inverse,0,&len);
         cur = (cached_fft*)malloc(sizeof(cached_fft) + len );
         if (cur == NULL)
