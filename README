@@ -22,13 +22,11 @@ USAGE:
     and cx_buf_in_out[nfft/2] is the Nyquist bin
 
     Declarations are in "kiss_fft.h", along with a brief description of the 
-two functions you'll need to use. Code definitions are in kiss_fft.c, along 
+functions you'll need to use. Code definitions are in kiss_fft.c, along 
 with sample usage code.
-
 
     The code can be compiled to use float, double or 16bit short samples.
 The default is float.
-
 
 BACKGROUND:
 
@@ -62,13 +60,15 @@ PERFORMANCE:
     For comparison, it took md5sum 160ms cputime to process the same amount of data
 
 DO NOT:
-    ... use Kiss if you need the absolute fastest fft in the world
+    ... use Kiss if you need the Fastest Fft in The World
     ... ask me to add features that will bloat the code
 
 UNDER THE HOOD:
 
-    Kiss uses a complex-only, time decimation, mixed-radix , out-of-place FFT. 
-No scaling is done.
+    Kiss FFT uses a complex-only, time decimation, mixed-radix, out-of-place FFT. 
+No scaling is done.  Optimized butterflies are used for factors 2 and 4. 
+Experiments with a radix 3 optimization showed no real gain over the generic 
+butterfly currently used for non power-2 factors.
 
 LICENSE:
     BSD, see COPYING for details. Basically, "free to use, give credit where due, no guarantees"
