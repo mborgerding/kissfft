@@ -1,23 +1,17 @@
-
 ifeq "$(NFFT)" ""
- NFFT=1024
+ NFFT=1800
 endif
-
 ifeq "$(NUMFFTS)" ""
  NUMFFTS=10000
 endif
-
-UTILSRC=../kiss_fft.c fftutil.c
-
-CFLAGS=-Wall -O3 -lm -I.. -ansi -pedantic
-
 ifeq "$(DATATYPE)" ""
-  DATATYPE=float
+ DATATYPE=float
 endif
+
 UTIL=fftutil_$(DATATYPE)
+BENCH=bm_$(DATATYPE)
 
-
-all: $(UTIL)
+all: $(UTIL) $(BENCH)
 
 ifeq  "$(DATATYPE)" "short"
  TYPEFLAGS=-DFIXED_POINT -Dkiss_fft_scalar=short
@@ -25,31 +19,29 @@ else
  TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
 endif
 
-$(UTIL): $(UTILSRC)
-	gcc -o $@ $(CFLAGS) $(TYPEFLAGS) $(UTILSRC)
+CFLAGS=-Wall -O3 -ansi -pedantic
+$(UTIL): ../kiss_fft.c fftutil.c
+	gcc -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) ../kiss_fft.c fftutil.c -lm
 
-RANDDAT=rand_$(DATATYPE)_$(NFFT).dat
-$(RANDDAT):
-	./rand_fft_data.py -n 1 -N $(NFFT) -t $(DATATYPE) > $(RANDDAT)
+$(BENCH): benchkiss.c ../kiss_fft.c
+	gcc -o $@ $(CFLAGS) -I.. benchkiss.c $(TYPEFLAGS) ../kiss_fft.c -lm 
 
-time: all $(RANDDAT)
-	@echo
-	@echo -n "#### timing $(NUMFFTS) x $(NFFT) point FFTs.  "; factor $(NFFT)
-	@if [ -x ~/fftw/st ] && [ $(DATATYPE) == "double" ]; then \
-		echo "#### FFTW FFT $(DATATYPE)"; \
-		time ~/fftw/st -x $(NUMFFTS) -n $(NFFT) < $(RANDDAT) > /dev/null;\
-	fi
-	@echo "#### KISS FFT $(DATATYPE)"
-	@time ./$(UTIL) -x $(NUMFFTS) -n $(NFFT) < $(RANDDAT) > /dev/null
-	@rm $(RANDDAT)
+fftw: bm_fftw
+	./bm_fftw -x $(NUMFFTS) -n $(NFFT)
+bm_fftw: benchfftw.c
+	gcc -o $@ $(CFLAGS) benchfftw.c -lm -lfftw3 -L /usr/local/lib/
+
+time: all
+	./$(BENCH) -x $(NUMFFTS) -n $(NFFT) 
 
 POW2=256 512 1024 2048
 POW3=243 729 2187
-POW5=25 125 625 
+POW5=25 125 625
+
 mtime: all
-	@for n in $(POW5) ;do \
-		export NFFT=$$n;make time; \
-		done
+	@for n in $(POW2) $(POW3) $(POW5) ;do \
+		./$(BENCH) -x $(NUMFFTS) -n $$n;\
+	done
 
 snr: all
 	@which octave
@@ -61,5 +53,4 @@ snr: all
 test: snr time 
 
 clean:
-	rm -f *.dat *~ fftutil_*
-
+	rm -f *~ fftutil_* bm_*

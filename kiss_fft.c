@@ -278,10 +278,11 @@ void bfly5(
         Fout4->i = scratch[0].i + scratch[5].i + scratch[6].i + scratch[7].i + scratch[8].i;
 
         ++Fout0;++Fout1;++Fout2;++Fout3;++Fout4;
-        tw1+=m;
-        tw2+=2*m;
-        tw3+=3*m;
-        tw4+=4*m;
+        tw1+=fstride;
+        tw2+=2*fstride;
+        tw3+=3*fstride;
+        tw4+=4*fstride;
+
     }
 }
 
@@ -347,9 +348,7 @@ void fft_work(
         case 2: bfly2(Fout,fstride,st,m); break;
         case 3: bfly3(Fout,fstride,st,m); break;
         case 4: bfly4(Fout,fstride,st,m); break;
-#if 1                
         case 5: bfly5(Fout,fstride,st,m); break;
-#endif                
         default: bfly_generic(Fout,fstride,st,m,p); break;
     }
 }
