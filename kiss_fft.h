@@ -29,7 +29,7 @@ typedef struct {
  *  Call free() on it when done using it to avoid memory leaks.
  * */
 void* kiss_fft_alloc(int nfft,int inverse_fft); 
-// free() the state when done using it
+/* free() the state when done using it */
 
 /*
  * kiss_fft(cfg,in_out_buf)
@@ -40,9 +40,9 @@ void* kiss_fft_alloc(int nfft,int inverse_fft);
  * the output will be   F[0] , F[1] , ... ,F[nfft-1]
  * Note that each element is complex.
  * */
-void kiss_fft( const void* cfg_from_alloc , kiss_fft_cpx *f ); // call for each buffer 
+void kiss_fft( const void* cfg_from_alloc , kiss_fft_cpx *f ); /* call for each buffer */
 
-// when done with the cfg for a given fft size and direction, simply free it
+/* when done with the cfg for a given fft size and direction, simply free it*/
 #define kiss_fft_free free
 
 #endif

@@ -17,6 +17,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <math.h>
 #include <memory.h>
 #include "kiss_fft.h"
+
+/*try this, you might get a speed improvement*/
+#if 0
+#  define FUNCDECL static inline
+#else
+#  define FUNCDECL
+#endif
+
 /*
  * kiss_fft.h
  * defines kiss_fft_scalar as either short or a float type
@@ -26,6 +34,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  *     kiss_fft_scalar i;
  * }kiss_fft_cpx;
  */
+
 
 typedef struct {
     int nfft;
@@ -37,14 +46,25 @@ typedef struct {
 }kiss_fft_state;
 
 #ifdef FIXED_POINT
-    /*  We don't have to worry about overflow from multiplying by twiddle factors since they
-     *  all have unity magnitude.  Still need to shift away fractional bits after adding 1/2 for
-     *  rounding. */
 #   define C_MUL(m,a,b) \
       do{ (m).r = ( ( (a).r*(b).r - (a).i*(b).i)  + (1<<14) ) >> 15;\
           (m).i = ( ( (a).r*(b).i + (a).i*(b).r)  + (1<<14) ) >> 15;\
       }while(0)
-#else  // not FIXED_POINT
+
+#   define C_FIXDIV(c,div) \
+    do{ (c).r /= div; (c).i /=div; }while(0)
+
+#define C_MUL_SCALAR(m,s) \
+     do{ (m).r = ( (m).r * (s) + (1<<14) ) >> 15;\
+         (m).i = ( (m).i * (s) + (1<<14) ) >> 15;\
+     }while(0)
+
+#else  /* not FIXED_POINT*/
+#define C_MUL_SCALAR(m,s) \
+     do{ (m).r *= (s);\
+         (m).i *= (s);\
+     }while(0)
+#   define C_FIXDIV(c,div) /* NOOP */
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
@@ -58,8 +78,14 @@ typedef struct {
     do {    (res).r += (a).r;  (res).i += (a).i;  }while(0)
 #define C_SUBFROM( res , a)\
     do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
+#define C_ROTADDTO(sum,c,q) \
+    do{ switch (q) {\
+            case 0: (sum).r += (c).r; (sum).i += (c).i; break;\
+            case 1: (sum).r += (c).i; (sum).i -= (c).r; break;\
+            case 2: (sum).r -= (c).r; (sum).i -= (c).i; break;\
+            case 3: (sum).r -= (c).i; (sum).i += (c).r; break;\
+        } }while(0) 
 
-static
 kiss_fft_cpx cexp(double phase)
 {
     kiss_fft_cpx x;
@@ -73,16 +99,72 @@ kiss_fft_cpx cexp(double phase)
     return x;
 }
 
-#define C_ROTADDTO(sum,c,q) \
-    do{ switch (q) {\
-            case 0: (sum).r += (c).r; (sum).i += (c).i; break;\
-            case 1: (sum).r += (c).i; (sum).i -= (c).r; break;\
-            case 2: (sum).r -= (c).r; (sum).i -= (c).i; break;\
-            case 3: (sum).r -= (c).i; (sum).i += (c).r; break;\
-        } }while(0) 
+FUNCDECL
+void bfly2(
+        kiss_fft_cpx * Fout,
+        int fstride,
+        const kiss_fft_state * st,
+        int m
+        )
+{
+    kiss_fft_cpx * Fout2;
+    kiss_fft_cpx * twiddles = st->twiddles;
+    kiss_fft_cpx t;
+    Fout2 = Fout + m;
+    do{
+        C_MUL (t,  *Fout2 , *twiddles);
+        twiddles += fstride;
+        C_FIXDIV(*Fout,2); C_FIXDIV(t,2);
+        C_SUB( *Fout2 ,  *Fout , t );
+        C_ADDTO( *Fout ,  t );
+        ++Fout2;
+        ++Fout;
+    }while (--m);
+}
 
-static 
-inline
+FUNCDECL
+void bfly3(
+        kiss_fft_cpx * Fout,
+        int fstride,
+        const kiss_fft_state * st,
+        int m
+        )
+{
+    kiss_fft_cpx *Fout0,*Fout1,*Fout2;
+    
+    int u;
+    kiss_fft_cpx * scratch = st->scratch;
+    kiss_fft_cpx * twiddles = st->twiddles;
+
+    Fout0=Fout;
+    Fout1=Fout0+m;
+    Fout2=Fout0+2*m;
+
+    scratch[3] = twiddles[ fstride*m ];
+
+    for ( u=0; u<m; ++u ) {
+        C_FIXDIV(*Fout0,3);
+        C_FIXDIV(*Fout1,3);
+        C_FIXDIV(*Fout2,3);
+        scratch[0] = *Fout0;
+        C_MUL(scratch[1],*Fout1 , twiddles[fstride*u    ] ); 
+        C_MUL(scratch[2],*Fout2 , twiddles[fstride*u*2] );
+        C_ADD(scratch[5],scratch[1],scratch[2]);
+        C_SUB(scratch[6],scratch[1],scratch[2]);
+        C_ADDTO(*Fout0,scratch[5]);
+        C_MUL_SCALAR(scratch[5], scratch[3].r );
+        C_MUL_SCALAR(scratch[6], scratch[3].i );
+        scratch[4].r = scratch[5].r - scratch[6].i;
+        scratch[4].i = scratch[5].i + scratch[6].r;
+        C_ADD( *Fout1, scratch[0] , scratch[4] );
+        scratch[4].r = scratch[5].r + scratch[6].i;
+        scratch[4].i = scratch[5].i - scratch[6].r;
+        C_ADD( *Fout2, scratch[0] , scratch[4] );
+        ++Fout0;++Fout1;++Fout2;
+    }
+}
+
+FUNCDECL
 void bfly4(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -100,12 +182,8 @@ void bfly4(
     tw3 = tw2 = tw1 = st->twiddles;
 
     do {
-#ifdef FIXED_POINT
-        Fout->r >>=2; Fout->i >>=2;
-        Fout1->r >>=2; Fout1->i >>=2;
-        Fout2->r >>=2; Fout2->i >>=2;
-        Fout3->r >>=2; Fout3->i >>=2;
-#endif
+        C_FIXDIV(*Fout,4); C_FIXDIV(*Fout1,4); C_FIXDIV(*Fout2,4); C_FIXDIV(*Fout3,4);
+
         C_MUL(t1,*Fout1 , *tw1 );
         tw1 += fstride;
         C_MUL(t2,*Fout2 , *tw2 );
@@ -138,95 +216,8 @@ void bfly4(
         ++Fout; ++Fout1; ++Fout2; ++Fout3;
     }while(--m);
 }
-
-static 
-inline
-void bfly2(
-        kiss_fft_cpx * Fout,
-        int fstride,
-        const kiss_fft_state * st,
-        int m
-        )
-{
-    kiss_fft_cpx * Fout2;
-    kiss_fft_cpx * twiddles = st->twiddles;
-    kiss_fft_cpx t;
-    Fout2 = Fout + m;
-    do{
-        C_MUL (t,  *Fout2 , *twiddles);
-        twiddles += fstride;
-#ifdef FIXED_POINT
-        Fout->r>>=1; Fout->i>>=1;
-        t.r>>=1; t.i>>=1;
-#endif
-        C_SUB( *Fout2 ,  *Fout , t );
-        C_ADDTO( *Fout ,  t );
-        ++Fout2;
-        ++Fout;
-    }while (--m);
-}
-
-static 
-inline
-void bfly3(
-        kiss_fft_cpx * Fout,
-        int fstride,
-        const kiss_fft_state * st,
-        int m
-        )
-{
-    kiss_fft_cpx *Fout0,*Fout1,*Fout2;
-    
-    int u;
-    kiss_fft_cpx * scratch = st->scratch;
-    kiss_fft_cpx * twiddles = st->twiddles;
-    kiss_fft_cpx t[2];
-    kiss_fft_cpx epi3;
-    epi3 = twiddles[fstride*m];
-
-    Fout0=Fout;
-    Fout1=Fout0+m;
-    Fout2=Fout0+2*m;
-
-    for ( u=0; u<m; ++u ) {
-        kiss_fft_cpx sum23,t0pt1,t0mt1;
-
-#ifdef FIXED_POINT
-        Fout0->r /= 3; Fout0->i /= 3;
-        Fout1->r /= 3; Fout1->i /= 3;
-        Fout2->r /= 3; Fout2->i /= 3;
-#endif        
-        scratch[0] = *Fout0;
-
-        C_MUL(t[0],*Fout1 , twiddles[fstride*u    ] ); 
-        C_MUL(t[1],*Fout2 , twiddles[fstride*u*2] );
-
-        C_ADD(t0pt1,t[0],t[1]);
-        C_ADD(*Fout0,scratch[0],t0pt1);
-
-        t0pt1.r /= -2;
-        t0pt1.i /= -2;
-      
-        C_SUB(t0mt1,t[0],t[1]);
-        t0mt1.r *= epi3.i;
-        t0mt1.i *= epi3.i;
-
-        sum23.r = t0pt1.r - t0mt1.i;
-        sum23.i = t0pt1.i + t0mt1.r;
-
-        C_ADD( *Fout1, scratch[0] , sum23 );
-
-        sum23.r = t0pt1.r + t0mt1.i;
-        sum23.i = t0pt1.i - t0mt1.r;
-        C_ADD( *Fout2, scratch[0] , sum23 );
-
-        ++Fout0;++Fout1;++Fout2;
-    }
-}
-
         
-static 
-inline
+FUNCDECL
 void bflyp(
         kiss_fft_cpx * Fout,
         int fstride,
@@ -244,10 +235,7 @@ void bflyp(
         k=u;
         for ( q1=0 ; q1<p ; ++q1 ) {
             scratch[q1] = Fout[ k  ];
-#ifdef FIXED_POINT
-            scratch[q1].r /= p;
-            scratch[q1].i /= p;
-#endif            
+            C_FIXDIV(scratch[q1],p);
             k += m;
         }
 
@@ -260,15 +248,14 @@ void bflyp(
                 twidx += fstride * k;
                 if (twidx>=Norig) twidx-=Norig;
                 C_MUL(t,scratch[q] , twiddles[twidx] );
-                Fout[ k ].r += t.r;
-                Fout[ k ].i += t.i;
+                C_ADDTO( Fout[ k ] ,t);
             }
             k += m;
         }
     }
 }
 
-static inline
+FUNCDECL
 void fft_work(
         kiss_fft_cpx * Fout,
         const kiss_fft_cpx * f,
@@ -313,10 +300,10 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
     kiss_fft_state * st=NULL;
 
     allocsize =  sizeof(kiss_fft_state)
-        + sizeof(kiss_fft_cpx)*nfft // twiddle factors
-        + sizeof(kiss_fft_cpx)*nfft // tmpbuf
-        + sizeof(int)*nfft // factors
-        + sizeof(kiss_fft_cpx)*nfft; // scratch
+        + sizeof(kiss_fft_cpx)*nfft /* twiddle factors*/
+        + sizeof(kiss_fft_cpx)*nfft /* tmpbuf*/
+        + sizeof(int)*nfft /* factors*/
+        + sizeof(kiss_fft_cpx)*nfft; /* scratch*/
     
     st = ( kiss_fft_state *)malloc( allocsize );
     if (!st)
@@ -324,10 +311,10 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
 
     st->nfft=nfft;
     st->inverse = inverse_fft;
-    st->twiddles = (kiss_fft_cpx*)(st+1); // just beyond struct
-    st->tmpbuf = (kiss_fft_cpx*)(st->twiddles + nfft);//  just after twiddles
+    st->twiddles = (kiss_fft_cpx*)(st+1); /* just beyond struct*/
+    st->tmpbuf = (kiss_fft_cpx*)(st->twiddles + nfft);/*  just after twiddles*/
     st->scratch = (kiss_fft_cpx*)(st->tmpbuf + nfft);
-    st->factors = (int*)(st->scratch + nfft); // just after tmpbuf
+    st->factors = (int*)(st->scratch + nfft); /* just after tmpbuf*/
 
 
     for (i=0;i<nfft;++i) {
@@ -356,7 +343,7 @@ void * kiss_fft_alloc(int nfft,int inverse_fft)
         ++nstages;
     }
 
-    // reverse the factors list so that the 2s are packed to the back
+    /* reverse the factors list so that the 2s are packed to the back*/
     nfft=st->nfft;
     for ( i=0 ; i< nstages ;i+=2 ) {
         int p;

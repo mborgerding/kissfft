@@ -1,16 +1,19 @@
-NFFT=2048
+NFFT=840
 ALLUTILS=kfft kffts kfftd
 NUMFFTS=10000
 UTILSRC=../kiss_fft.c fftutil.c
 
+CFLAGS=-Wall -O3 -lm -I.. -ansi -DFUNCDECL= -pedantic
+
 all: $(ALLUTILS)
 
 kfft: $(UTILSRC)
-	gcc -Wall -O3 -o $@ -lm -I.. $(UTILSRC)
+	echo $(FUNCDECL)
+	gcc -o $@ $(CFLAGS) $(UTILSRC)
 kffts: $(UTILSRC)
-	gcc -Wall -O3 -o $@ -lm -I.. -DFIXED_POINT $(UTILSRC)
+	gcc -o $@ $(CFLAGS) -DFIXED_POINT $(UTILSRC)
 kfftd: $(UTILSRC)
-	gcc -Wall -O3 -o $@ -lm -I.. -Dkiss_fft_scalar=double $(UTILSRC)
+	gcc -o $@ $(CFLAGS) -Dkiss_fft_scalar=double $(UTILSRC)
 
 time: all
 	@echo 
