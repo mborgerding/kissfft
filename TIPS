@@ -21,3 +21,11 @@ Reducing code size:
      consider creating a hardcoded kiss_fft_state. In other words, decide which 
      FFT size(s) you want and make a structure with the correct factors and twiddles.
 
+    * Frank van der Hulst offered numerous suggestions for smaller code size and correct operation 
+    on embedded targets.  "I'm happy to help anyone who is trying to implement KISSFFT on a micro"
+
+    Some of these were rolled into the mainline code base:
+        - using long casts to promote intermediate results of short*short multiplication
+        - delaying allocation of buffers that are sometimes unused.
+    In some cases, it may be desirable to limit capability in order to better suit the target:
+        - predefining the twiddle tables for the desired fft size.  
