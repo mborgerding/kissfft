@@ -50,6 +50,8 @@ typedef struct {
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
 #endif
 
+#define  C_ADD( res, a,b)\
+    do {    (res).r=(a).r+(b).r;  (res).i=(a).i+(b).i;  }while(0)
 #define  C_SUB( res, a,b)\
     do {    (res).r=(a).r-(b).r;  (res).i=(a).i-(b).i;  }while(0)
 #define C_ADDTO( res , a)\
@@ -176,8 +178,8 @@ void bfly3(
     kiss_fft_cpx * twiddles = st->twiddles;
     kiss_fft_cpx t[6];
     //kiss_fft_cpx epi3 =  twiddles[fstride*m];
-    kiss_fft_cpx epi3 = { -0.500000000000000 , -0.866025403784439 };
-    kiss_fft_cpx nepi3 = { -0.500000000000000 , 0.866025403784439 };
+    kiss_fft_cpx epi3 = { -0.5 , -0.866025403784439 };
+    kiss_fft_cpx nepi3 = { -0.5 , 0.866025403784439 };
     if ( st->inverse){
         epi3.i *=-1;
         nepi3.i *=-1;
@@ -185,34 +187,62 @@ void bfly3(
 
     //printf("epi3=%e,%ei\n",epi3.r,epi3.i);
     for ( u=0; u<m; ++u ) {
+        kiss_fft_cpx sum01,sum23,t0pt1,t0mt1;
 
         Fout0=Fout++;
         Fout1=Fout0+m;
         Fout2=Fout0+2*m;
         scratch[0] = *Fout0;
-        scratch[1] = *Fout1;
-        scratch[2] = *Fout2;
 
         // st->nfft = 3*m*fstride 
-        // u < m
-        C_MUL(t[0],scratch[1] , twiddles[fstride*u    ] ); 
-        //C_MUL(t[2],scratch[1] , twiddles[fstride*u+fstride*m] );
-        C_MUL(t[2],t[0] ,  epi3 );
-        //C_MUL(t[4],scratch[1] , twiddles[fstride*u+2*fstride*m] );
-        C_MUL(t[4],t[2] , epi3);
+        C_MUL(t[0],*Fout1 , twiddles[fstride*u    ] ); 
+        C_MUL(t[1],*Fout2 , twiddles[fstride*u*2] );
+        C_ADD(sum01,t[0], t[1] );
 
-        C_MUL(t[1],scratch[2] , twiddles[fstride*u*2] );
-        //C_MUL(t[3],scratch[2] , twiddles[(fstride*(u+m)*2)%st->nfft] );
-        C_MUL(t[3],t[1] , nepi3);
-        //C_MUL(t[5],scratch[2] , twiddles[(fstride*(u+2*m)*2)%st->nfft] );
-        C_MUL(t[5],t[3] , nepi3);
+        //C_MUL(t[2],t[0] ,  epi3 );
+        //C_MUL(t[3],t[1] , nepi3);
 
-        Fout0->r = scratch[0].r + t[0].r + t[1].r;
-        Fout0->i = scratch[0].i + t[0].i + t[1].i;
-        Fout1->r = scratch[0].r + t[2].r + t[3].r;
-        Fout1->i = scratch[0].i + t[2].i + t[3].i;
-        Fout2->r = scratch[0].r + t[4].r + t[5].r;
-        Fout2->i = scratch[0].i + t[4].i + t[5].i;
+        C_MUL(t[5],t[1] , epi3);
+        C_MUL(t[4],t[0] , nepi3);
+
+        C_ADD(*Fout0,scratch[0],sum01);
+
+        /*
+           t0 * (-.5 , -.867j ) 
+         + t1 * (-.5 , .867j )
+
+            t0.r * -.5      - t0.r * .867 j      -   t0.i * .5 j   +   t0.i * .867
+            +
+            t1.r * -.5      + t1.r * .867 j     -   t1.i * .5 j     -   t1.i * .867
+
+            ( t0.r * -.5   +   t0.i * .867  - t1.r * .5 -  t1.i * .867)
+                +
+            j*(t0.r * -.867 + t1.r * .867 +   t0.i * -.5  +   t1.i * -.5)
+
+            -.5 * ( t0.r + t1.r) + .867 * (t0.i - t1.i )
+            +
+            -.867j * (t0.r - t1.r ) - .5 * (t0.i + t1.i )
+         * */
+        C_ADD(t0pt1,t[0],t[1]);
+        t0pt1.r *= -.5;
+        t0pt1.i *= -.5;
+        C_SUB(t0mt1,t[0],t[1]);
+        t0mt1.r *= epi3.i;
+        t0mt1.i *= epi3.i;
+
+        sum23.r = t0pt1.r - t0mt1.i ;
+        sum23.i = t0pt1.i + t0mt1.r ;
+
+        C_ADD( *Fout1, scratch[0] , sum23 );
+
+        sum23.r = t0pt1.r + t0mt1.i;
+        sum23.i = t0pt1.i - t0mt1.r;
+        C_ADD( *Fout2, scratch[0] , sum23 );
+
+//        Fout1->r = scratch[0].r + t[2].r + t[3].r;
+//        Fout1->i = scratch[0].i + t[2].i + t[3].i;
+//        Fout2->r = scratch[0].r + t[4].r + t[5].r;
+  //      Fout2->i = scratch[0].i + t[4].i + t[5].i;
     }
 }
 
