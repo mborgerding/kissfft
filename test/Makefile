@@ -69,7 +69,7 @@ test: all
 	@./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT) 
 	@[ -x ./$(BENCHFFTW) ] && ./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT) ||true
 	@echo "======higher dimensions type=$(DATATYPE))"
-	@([ "$(DATATYPE))" == "float" ] && for dim in 2 3 4 5 6 7 8 9; do ./testkiss.py $$dim ;done) || true
+	@(for dim in 2 3 4 5 6 7 8 9; do [ "$(DATATYPE)" == "float" ] && ./testkiss.py $$dim ;done) || true
 
 selftest.c:
 	./mk_test.py 10 12 14 > selftest.c
