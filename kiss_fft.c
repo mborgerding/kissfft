@@ -421,7 +421,7 @@ void * kiss_fft2d_alloc(int nrows,int ncols,int inverse_fft)
     int size1,size2,sizetmp;
     size1 = allocsize(ncols);
     size2 = allocsize(nrows);
-    sizetmp = ncols > nrows ? ncols : nrows;
+    sizetmp = sizeof(kiss_fft_cpx)*(ncols > nrows ? ncols : nrows);
 
     st = (kiss_fft2d_state *) malloc ( sizeof(kiss_fft2d_state) + size1 + size2 + sizetmp );
     if (!st)
