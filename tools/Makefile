@@ -27,30 +27,35 @@ $(BENCH): benchkiss.c ../kiss_fft.c
 	gcc -o $@ $(CFLAGS) -I.. benchkiss.c $(TYPEFLAGS) ../kiss_fft.c -lm 
 
 fftw: bm_fftw
-	./bm_fftw -x $(NUMFFTS) -n $(NFFT)
+	@[ -x ./bm_fftw ] && \
+		./bm_fftw -x $(NUMFFTS) -n $(NFFT)
+
 bm_fftw: benchfftw.c
-	gcc -o $@ $(CFLAGS) benchfftw.c -lm -lfftw3 -L /usr/local/lib/
+	@gcc -o $@ $(CFLAGS) benchfftw.c -lm -lfftw3 -L /usr/local/lib/ \
+	 || echo 'Cannot build FFTW test script'
 
 time: all
-	./$(BENCH) -x $(NUMFFTS) -n $(NFFT) 
+	@./$(BENCH) -x $(NUMFFTS) -n $(NFFT) 
 
 POW2=256 512 1024 2048
 POW3=243 729 2187
-POW5=25 125 625
+POW5=25 125 625 3125
 
-mtime: all
-	@for n in $(POW2) $(POW3) $(POW5) ;do \
+mtime: all bm_fftw
+	@for n in $(NFFT) $(POW2) $(POW3) $(POW5) ;do \
 		./$(BENCH) -x $(NUMFFTS) -n $$n;\
+		[ -x ./bm_fftw ] && ./bm_fftw -x $(NUMFFTS) -n $$n ; \
 	done
 
 snr: all
-	@which octave
-	@echo
-	@echo "### testing SNR for $(NFFT) point FFTs"
-	@echo "#### $(DATATYPE)"
+	@echo "### testing SNR for $(NFFT) point $(DATATYPE) FFTs"
 	@echo "testkiss( $(NFFT) , '$(DATATYPE)' );" | octave -q
 
+ifeq "$(DATATYPE)" "double"
+test: snr time fftw
+else
 test: snr time 
+endif
 
 clean:
 	rm -f *~ fftutil_* bm_*
