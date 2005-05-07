@@ -27,7 +27,8 @@ else
  DUMPHDR=dumphdr_$(DATATYPE)
 endif
 
-all: $(FFTUTIL) $(FASTFILT) $(FASTFILTREAL) $(PSDPNG) $(DUMPHDR)
+all: $(FFTUTIL) $(FASTFILT) $(FASTFILTREAL) $(PSDPNG) 
+#	$(DUMPHDR)
 
 #CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer $(WARNINGS)
 # If the above flags do not work, try the following

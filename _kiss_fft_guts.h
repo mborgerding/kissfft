@@ -52,8 +52,12 @@ struct kiss_fft_state{
       do{ (m).r = sround( smul((a).r,(b).r) - smul((a).i,(b).i) ); \
           (m).i = sround( smul((a).r,(b).i) + smul((a).i,(b).r) ); }while(0)
 
+#   define DIVSCALAR(x,k) \
+	(x) = sround( smul(  x, 32768/k ) )
+
 #   define C_FIXDIV(c,div) \
-    do{ (c).r /= div; (c).i /=div; }while(0)
+	do {    DIVSCALAR( (c).r , div);  \
+		DIVSCALAR( (c).i  , div); }while (0)
 
 #   define C_MULBYSCALAR( c, s ) \
     do{ (c).r =  sround( smul( (c).r , s ) ) ;\

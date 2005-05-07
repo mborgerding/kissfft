@@ -1,4 +1,4 @@
-KFVER=1_2_1
+KFVER=1_2_2
 
 DISTDIR=kiss_fft_v$(KFVER)
 TARBALL=kiss_fft_v$(KFVER).tar.gz
@@ -34,4 +34,5 @@ asm: kiss_fft.s
 kiss_fft.s: kiss_fft.c kiss_fft.h _kiss_fft_guts.h
 	[ -e kiss_fft.s ] && mv kiss_fft.s kiss_fft.s~ || true
 	gcc -S kiss_fft.c -O3 -march=pentiumpro -ffast-math -fomit-frame-pointer -dA -fverbose-asm 
+	gcc -o kiss_fft_short.s -S kiss_fft.c -O3 -march=pentiumpro -ffast-math -fomit-frame-pointer -dA -fverbose-asm -DFIXED_POINT
 	[ -e kiss_fft.s~ ] && diff kiss_fft.s~ kiss_fft.s || true

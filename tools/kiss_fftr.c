@@ -125,6 +125,8 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
         fk = freqdata[k];
         fnkc.r = freqdata[N - k].r;
         fnkc.i = -freqdata[N - k].i;
+        C_FIXDIV( fk , 2 );
+        C_FIXDIV( fnkc , 2 );
 
         C_ADD (fek, fk, fnkc);
         C_SUB (tmpbuf, fk, fnkc);

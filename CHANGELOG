@@ -1,3 +1,10 @@
+1.2.2 (May 6, 2005)   The Matthew release
+    Replaced fixed point division with multiply&shift. Thanks to Jean-Marc Valin for the prodding.
+
+    Added C_FIXDIV calls to real fft routines to prevent possible overflow when using fixed point.
+    Credit to Robert Oschler of robodance for pointing me towards the bug.
+
+
 1.2.1 (April 4, 2004) 
     compiles cleanly with just about every -W warning flag under the sun
 
