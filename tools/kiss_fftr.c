@@ -65,6 +65,7 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
 {
     /* input buffer timedata is stored row-wise */
     int k,N;
+    kiss_fft_cpx fpnk,fpk,f1k,f2k,tw,tdc;
 
     if ( st->substate->inverse) {
         fprintf(stderr,"kiss fft usage error: improper alloc\n");
@@ -76,12 +77,15 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
     /*perform the parallel fft of two real signals packed in real,imag*/
     kiss_fft( st->substate , (const kiss_fft_cpx*)timedata, st->tmpbuf );
  
-    freqdata[0].r = st->tmpbuf[0].r + st->tmpbuf[0].i;
+    tdc.r = st->tmpbuf[0].r;
+    tdc.i = st->tmpbuf[0].i;
+    C_FIXDIV(tdc,2);
+
+    CHECK_OVERFLOW_OP(tdc.r ,+, tdc.i);
+    freqdata[0].r = tdc.r + tdc.i;
     freqdata[0].i = 0;
-    C_FIXDIV(freqdata[0],2);
 
     for (k=1;k <= N/2 ; ++k ) {
-        kiss_fft_cpx fpnk,fpk,f1k,f2k,tw;
 
         fpk = st->tmpbuf[k]; 
         fpnk.r =  st->tmpbuf[N-k].r;
@@ -100,9 +104,9 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
         freqdata[N-k].r =   (f1k.r - tw.r)/2;
         freqdata[N-k].i = - (f1k.i - tw.i)/2;
     }
-    freqdata[N].r = st->tmpbuf[0].r - st->tmpbuf[0].i;
+    CHECK_OVERFLOW_OP(tdc.r ,-, tdc.i);
+    freqdata[N].r = tdc.r - tdc.i;
     freqdata[N].i = 0;
-    C_FIXDIV(freqdata[N],2);
 }
 
 void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata)

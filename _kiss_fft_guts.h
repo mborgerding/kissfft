@@ -43,6 +43,13 @@ struct kiss_fft_state{
  * */
 #ifdef FIXED_POINT
 
+#if defined(CHECK_OVERFLOW)
+#  define CHECK_OVERFLOW_OP(a,op,b)  \
+	if ( (long)(a) op (long)(b) > 32767 || (long)(a) op (long)(b) < -32768 ) { \
+		fprintf(stderr,"WARNING:overflow @ " __FILE__ "(%d): (%d " #op" %d) = %ld\n",__LINE__,(a),(b),(long)(a) op (long)(b) );  }
+#endif
+
+
 #   define smul(a,b) ( (long)(a)*(b) )
 #   define sround( x )  (short)( ( (x) + (1<<14) ) >>15 )
 
@@ -53,7 +60,7 @@ struct kiss_fft_state{
           (m).i = sround( smul((a).r,(b).i) + smul((a).i,(b).r) ); }while(0)
 
 #   define DIVSCALAR(x,k) \
-	(x) = sround( smul(  x, 32768/k ) )
+	(x) = sround( smul(  x, 32767/k ) )
 
 #   define C_FIXDIV(c,div) \
 	do {    DIVSCALAR( (c).r , div);  \
@@ -75,14 +82,38 @@ struct kiss_fft_state{
         (c).i *= (s); }while(0)
 #endif
 
+#ifndef CHECK_OVERFLOW_OP
+#  define CHECK_OVERFLOW_OP(a,op,b) /* noop */
+#endif
+
 #define  C_ADD( res, a,b)\
-    do {    (res).r=(a).r+(b).r;  (res).i=(a).i+(b).i;  }while(0)
+    do { \
+	    CHECK_OVERFLOW_OP((a).r,+,(b).r)\
+	    CHECK_OVERFLOW_OP((a).i,+,(b).i)\
+	    (res).r=(a).r+(b).r;  (res).i=(a).i+(b).i; \
+    }while(0)
 #define  C_SUB( res, a,b)\
-    do {    (res).r=(a).r-(b).r;  (res).i=(a).i-(b).i;  }while(0)
+    do { \
+	    CHECK_OVERFLOW_OP((a).r,-,(b).r)\
+	    CHECK_OVERFLOW_OP((a).i,-,(b).i)\
+	    (res).r=(a).r-(b).r;  (res).i=(a).i-(b).i; \
+    }while(0)
 #define C_ADDTO( res , a)\
-    do {    (res).r += (a).r;  (res).i += (a).i;  }while(0)
+    do { \
+	    CHECK_OVERFLOW_OP((res).r,+,(a).r)\
+	    CHECK_OVERFLOW_OP((res).i,+,(a).i)\
+	    (res).r += (a).r;  (res).i += (a).i;\
+    }while(0)
+
 #define C_SUBFROM( res , a)\
-    do {    (res).r -= (a).r;  (res).i -= (a).i;  }while(0)
+    do {\
+	    CHECK_OVERFLOW_OP((res).r,-,(a).r)\
+	    CHECK_OVERFLOW_OP((res).i,-,(a).i)\
+	    (res).r -= (a).r;  (res).i -= (a).i; \
+    }while(0)
+
+
+
 
 static 
 void kf_cexp(kiss_fft_cpx * x,double phase) /* returns e ** (j*phase)   */
