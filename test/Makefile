@@ -31,6 +31,11 @@ else
  SELFTESTSRC=selftest.c
 endif
 
+ifeq  "$(DATATYPE)" "long"
+ TYPEFLAGS=-DFIXED_POINT=32 -Dkiss_fft_scalar=long
+ SELFTESTSRC=selftest_long.c
+endif 
+
 ifeq  "$(DATATYPE)" "float"
 # fftw needs to be built with --enable-float to build this lib
  FFTWLIB=fftw3f
@@ -46,9 +51,9 @@ tools:
 	cd ../tools && make all
 
 # for x86 pentium+ machines , these flags work well
-#CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer   -I.. -I../tools $(WARNINGS)
+CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer   -I.. -I../tools $(WARNINGS)
 # If the above flags do not work, try the following
-CFLAGS=-Wall -O3 -I.. -I../tools $(WARNINGS)
+#CFLAGS=-Wall -O3 -I.. -I../tools $(WARNINGS)
 
 $(SELFTEST): $(SELFTESTSRC) $(SRCFILES)
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+

@@ -17,7 +17,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
    and defines
    typedef struct { kiss_fft_scalar r; kiss_fft_scalar i; }kiss_fft_cpx; */
 #include "kiss_fft.h"
-
+#include <limits.h>
 
 #define MAXFACTORS 32
 /* e.g. an fft of length 128 has 4 factors 
@@ -42,16 +42,28 @@ struct kiss_fft_state{
    C_ADDTO( res , a)    : res += a
  * */
 #ifdef FIXED_POINT
-
-#if defined(CHECK_OVERFLOW)
-#  define CHECK_OVERFLOW_OP(a,op,b)  \
-	if ( (long)(a) op (long)(b) > 32767 || (long)(a) op (long)(b) < -32768 ) { \
-		fprintf(stderr,"WARNING:overflow @ " __FILE__ "(%d): (%d " #op" %d) = %ld\n",__LINE__,(a),(b),(long)(a) op (long)(b) );  }
+#if (FIXED_POINT==32)
+# define FRACBITS 31
+# define SAMPPROD long long
+#define SAMP_MAX LONG_MAX
+#define SAMP_MIN LONG_MIN
+#else
+# define FRACBITS 15
+# define SAMPPROD long 
+#define SAMP_MAX SHRT_MAX
+#define SAMP_MIN SHRT_MIN
 #endif
 
 
-#   define smul(a,b) ( (long)(a)*(b) )
-#   define sround( x )  (short)( ( (x) + (1<<14) ) >>15 )
+#if defined(CHECK_OVERFLOW)
+#  define CHECK_OVERFLOW_OP(a,op,b)  \
+	if ( (SAMPPROD)(a) op (SAMPPROD)(b) > SAMP_MAX || (SAMPPROD)(a) op (SAMPPROD)(b) < SAMP_MIN ) { \
+		fprintf(stderr,"WARNING:overflow @ " __FILE__ "(%d): (%d " #op" %d) = %ld\n",__LINE__,(a),(b),(SAMPPROD)(a) op (SAMPPROD)(b) );  }
+#endif
+
+
+#   define smul(a,b) ( (SAMPPROD)(a)*(b) )
+#   define sround( x )  (kiss_fft_scalar)( ( (x) + (1<<(FRACBITS-1)) ) >> FRACBITS )
 
 #   define S_MUL(a,b) sround( smul(a,b) )
 
@@ -60,7 +72,7 @@ struct kiss_fft_state{
           (m).i = sround( smul((a).r,(b).i) + smul((a).i,(b).r) ); }while(0)
 
 #   define DIVSCALAR(x,k) \
-	(x) = sround( smul(  x, 32767/k ) )
+	(x) = sround( smul(  x, SAMP_MAX/k ) )
 
 #   define C_FIXDIV(c,div) \
 	do {    DIVSCALAR( (c).r , div);  \
@@ -119,8 +131,8 @@ static
 void kf_cexp(kiss_fft_cpx * x,double phase) /* returns e ** (j*phase)   */
 {
 #ifdef FIXED_POINT
-    x->r = (kiss_fft_scalar) (32767 * cos (phase));
-    x->i = (kiss_fft_scalar) (32767 * sin (phase));
+    x->r = (kiss_fft_scalar) (SAMP_MAX * cos (phase));
+    x->i = (kiss_fft_scalar) (SAMP_MAX * sin (phase));
 #else
     x->r = cos (phase);
     x->i = sin (phase);

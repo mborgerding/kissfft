@@ -24,7 +24,11 @@ extern "C" {
 */
 
 #ifdef FIXED_POINT
-# define kiss_fft_scalar short
+# if (FIXED_POINT == 32)
+#  define kiss_fft_scalar long
+# else	
+#  define kiss_fft_scalar short
+# endif
 #else
 # ifndef kiss_fft_scalar
 /*  default is float */
