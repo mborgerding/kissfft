@@ -134,8 +134,8 @@ void kf_cexp(kiss_fft_cpx * x,double phase) /* returns e ** (j*phase)   */
     x->r = (kiss_fft_scalar) (SAMP_MAX * cos (phase));
     x->i = (kiss_fft_scalar) (SAMP_MAX * sin (phase));
 #else
-    x->r = cos (phase);
-    x->i = sin (phase);
+    x->r = (kiss_fft_scalar) cos (phase);
+    x->i = (kiss_fft_scalar) sin (phase);
 #endif
 }
 

@@ -20,24 +20,21 @@ BENCHFFTW=bm_fftw_$(DATATYPE)
 SELFTEST=st_$(DATATYPE)
 TESTREAL=tr_$(DATATYPE)
 TESTKFC=tkfc_$(DATATYPE)
-FASTFILT=ff_$(DATATYPE)
 FASTFILTREAL=ffr_$(DATATYPE)
+SELFTESTSRC=twotonetest.c
 
-ifeq  "$(DATATYPE)" "short"
- TYPEFLAGS=-DFIXED_POINT -Dkiss_fft_scalar=short
- SELFTESTSRC=selftest_short.c
-else
- TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
- SELFTESTSRC=selftest.c
+TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
+
+ifeq  "$(DATATYPE)" "short" 
+ TYPEFLAGS=-DFIXED_POINT=16
 endif
 
 ifeq  "$(DATATYPE)" "long"
- TYPEFLAGS=-DFIXED_POINT=32 -Dkiss_fft_scalar=long
- SELFTESTSRC=selftest_long.c
+ TYPEFLAGS=-DFIXED_POINT=32 
 endif 
 
 ifeq  "$(DATATYPE)" "float"
-# fftw needs to be built with --enable-float to build this lib
+ # fftw needs to be built with --enable-float to build this lib
  FFTWLIB=fftw3f
 else
  FFTWLIB=fftw3

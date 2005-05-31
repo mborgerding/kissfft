@@ -25,7 +25,7 @@ struct kiss_fftnd_state{
     kiss_fft_cpx * tmpbuf; /*buffer capable of hold the entire buffer */
 };
 
-kiss_fftnd_cfg kiss_fftnd_alloc(int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
+kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
 {
     kiss_fftnd_cfg st = NULL;
     int i;
