@@ -22,7 +22,7 @@ def fft(f,inv):
     m = n/p
     Fout=[]
     for q in range(p): # 0,1
-        fp = f[q::p]
+        fp = f[q::p]  # every p'th time sample
         Fp = fft( fp ,inv)
         Fout.extend( Fp )
 
