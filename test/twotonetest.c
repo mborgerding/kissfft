@@ -20,19 +20,17 @@ double two_tone_test( int nfft, int bin1,int bin2)
     double f2 = bin2*2*M_PI/nfft;
     double sigpow=0;
     double noisepow=0;
+#if FIXED_POINT==32
+    long maxrange = LONG_MAX;
+#else
+    long maxrange = SHRT_MAX;/* works fine for float too*/
+#endif
 
     cfg = kiss_fftr_alloc(nfft , 0, NULL, NULL);
     tbuf		= malloc(nfft * sizeof(kiss_fft_scalar));
     kout	= malloc(nfft * sizeof(kiss_fft_cpx));
-    //assert(bin1<=nfft/2);
-    //assert(bin2<=nfft/2);
 
-#if FIXED_POINT==32
-    long maxrange = LONG_MAX;
-#else
-    long maxrange = SHRT_MAX;// works fine for float too
-#endif
-    // generate a signal with two tones
+    /* generate a signal with two tones*/
     for (i = 0; i < nfft; i++) {
         tbuf[i] =  (maxrange>>1)*cos(f1*i)
                  + (maxrange>>1)*cos(f2*i);
@@ -45,19 +43,19 @@ double two_tone_test( int nfft, int bin1,int bin2)
         double tmpi = (double)kout[i].i / (double)maxrange;
         double mag2 = tmpr*tmpr + tmpi*tmpi;
         if (i!=0 && i!= nfft/2)
-            mag2 *= 2; // all bins except DC and Nyquist have symmetric counterparts implied
+            mag2 *= 2; /* all bins except DC and Nyquist have symmetric counterparts implied*/
 
-        // if there is power in one of the expected bins, it is signal, otherwise noise
+        /* if there is power in one of the expected bins, it is signal, otherwise noise*/
         if ( i!=bin1 && i != bin2 ) 
             noisepow += mag2;
         else
             sigpow += mag2;
     }
-    //printf("TEST %d,%d,%d noise @ %fdB\n",nfft,bin1,bin2,10*log10(noisepow/sigpow +1e-30) );
+    /*printf("TEST %d,%d,%d noise @ %fdB\n",nfft,bin1,bin2,10*log10(noisepow/sigpow +1e-30) );*/
     return 10*log10(sigpow/(noisepow+1e-50) );
 }
 
-int main(int argc,char ** argv)
+int main(void)
 {
     int nfft = 4*2*2*3*5;
     int i,j;
