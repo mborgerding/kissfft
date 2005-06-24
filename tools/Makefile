@@ -13,6 +13,10 @@ else
  TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
 endif
 
+ifeq  "$(DATATYPE)" "simd"
+ TYPEFLAGS=-DUSE_SIMD=1 -msse
+endif
+
 ifeq  "$(DATATYPE)" "float"
  FFTUTIL=fft
  FASTFILT=fastconv
@@ -27,7 +31,8 @@ else
  DUMPHDR=dumphdr_$(DATATYPE)
 endif
 
-all: $(FFTUTIL) $(FASTFILT) $(FASTFILTREAL) $(PSDPNG) 
+all: $(FFTUTIL) $(FASTFILT) $(FASTFILTREAL) 
+# 	$(PSDPNG) 
 #	$(DUMPHDR)
 
 #CFLAGS=-Wall -O3 -pedantic -march=pentiumpro -ffast-math -fomit-frame-pointer $(WARNINGS)

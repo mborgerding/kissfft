@@ -133,6 +133,11 @@ void kf_cexp(kiss_fft_cpx * x,double phase) /* returns e ** (j*phase)   */
 #ifdef FIXED_POINT
     x->r = (kiss_fft_scalar) (SAMP_MAX * cos (phase));
     x->i = (kiss_fft_scalar) (SAMP_MAX * sin (phase));
+#elif defined(USE_SIMD)
+    float r = cos (phase);
+    float i = sin (phase);
+    x->r = _mm_load1_ps(&r);
+    x->i = _mm_load1_ps(&i);
 #else
     x->r = (kiss_fft_scalar) cos (phase);
     x->i = (kiss_fft_scalar) sin (phase);

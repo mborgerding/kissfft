@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <memory.h>
+#include <malloc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,6 +23,12 @@ extern "C" {
  Then see kfc.h kiss_fftr.h kiss_fftnd.h fftutil.c kiss_fastfir.c
   in the tools/ directory.
 */
+
+#ifdef USE_SIMD
+# include <xmmintrin.h>
+# define kiss_fft_scalar __m128
+#endif	
+
 
 #ifdef FIXED_POINT
 # if (FIXED_POINT == 32)

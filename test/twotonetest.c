@@ -5,8 +5,6 @@
 #include "kiss_fftr.h"
 #include <limits.h>
 
-#define pcpx(c)\
-        fprintf(stderr,"%g + %gi\n",(double)((c)->r),(double)((c)->i) )
 
 static
 double two_tone_test( int nfft, int bin1,int bin2)
@@ -27,20 +25,25 @@ double two_tone_test( int nfft, int bin1,int bin2)
 #endif
 
     cfg = kiss_fftr_alloc(nfft , 0, NULL, NULL);
-    tbuf		= malloc(nfft * sizeof(kiss_fft_scalar));
-    kout	= malloc(nfft * sizeof(kiss_fft_cpx));
+    tbuf		= memalign(sizeof(kiss_fft_scalar),nfft * sizeof(kiss_fft_scalar));
+    kout	= memalign(sizeof(kiss_fft_scalar),nfft * sizeof(kiss_fft_cpx));
 
     /* generate a signal with two tones*/
     for (i = 0; i < nfft; i++) {
+#ifdef USE_SIMD        
+        tbuf[i] = _mm_set1_ps( (maxrange>>1)*cos(f1*i)
+                 + (maxrange>>1)*cos(f2*i) );
+#else        
         tbuf[i] =  (maxrange>>1)*cos(f1*i)
                  + (maxrange>>1)*cos(f2*i);
+#endif        
     }
 
     kiss_fftr(cfg, tbuf, kout);
 
     for (i=0;i < (nfft/2+1);++i) {
-        double tmpr = (double)kout[i].r / (double)maxrange;
-        double tmpi = (double)kout[i].i / (double)maxrange;
+        double tmpr = (double)*(float*)&kout[i].r / (double)maxrange;
+        double tmpi = (double)*(float*)&kout[i].i / (double)maxrange;
         double mag2 = tmpr*tmpr + tmpi*tmpi;
         if (i!=0 && i!= nfft/2)
             mag2 *= 2; /* all bins except DC and Nyquist have symmetric counterparts implied*/

@@ -23,6 +23,7 @@ TESTKFC=tkfc_$(DATATYPE)
 FASTFILTREAL=ffr_$(DATATYPE)
 SELFTESTSRC=twotonetest.c
 
+
 TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
 
 ifeq  "$(DATATYPE)" "short" 
@@ -31,7 +32,12 @@ endif
 
 ifeq  "$(DATATYPE)" "long"
  TYPEFLAGS=-DFIXED_POINT=32 
-endif 
+endif
+
+ifeq  "$(DATATYPE)" "simd"
+ TYPEFLAGS=-DUSE_SIMD=1 -msse
+endif
+
 
 ifeq  "$(DATATYPE)" "float"
  # fftw needs to be built with --enable-float to build this lib
@@ -60,6 +66,9 @@ $(TESTKFC): $(SRCFILES)
 	
 $(TESTREAL): test_real.c $(SRCFILES)
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+
+
+bm_simd: benchkiss.c ../kiss_fft.c  pstats.c ../tools/kfc.c
+	$(CC) -o $@ $(CFLAGS) -DUSE_SIMD -msse -m3dnow -lm  $+
 
 $(BENCHKISS): benchkiss.c $(SRCFILES)
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm  $+

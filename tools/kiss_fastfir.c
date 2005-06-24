@@ -159,8 +159,13 @@ kiss_fastfir_cfg kiss_fastfir_alloc(
     scale = 1.0 / st->nfft;
 
     for ( i=0; i < st->n_freq_bins; ++i ) {
+#ifdef USE_SIMD
+        st->fir_freq_resp[i].r *= _mm_set1_ps(scale);
+        st->fir_freq_resp[i].i *= _mm_set1_ps(scale);
+#else
         st->fir_freq_resp[i].r *= scale;
         st->fir_freq_resp[i].i *= scale;
+#endif
     }
     return st;
 }
@@ -286,14 +291,22 @@ void direct_file_filter(
         for (k = 0; k < nread; ++k) {
             tmph = imp_resp+nlag;
 #ifdef REAL_FASTFIR
+# ifdef USE_SIMD
+            outval = _mm_set1_ps(0);
+#else
             outval = 0;
+#endif
             for (tap = oldestlag; tap < nlag; ++tap)
                 outval += circbuf[tap] * *tmph--;
             for (tap = 0; tap < oldestlag; ++tap)
                 outval += circbuf[tap] * *tmph--;
             outval += buf[k] * *tmph;
 #else
+# ifdef USE_SIMD
+            outval.r = outval.i = _mm_set1_ps(0);
+#else            
             outval.r = outval.i = 0;
+#endif            
             for (tap = oldestlag; tap < nlag; ++tap){
                 C_MUL(tmp,circbuf[tap],*tmph);
                 --tmph;
