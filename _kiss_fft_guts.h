@@ -125,24 +125,26 @@ struct kiss_fft_state{
     }while(0)
 
 
-
-
-static 
-void kf_cexp(kiss_fft_cpx * x,double phase) /* returns e ** (j*phase)   */
-{
 #ifdef FIXED_POINT
-    x->r = (kiss_fft_scalar) (SAMP_MAX * cos (phase));
-    x->i = (kiss_fft_scalar) (SAMP_MAX * sin (phase));
+#  define KISS_FFT_COS(phase) (kiss_fft_scalar) (SAMP_MAX * cos (phase))
+#  define KISS_FFT_SIN(phase) (kiss_fft_scalar) (SAMP_MAX * sin (phase))
+#  define HALF_OF(x) ((x)>>1)
 #elif defined(USE_SIMD)
-    float r = cos (phase);
-    float i = sin (phase);
-    x->r = _mm_load1_ps(&r);
-    x->i = _mm_load1_ps(&i);
+#  define KISS_FFT_COS(phase) _mm_set1_ps( cos(phase) )
+#  define KISS_FFT_SIN(phase) _mm_set1_ps( sin(phase) )
+#  define HALF_OF(x) ((x)*_mm_set1_ps(.5))
 #else
-    x->r = (kiss_fft_scalar) cos (phase);
-    x->i = (kiss_fft_scalar) sin (phase);
+#  define KISS_FFT_COS(phase) (kiss_fft_scalar) cos(phase)
+#  define KISS_FFT_SIN(phase) (kiss_fft_scalar) sin(phase)
+#  define HALF_OF(x) ((x)*.5)
 #endif
-}
+
+#define  kf_cexp(x,phase) \
+	do{ \
+		(x)->r = KISS_FFT_COS(phase);\
+		(x)->i = KISS_FFT_SIN(phase);\
+	}while(0)
+
 
 /* a debugging function */
 #define pcpx(c)\

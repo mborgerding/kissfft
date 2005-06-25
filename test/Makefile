@@ -67,9 +67,6 @@ $(TESTKFC): $(SRCFILES)
 $(TESTREAL): test_real.c $(SRCFILES)
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+
 
-bm_simd: benchkiss.c ../kiss_fft.c  pstats.c ../tools/kfc.c
-	$(CC) -o $@ $(CFLAGS) -DUSE_SIMD -msse -m3dnow -lm  $+
-
 $(BENCHKISS): benchkiss.c $(SRCFILES)
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm  $+
 

@@ -129,13 +129,8 @@ static void kf_bfly3(
          tw1 += fstride;
          tw2 += fstride*2;
 
-#ifdef USE_SIMD
-         Fout[m].r = Fout->r - scratch[3].r * _mm_set1_ps(.5);
-         Fout[m].i = Fout->i - scratch[3].i * _mm_set1_ps(.5);
-#else
-         Fout[m].r = Fout->r - scratch[3].r/2;
-         Fout[m].i = Fout->i - scratch[3].i/2;
-#endif
+         Fout[m].r = Fout->r - HALF_OF(scratch[3].r);
+         Fout[m].i = Fout->i - HALF_OF(scratch[3].i);
 
          C_MULBYSCALAR( scratch[0] , epi3.i );
 
@@ -331,11 +326,7 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
         + sizeof(kiss_fft_cpx)*(nfft-1); /* twiddle factors*/
 
     if ( lenmem==NULL ) {
-#ifdef USE_SIMD        
-        st = ( kiss_fft_cfg)memalign( sizeof(kiss_fft_cpx), memneeded );
-#else
-        st = ( kiss_fft_cfg)malloc( memneeded );
-#endif
+        st = ( kiss_fft_cfg)KISS_FFT_MALLOC( memneeded );
     }else{
         if (*lenmem >= memneeded)
             st = (kiss_fft_cfg)mem;

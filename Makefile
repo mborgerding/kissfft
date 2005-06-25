@@ -5,7 +5,10 @@ TARBALL=kiss_fft_v$(KFVER).tar.gz
 ZIPFILE=kiss_fft_v$(KFVER).zip
 
 testall:
+	# The simd and long types may or may not work on your machine 
 	export DATATYPE=simd && cd test && make test
+	export DATATYPE=long && cd test && make test
+	
 	export DATATYPE=short && cd test && make test
 	export DATATYPE=float && cd test && make test
 	export DATATYPE=double && cd test && make test

@@ -42,7 +42,7 @@ static kiss_fft_cfg find_cached_fft(int nfft,int inverse)
     if (cur== NULL) {
         /* no cached node found, need to create a new one*/
         kiss_fft_alloc(nfft,inverse,0,&len);
-        cur = (kfc_cfg)malloc(sizeof(struct cached_fft) + len );
+        cur = (kfc_cfg)KISS_FFT_MALLOC((sizeof(struct cached_fft) + len ));
         if (cur == NULL)
             return NULL;
         cur->cfg = (kiss_fft_cfg)(cur+1);

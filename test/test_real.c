@@ -15,9 +15,19 @@ static
 double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 {
     int k;
-    double sigpow,noisepow,err,snr,scale=0;
-    sigpow = noisepow = .00000000000000000001; 
+    double sigpow=1e-10,noisepow=1e-10,err,snr,scale=0;
 
+#ifdef USE_SIMD
+    float *fv1 = (float*)vec1;
+    float *fv2 = (float*)vec2;
+    for (k=0;k<8*n;++k) {
+        sigpow += *fv1 * *fv1;
+        err = *fv1 - *fv2;
+        noisepow += err*err;
+        ++fv1;
+        ++fv2;
+    }
+#else
     for (k=0;k<n;++k) {
         sigpow += (double)vec1[k].r * (double)vec1[k].r + 
                   (double)vec1[k].i * (double)vec1[k].i;
@@ -28,11 +38,8 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
 
         if (vec1[k].r)
             scale +=(double) vec2[k].r / (double)vec1[k].r;
-        /*
-        fprintf(stderr,"vec1=");pcpx(vec1+k);
-        fprintf(stderr,"vec2=");pcpx(vec2+k);
-        */
     }
+#endif    
     snr = 10*log10( sigpow / noisepow );
     scale /= n;
     if (snr<10) {
@@ -41,15 +48,10 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
     }
     return snr;
 }
-#define RANDOM
-#ifndef RANDOM
-#define NFFT 8
-#else
 #define NFFT 8*3*5
-#endif
 
 #ifndef NUMFFTS
-#define NUMFFTS 1000
+#define NUMFFTS 10000
 #endif
 
 
@@ -58,21 +60,24 @@ int main(void)
     double ts,tfft,trfft;
     int i;
     kiss_fft_cpx cin[NFFT];
-    kiss_fft_scalar rin[NFFT] = {0.309655,0.815653,0.768570,0.591841,0.404767,0.637617,0.007803,0.012665};
     kiss_fft_cpx cout[NFFT];
     kiss_fft_cpx sout[NFFT];
-    
     kiss_fft_cfg  kiss_fft_state;
     kiss_fftr_cfg  kiss_fftr_state;
+
+    kiss_fft_scalar rin[NFFT];
     
     srand(time(0));
 
     for (i=0;i<NFFT;++i) {
-#ifdef RANDOM        
+#ifdef USE_SIMD
+        rin[i] = _mm_set1_ps(rand()-RAND_MAX/2);
+        cin[i].i = _mm_set1_ps(0);
+#else
         rin[i] = (kiss_fft_scalar)(rand()-RAND_MAX/2);
+        cin[i].i = 0;
 #endif        
         cin[i].r = rin[i];
-        cin[i].i = 0;
     }
 
     kiss_fft_state = kiss_fft_alloc(NFFT,0,0,0);
@@ -81,7 +86,6 @@ int main(void)
     kiss_fftr(kiss_fftr_state,rin,sout);
     printf( "nfft=%d, inverse=%d, snr=%g\n",
             NFFT,0, snr_compare(cout,sout,(NFFT/2)+1) );
-#ifdef RANDOM        
     ts = cputime();
     for (i=0;i<NUMFFTS;++i) {
         kiss_fft(kiss_fft_state,cin,cout);
@@ -96,7 +100,7 @@ int main(void)
     trfft = cputime() - ts;
 
     printf("%d complex ffts took %gs, real took %gs\n",NUMFFTS,tfft,trfft);
-#endif        
+
     free(kiss_fft_state);
     free(kiss_fftr_state);
 
@@ -108,7 +112,11 @@ int main(void)
 
     for (i=0;i<NFFT;++i) {
         sout[i].r = rin[i];
+#ifdef USE_SIMD
+        sout[i].i ^= sout[i].i;
+#else        
         sout[i].i = 0;
+#endif        
     }
     
     printf( "nfft=%d, inverse=%d, snr=%g\n",

@@ -1,3 +1,12 @@
+1.2.3 (June 25, 2005)   The "you want to use WHAT as a sample" release.
+    Added ability to use 32 bit fixed point samples -- requires a 64 bit intermediate result, a la 'long long'
+
+    Added ability to do 4 FFTs in parallel by using SSE SIMD instructions. This is accomplished by
+    using the __m128 (vector of 4 floats) as kiss_fft_scalar.  Define USE_SIMD to use this.
+    
+    	I know, I know ...  this is drifting a bit from the "kiss" principle, but the speed advantages 
+	make it worth it for some.  Also recent gcc makes it SOO easy to use vectors of 4 floats as a POD type.
+
 1.2.2 (May 6, 2005)   The Matthew release
     Replaced fixed point division with multiply&shift.  Thanks to Jean-Marc Valin for 
     discussions regarding.  Considerable speedup.
