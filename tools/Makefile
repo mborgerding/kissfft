@@ -6,16 +6,22 @@ ifeq "$(DATATYPE)" ""
  DATATYPE=float
 endif
 
+ifeq  "$(DATATYPE)" "long"
+ TYPEFLAGS=-DFIXED_POINT=32
+endif
 
 ifeq  "$(DATATYPE)" "short"
- TYPEFLAGS=-DFIXED_POINT -Dkiss_fft_scalar=short
-else
- TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
+ TYPEFLAGS=-DFIXED_POINT=16
 endif
 
 ifeq  "$(DATATYPE)" "simd"
  TYPEFLAGS=-DUSE_SIMD=1 -msse
 endif
+
+ifeq "$(TYPEFLAGS)"  ""
+ TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
+endif
+
 
 ifeq  "$(DATATYPE)" "float"
  FFTUTIL=fft

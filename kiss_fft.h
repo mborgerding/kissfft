@@ -99,6 +99,13 @@ void kiss_fft_stride(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout
    buffer and can be simply free()d when no longer needed*/
 #define kiss_fft_free free
 
+/*
+ Cleans up some memory that gets managed internally. Not necessary to call, but it might clean up 
+ your compiler output to call this before you exit.
+*/
+void kiss_fft_cleanup(void);
+	
+
 #ifdef __cplusplus
 } 
 #endif

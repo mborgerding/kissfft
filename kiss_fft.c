@@ -26,7 +26,8 @@ static size_t ntmpbuf=0;
 #define CHECKBUF(buf,nbuf,n) \
     do { \
         if ( nbuf < (size_t)(n) ) {\
-            buf = (kiss_fft_cpx*)realloc(buf,sizeof(kiss_fft_cpx)*(n)); \
+            free(buf); \
+            buf = (kiss_fft_cpx*)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx)*(n)); \
             nbuf = (size_t)(n); \
         } \
    }while(0)
@@ -369,3 +370,16 @@ void kiss_fft(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
     kiss_fft_stride(cfg,fin,fout,1);
 }
 
+
+/* not really necessary to call, but if someone is doing in-place ffts, they may want to free the 
+   buffers from CHECKBUF
+ */ 
+void kiss_fft_cleanup(void)
+{
+    free(scratchbuf);
+    scratchbuf = NULL;
+    nscratchbuf=0;
+    free(tmpbuf);
+    tmpbuf=NULL;
+    ntmpbuf=0;
+}
