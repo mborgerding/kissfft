@@ -67,6 +67,8 @@ int main(int argc,char ** argv)
     fprintf(stderr,"KISS\tnfft=%d\tnumffts=%d\n" ,nfft,numffts);
     pstats_report();
 
+    kiss_fft_cleanup();
+
     return 0;
 }
 
