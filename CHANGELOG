@@ -4,12 +4,12 @@
     Added ability to do 4 FFTs in parallel by using SSE SIMD instructions. This is accomplished by
     using the __m128 (vector of 4 floats) as kiss_fft_scalar.  Define USE_SIMD to use this.
     
-    	I know, I know ...  this is drifting a bit from the "kiss" principle, but the speed advantages 
-	make it worth it for some.  Also recent gcc makes it SOO easy to use vectors of 4 floats as a POD type.
+    I know, I know ...  this is drifting a bit from the "kiss" principle, but the speed advantages 
+    make it worth it for some.  Also recent gcc makes it SOO easy to use vectors of 4 floats like a POD type.
 
 1.2.2 (May 6, 2005)   The Matthew release
     Replaced fixed point division with multiply&shift.  Thanks to Jean-Marc Valin for 
-    discussions regarding.  Considerable speedup.
+    discussions regarding.  Considerable speedup for fixed-point.
 
     Corrected overflow protection in real fft routines  when using fixed point.
     Finder's Credit goes to Robert Oschler of robodance for pointing me at the bug.
@@ -57,7 +57,7 @@
     Add kfc.[ch]: the KISS FFT Cache. It takes care of allocs for you ( suggested by Oscar Lesta ).
 
 1.0.1 (Dec 15, 2003)
-    fixed bug that occurred when nfft==1
+    fixed bug that occurred when nfft==1. Thanks to Steven Johnson.
     
 1.0 : (Dec 14, 2003)
     changed kiss_fft function from using a single buffer, to two buffers.
@@ -68,7 +68,8 @@
 
 0.4 :(Nov 4,2003) optimized for radix 2,3,4,5
 
-0.3 :(Oct 28, 2003) woops, version 2 didn't actually factor out any radices other than 2
+0.3 :(Oct 28, 2003) woops, version 2 didn't actually factor out any radices other than 2.
+        Thanks to Steven Johnson for finding this one.
 
 0.2 :(Oct 27, 2003) added mixed radix, only radix 2,4 optimized versions
 
