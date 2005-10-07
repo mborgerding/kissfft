@@ -26,11 +26,11 @@ SELFTESTSRC=twotonetest.c
 
 TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
 
-ifeq  "$(DATATYPE)" "short" 
+ifeq  "$(DATATYPE)" "int16_t" 
  TYPEFLAGS=-DFIXED_POINT=16
 endif
 
-ifeq  "$(DATATYPE)" "long"
+ifeq  "$(DATATYPE)" "int32_t"
  TYPEFLAGS=-DFIXED_POINT=32 
 endif
 

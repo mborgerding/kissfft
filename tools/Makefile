@@ -6,11 +6,11 @@ ifeq "$(DATATYPE)" ""
  DATATYPE=float
 endif
 
-ifeq  "$(DATATYPE)" "long"
+ifeq  "$(DATATYPE)" "int32_t"
  TYPEFLAGS=-DFIXED_POINT=32
 endif
 
-ifeq  "$(DATATYPE)" "short"
+ifeq  "$(DATATYPE)" "int16_t"
  TYPEFLAGS=-DFIXED_POINT=16
 endif
 
@@ -23,19 +23,11 @@ ifeq "$(TYPEFLAGS)"  ""
 endif
 
 
-ifeq  "$(DATATYPE)" "float"
- FFTUTIL=fft
- FASTFILT=fastconv
- FASTFILTREAL=fastconvr
- PSDPNG=psdpng
- DUMPHDR=dumphdr
-else
- FFTUTIL=fft_$(DATATYPE)
- FASTFILT=fastconv_$(DATATYPE)
- FASTFILTREAL=fastconvr_$(DATATYPE)
- PSDPNG=psdpng_$(DATATYPE)
- DUMPHDR=dumphdr_$(DATATYPE)
-endif
+FFTUTIL=fft_$(DATATYPE)
+FASTFILT=fastconv_$(DATATYPE)
+FASTFILTREAL=fastconvr_$(DATATYPE)
+PSDPNG=psdpng_$(DATATYPE)
+DUMPHDR=dumphdr_$(DATATYPE)
 
 all: $(FFTUTIL) $(FASTFILT) $(FASTFILTREAL) 
 # 	$(PSDPNG) 

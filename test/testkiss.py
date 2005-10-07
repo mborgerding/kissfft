@@ -18,17 +18,25 @@ doreal=0
 
 datatype = os.environ.get('DATATYPE','float')
 
-util = '../tools/fft'
-fmt='f'
+util = '../tools/fft_' + datatype
 minsnr=90
 if datatype == 'double':
-    util = '../tools/fft_double'
     fmt='d'
-elif datatype=='short':
-    util = '../tools/fft_short'
+elif datatype=='int16_t':
     fmt='h'
     minsnr=10
-
+elif datatype=='int32_t':
+    fmt='l'
+elif datatype=='simd':
+    fmt='4f'
+    sys.stderr.write('testkiss.py does not yet test simd')
+    sys.exit(0)
+elif datatype=='float':
+    fmt='f'
+else:
+    sys.stderr.write('unrecognized datatype %s\n' % datatype)
+    sys.exit(1)
+ 
 
 def dopack(x,cpx=1):
     x = Numeric.reshape( x, ( Numeric.size(x),) )
@@ -73,7 +81,7 @@ def randmat( ndims ):
 
 def test_fft(ndims):
     if ndims == 1:
-        nfft = int(random.uniform(50,520))
+        nfft = int(random.uniform(50,100))
         if doreal:
             nfft = int(nfft/2)*2
 
@@ -108,9 +116,12 @@ def dofft(x):
     iscomp = (type(x[0]) == complex)
 
     scale=1
-    if datatype=='short':
+    if datatype=='int16_t':
         x = 32767 * x
         scale = len(x) / 32767.0
+    elif datatype=='int32_t':
+        x = 2147483647.0 * x
+        scale = len(x) / 2147483647.0
 
     cmd='%s -n ' % util
     cmd += ','.join([str(d) for d in dims])

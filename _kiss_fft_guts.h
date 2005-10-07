@@ -44,16 +44,15 @@ struct kiss_fft_state{
 #ifdef FIXED_POINT
 #if (FIXED_POINT==32)
 # define FRACBITS 31
-# define SAMPPROD long long
-#define SAMP_MAX LONG_MAX
-#define SAMP_MIN LONG_MIN
+# define SAMPPROD int64_t
+#define SAMP_MAX 2147483647
 #else
 # define FRACBITS 15
-# define SAMPPROD long 
-#define SAMP_MAX SHRT_MAX
-#define SAMP_MIN SHRT_MIN
+# define SAMPPROD int32_t 
+#define SAMP_MAX 32767
 #endif
 
+#define SAMP_MIN -SAMP_MAX
 
 #if defined(CHECK_OVERFLOW)
 #  define CHECK_OVERFLOW_OP(a,op,b)  \
@@ -126,8 +125,8 @@ struct kiss_fft_state{
 
 
 #ifdef FIXED_POINT
-#  define KISS_FFT_COS(phase) (kiss_fft_scalar) (SAMP_MAX * cos (phase))
-#  define KISS_FFT_SIN(phase) (kiss_fft_scalar) (SAMP_MAX * sin (phase))
+#  define KISS_FFT_COS(phase)  floor(.5+SAMP_MAX * cos (phase))
+#  define KISS_FFT_SIN(phase)  floor(.5+SAMP_MAX * sin (phase))
 #  define HALF_OF(x) ((x)>>1)
 #elif defined(USE_SIMD)
 #  define KISS_FFT_COS(phase) _mm_set1_ps( cos(phase) )
