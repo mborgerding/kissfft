@@ -67,7 +67,7 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
 void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata)
 {
     /* input buffer timedata is stored row-wise */
-    int k,N;
+    int k,ncfft;
     kiss_fft_cpx fpnk,fpk,f1k,f2k,tw,tdc;
 
     if ( st->substate->inverse) {
@@ -75,28 +75,37 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
         exit(1);
     }
 
-    N = st->substate->nfft;
+    ncfft = st->substate->nfft;
 
     /*perform the parallel fft of two real signals packed in real,imag*/
     kiss_fft( st->substate , (const kiss_fft_cpx*)timedata, st->tmpbuf );
+    /* The real part of the DC element of the frequency spectrum in st->tmpbuf
+     * contains the sum of the even-numbered elements of the input time sequence
+     * The imag part is the sum of the odd-numbered elements
+     *
+     * The sum of tdc.r and tdc.i is the sum of the input time sequence. 
+     *      yielding DC of input time sequence
+     * The difference of tdc.r - tdc.i is the sum of the input (dot product) [1,-1,1,-1... 
+     *      yielding Nyquist bin of input time sequence
+     */
  
     tdc.r = st->tmpbuf[0].r;
     tdc.i = st->tmpbuf[0].i;
     C_FIXDIV(tdc,2);
-
     CHECK_OVERFLOW_OP(tdc.r ,+, tdc.i);
+    CHECK_OVERFLOW_OP(tdc.r ,-, tdc.i);
     freqdata[0].r = tdc.r + tdc.i;
+    freqdata[ncfft].r = tdc.r - tdc.i;
 #ifdef USE_SIMD    
-    freqdata[0].i = _mm_set1_ps(0);
+    freqdata[ncfft].i = freqdata[0].i = _mm_set1_ps(0);
 #else
-    freqdata[0].i = 0;
-#endif    
+    freqdata[ncfft].i = freqdata[0].i = 0;
+#endif
 
-    for (k=1;k <= N/2 ; ++k ) {
-
-        fpk = st->tmpbuf[k]; 
-        fpnk.r =  st->tmpbuf[N-k].r;
-        fpnk.i = -st->tmpbuf[N-k].i;
+    for ( k=1;k <= ncfft/2 ; ++k ) {
+        fpk    = st->tmpbuf[k]; 
+        fpnk.r =   st->tmpbuf[ncfft-k].r;
+        fpnk.i = - st->tmpbuf[ncfft-k].i;
         C_FIXDIV(fpk,2);
         C_FIXDIV(fpnk,2);
 
@@ -104,55 +113,46 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
         C_SUB( f2k, fpk , fpnk );
         C_MUL( tw , f2k , st->super_twiddles[k]);
 
-        C_ADD( freqdata[k] , f1k ,tw);
         freqdata[k].r = HALF_OF(f1k.r + tw.r);
         freqdata[k].i = HALF_OF(f1k.i + tw.i);
-        freqdata[N-k].r = HALF_OF(f1k.r - tw.r);
-        freqdata[N-k].i = HALF_OF(tw.i - f1k.i);
-
+        freqdata[ncfft-k].r = HALF_OF(f1k.r - tw.r);
+        freqdata[ncfft-k].i = HALF_OF(tw.i - f1k.i);
     }
-    CHECK_OVERFLOW_OP(tdc.r ,-, tdc.i);
-    freqdata[N].r = tdc.r - tdc.i;
-
-#ifdef USE_SIMD
-    freqdata[N].i = _mm_set1_ps(0);
-#else
-    freqdata[N].i = 0;
-#endif
 }
 
 void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata)
 {
     /* input buffer timedata is stored row-wise */
-    int k, N;
+    int k, ncfft;
 
     if (st->substate->inverse == 0) {
         fprintf (stderr, "kiss fft usage error: improper alloc\n");
         exit (1);
     }
 
-    N = st->substate->nfft;
+    ncfft = st->substate->nfft;
 
-    st->tmpbuf[0].r = freqdata[0].r + freqdata[N].r;
-    st->tmpbuf[0].i = freqdata[0].r - freqdata[N].r;
+    st->tmpbuf[0].r = freqdata[0].r + freqdata[ncfft].r;
+    st->tmpbuf[0].i = freqdata[0].r - freqdata[ncfft].r;
+    C_FIXDIV(st->tmpbuf[0],2);
 
-    for (k = 1; k <= N / 2; ++k) {
-        kiss_fft_cpx fk, fnkc, fek, fok, tmpbuf;
+    for (k = 1; k <= ncfft / 2; ++k) {
+        kiss_fft_cpx fk, fnkc, fek, fok, tmp;
         fk = freqdata[k];
-        fnkc.r = freqdata[N - k].r;
-        fnkc.i = -freqdata[N - k].i;
+        fnkc.r = freqdata[ncfft - k].r;
+        fnkc.i = -freqdata[ncfft - k].i;
         C_FIXDIV( fk , 2 );
         C_FIXDIV( fnkc , 2 );
 
         C_ADD (fek, fk, fnkc);
-        C_SUB (tmpbuf, fk, fnkc);
-        C_MUL (fok, tmpbuf, st->super_twiddles[k]);
-        C_ADD (st->tmpbuf[k], fek, fok);
-        C_SUB (st->tmpbuf[N - k], fek, fok);
+        C_SUB (tmp, fk, fnkc);
+        C_MUL (fok, tmp, st->super_twiddles[k]);
+        C_ADD (st->tmpbuf[k],     fek, fok);
+        C_SUB (st->tmpbuf[ncfft - k], fek, fok);
 #ifdef USE_SIMD        
-        st->tmpbuf[N - k].i *= _mm_set1_ps(-1.0);
+        st->tmpbuf[ncfft - k].i *= _mm_set1_ps(-1.0);
 #else
-        st->tmpbuf[N - k].i *= -1;
+        st->tmpbuf[ncfft - k].i *= -1;
 #endif
     }
     kiss_fft (st->substate, st->tmpbuf, (kiss_fft_cpx *) timedata);
