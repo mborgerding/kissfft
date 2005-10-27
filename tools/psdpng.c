@@ -22,35 +22,35 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "kiss_fft.h"
 #include "kiss_fftr.h"
 
-size_t nfft=1024;
-size_t nfreqs=0;
-int repeat=0;
-int window=0;
-int colors=256;
+int nfft=1024;
 FILE * fin=NULL;
 FILE * fout=NULL;
 
 int navg=20;
-float * valbuf=NULL;
-int remove_dc=1;
-
-size_t nrows=0;
+int remove_dc=0;
+int nrows=0;
 float * vals=NULL;
+int stereo=0;
 
 static
 void config(int argc,char** argv)
 {
     while (1) {
-        int c = getopt (argc, argv, "n:rs");
+        int c = getopt (argc, argv, "n:r:as");
         if (c == -1)
             break;
         switch (c) {
-        case 'n':
-            nfft=(size_t)atoi(optarg);
+        case 'n': nfft=(int)atoi(optarg);break;
+        case 'r': navg=(int)atoi(optarg);break;
+        case 'a': remove_dc=1;break;
+        case 's': stereo=1;break;
         case '?':
             fprintf (stderr, "usage options:\n"
-                     "\t-n d: fft dimension(s) default = 1024\n"
-                     "stereo 16 bit machine format real input is assumed\n"
+                     "\t-n d: fft dimension(s) [1024]\n"
+                     "\t-r d: number of rows to average [20]\n"
+                     "\t-a : remove average from each fft buffer\n"
+                     "\t-s : input is stereo, channels will be combined before fft\n"
+                     "16 bit machine format real input is assumed\n"
                      );
         default:
             fprintf (stderr, "bad %c\n", c);
@@ -91,6 +91,7 @@ void val2rgb(float x,rgb_t *p)
     p->g = (int)(255*sin(x*pi));
     p->r = (int)(255*abs(sin(x*pi*3/2)));
     p->b = (int)(255*abs(sin(x*pi*5/2)));
+    //fprintf(stderr,"%.2f : %d,%d,%d\n",x,(int)p->r,(int)p->g,(int)p->b);
 }
 
 static
@@ -105,7 +106,12 @@ void cpx2pixels(rgb_t * res,const float * fbuf,size_t n)
         if (fbuf[i] < minval) minval = fbuf[i];
     }
 
+    fprintf(stderr,"min ==%f,max=%f\n",minval,maxval);
     valrange = maxval-minval;
+    if (valrange == 0) {
+        fprintf(stderr,"min == max == %f\n",minval);
+        exit (1);
+    }
 
     for (i = 0; i < n; ++i)
         val2rgb( (fbuf[i] - minval)/valrange , res+i );
@@ -118,53 +124,57 @@ void transform_signal(void)
     kiss_fftr_cfg cfg=NULL;
     kiss_fft_scalar *tbuf;
     kiss_fft_cpx *fbuf;
-    kiss_fft_cpx *avgbuf;
-    size_t i;
-    size_t n;
+    float *mag2buf;
+    int i;
+    int n;
     int avgctr=0;
 
-    nfreqs=nfft/2+1;
+    int nfreqs=nfft/2+1;
 
     CHECKNULL( cfg=kiss_fftr_alloc(nfft,0,0,0) );
     CHECKNULL( inbuf=(short*)malloc(sizeof(short)*2*nfft ) );
     CHECKNULL( tbuf=(kiss_fft_scalar*)malloc(sizeof(kiss_fft_scalar)*nfft ) );
     CHECKNULL( fbuf=(kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx)*nfreqs ) );
-    CHECKNULL( avgbuf=(kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx)*nfreqs ) );
+    CHECKNULL( mag2buf=(float*)malloc(sizeof(float)*nfreqs ) );
 
-    while (1){
-        n = fread(inbuf,sizeof(short)*2,nfft,fin);
-        if (n != nfft ) 
-            break;
+    memset(mag2buf,0,sizeof(mag2buf)*nfreqs);
 
-        /* pack the shorts */
-        for (i=0;i<nfft;++i){
-            tbuf[i] = inbuf[2*i] + inbuf[2*i+1];
+    while (1) {
+        if (stereo) {
+            n = fread(inbuf,sizeof(short)*2,nfft,fin);
+            if (n != nfft ) 
+                break;
+            for (i=0;i<nfft;++i) 
+                tbuf[i] = inbuf[2*i] + inbuf[2*i+1];
+        }else{
+            n = fread(inbuf,sizeof(short),nfft,fin);
+            if (n != nfft ) 
+                break;
+            for (i=0;i<nfft;++i) 
+                tbuf[i] = inbuf[i];
+        }
+
+        if (remove_dc) {
+            float avg = 0;
+            for (i=0;i<nfft;++i)  avg += tbuf[i];
+            avg /= nfft;
+            for (i=0;i<nfft;++i)  tbuf[i] -= (kiss_fft_scalar)avg;
         }
 
         /* do FFT */
         kiss_fftr(cfg,tbuf,fbuf);
 
-        if (remove_dc) {
-            fbuf[0].r = 0;
-            fbuf[0].i = 0;
-        }
-
-        for (i=0;i<nfreqs;++i){
-            avgbuf[i].r += fbuf[i].r;
-            avgbuf[i].i += fbuf[i].i;
-        }
+        for (i=0;i<nfreqs;++i)
+            mag2buf[i] += fbuf[i].r * fbuf[i].r + fbuf[i].i * fbuf[i].i;
 
         if (++avgctr == navg) {
             avgctr=0;
             ++nrows;
             vals = (float*)realloc(vals,sizeof(float)*nrows*nfreqs);
-            
-            for (i=0;i<nfreqs;++i) {
-                float binpower = fbuf[i].r * fbuf[i].r + fbuf[i].i * fbuf[i].i;
-                vals[(nrows - 1) * nfreqs + i] = 10 * log10 (binpower);
-            }
-
-            memset(avgbuf,0,sizeof(avgbuf[0])*nfreqs);
+            float eps = 1;
+            for (i=0;i<nfreqs;++i)
+                vals[(nrows - 1) * nfreqs + i] = 10 * log10 ( mag2buf[i] / navg + eps );
+            memset(mag2buf,0,sizeof(mag2buf[0])*nfreqs);
         }
     }
 
@@ -172,7 +182,7 @@ void transform_signal(void)
     free(inbuf);
     free(tbuf);
     free(fbuf);
-    free(avgbuf);
+    free(mag2buf);
 }
 
 static
@@ -180,7 +190,8 @@ void make_png(void)
 {
     png_bytepp row_pointers=NULL;
     rgb_t * row_data=NULL;
-    size_t i;
+    int i;
+    int nfreqs = nfft/2+1;
 
     png_structp png_ptr=NULL;
     png_infop info_ptr=NULL;
