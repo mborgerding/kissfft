@@ -1,4 +1,4 @@
-KFVER=1_2_3
+KFVER=1_2_4
 
 DISTDIR=kiss_fft_v$(KFVER)
 TARBALL=kiss_fft_v$(KFVER).tar.gz
