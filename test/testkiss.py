@@ -153,9 +153,9 @@ def main():
         print 'Note: Real optimization not yet done for odd length ffts and multi-D'
         test_fft(1)
     else:
-        for dim in range(1,9):
+        print 'Testing multi-dimensional FFTs'
+        for dim in range(1,4):
             test_fft( dim )
-        print 'We crossed the 8th dimension.  Buckaroo would be proud'
 
 if __name__ == "__main__":
     main()
