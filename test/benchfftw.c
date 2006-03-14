@@ -46,7 +46,7 @@ int main(int argc,char ** argv)
     pstats_init();
 
     while (1) {
-      int c = getopt (argc, argv, "n:ix:");
+      int c = getopt (argc, argv, "n:ix:h");
       if (c == -1)
         break;
       switch (c) {
@@ -59,6 +59,11 @@ int main(int argc,char ** argv)
       case 'i':
         isinverse = 1;
         break;
+      case 'h':
+      case '?':
+      default:
+        fprintf(stderr,"options:\n-n N: complex fft length\n-i: inverse\n-x N: number of ffts to compute\n"
+                "");
       }
     }
 
