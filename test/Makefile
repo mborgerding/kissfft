@@ -41,10 +41,16 @@ endif
 
 ifeq  "$(DATATYPE)" "float"
  # fftw needs to be built with --enable-float to build this lib
- FFTWLIB=fftw3f
+ #FFTWLIB=-lfftw3f
+ #FFTWLIB=/usr/lib/libfftw3f.a
+ FFTWLIB=/home/mark/xmfftw/lib/libfftw3f.a
+ #FFTWLIB=/home/mark/xmfftwbeta/lib/libfftw3f.a
 else
- FFTWLIB=fftw3
+ FFTWLIB=-lfftw3
 endif
+
+#FFTWLIBDIR=-L/usr/local/lib/
+#FFTWLIBDIR=-L/home/mark/xmfftwbeta/lib/libfftw3f.a
 
 SRCFILES=../kiss_fft.c ../tools/kiss_fftnd.c ../tools/kiss_fftr.c pstats.c ../tools/kfc.c
 
@@ -72,7 +78,7 @@ $(BENCHKISS): benchkiss.c $(SRCFILES)
 
 $(BENCHFFTW): benchfftw.c pstats.c
 	@echo "======attempting to build FFTW benchmark"
-	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) $+ -lm -l$(FFTWLIB) -L/usr/local/lib/ || echo "FFTW not available for comparison"
+	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) $+ -lm $(FFTWLIB) $(FFTWLIBDIR) || echo "FFTW not available for comparison"
 
 test: all
 	@./$(TESTKFC)
