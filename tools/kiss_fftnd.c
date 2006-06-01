@@ -73,6 +73,13 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
         st->states[i] = kiss_fft_alloc (st->dims[i], inverse_fft, ptr,&len);
         ptr += len;
     }
+    if ( ptr - (char*)st != memneeded ) {
+        fprintf(stderr,
+                "################################################################################\n"
+                "Internal error! Memory allocation miscalculation\n"
+                "################################################################################\n"
+               );
+    }
     return st;
 }
 
