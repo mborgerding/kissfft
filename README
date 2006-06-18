@@ -74,7 +74,7 @@ FREQUENTLY ASKED QUESTIONS:
 
 	Q: Why don't I get the output I expect?
 	A: The two most common causes of this are 
-		1) scaling : is there a constant mutliplier between what you got and what you want?
+		1) scaling : is there a constant multiplier between what you got and what you want?
 		2) mixed build environment -- all code must be compiled with same preprocessor 
 		definitions for DATATYPE & FIXED_POINT
 
