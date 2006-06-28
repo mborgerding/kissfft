@@ -1,3 +1,10 @@
+1.2.5 (June 27, 2006) The "release for no good reason" release.
+   Changed some harmless code to make some compilers' warnings go away.
+   Added some more digits to pi -- why not.
+   Added kiss_fft_next_fast_size() function to help people decide how much to pad.
+   Changed multidimensional test from 8 dimensions to only 3 to avoid testing 
+   problems with fixed point (sorry Buckaroo Banzai).
+
 1.2.4 (Oct 27, 2005)   The "oops, inverse fixed point real fft was borked" release. 
    Fixed scaling bug for inverse fixed point real fft -- also fixed test code that should've been failing.
 	Thanks to Jean-Marc Valin for bug report.

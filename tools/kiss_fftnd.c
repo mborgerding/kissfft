@@ -73,6 +73,19 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
         st->states[i] = kiss_fft_alloc (st->dims[i], inverse_fft, ptr,&len);
         ptr += len;
     }
+    /*
+Hi there!
+
+If you're looking at this particular code, it probably means you've got a brain-dead bounds checker 
+that thinks the above code overwrites the end of the array.
+
+It doesn't.
+
+-- Mark 
+
+P.S.
+The below code might give you some warm fuzzies and help convince you.
+       */
     if ( ptr - (char*)st != (int)memneeded ) {
         fprintf(stderr,
                 "################################################################################\n"
