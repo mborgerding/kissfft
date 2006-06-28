@@ -23,6 +23,10 @@ int main(int argc,char ** argv)
       switch (c) {
       case 'n':
         nfft = atoi (optarg);
+        if (nfft != kiss_fft_next_fast_size(nfft) ) {
+            int ng = kiss_fft_next_fast_size(nfft);
+            fprintf(stderr,"warning: %d might be a better choice for speed than %d\n",ng,nfft);
+        }
         break;
       case 'x':
         numffts = atoi (optarg);

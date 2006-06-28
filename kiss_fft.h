@@ -107,6 +107,11 @@ void kiss_fft_stride(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout
 void kiss_fft_cleanup(void);
 	
 
+/*
+ * Returns the smallest integer k, such that k>=n and k has only "fast" factors (2,3,5)
+ */
+int kiss_fft_next_fast_size(int n);
+
 #ifdef __cplusplus
 } 
 #endif
