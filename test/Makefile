@@ -41,16 +41,12 @@ endif
 
 ifeq  "$(DATATYPE)" "float"
  # fftw needs to be built with --enable-float to build this lib
- #FFTWLIB=-lfftw3f
- #FFTWLIB=/usr/lib/libfftw3f.a
- FFTWLIB=/home/mark/xmfftw/lib/libfftw3f.a
- #FFTWLIB=/home/mark/xmfftwbeta/lib/libfftw3f.a
+ FFTWLIB=/usr/lib/libfftw3f.a
 else
  FFTWLIB=-lfftw3
 endif
 
-#FFTWLIBDIR=-L/usr/local/lib/
-#FFTWLIBDIR=-L/home/mark/xmfftwbeta/lib/libfftw3f.a
+FFTWLIBDIR=-L/usr/local/lib/
 
 SRCFILES=../kiss_fft.c ../tools/kiss_fftnd.c ../tools/kiss_fftr.c pstats.c ../tools/kfc.c
 
