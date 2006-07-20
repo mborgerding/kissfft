@@ -76,7 +76,7 @@ FREQUENTLY ASKED QUESTIONS:
 	A: The two most common causes of this are 
 		1) scaling : is there a constant multiplier between what you got and what you want?
 		2) mixed build environment -- all code must be compiled with same preprocessor 
-		definitions for DATATYPE & FIXED_POINT
+		definitions for FIXED_POINT and kiss_fft_scalar
 
 PERFORMANCE:
     (on Athlon XP 2100+, with gcc 2.96, float data type)
