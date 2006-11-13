@@ -41,7 +41,7 @@ endif
 
 ifeq  "$(DATATYPE)" "float"
  # fftw needs to be built with --enable-float to build this lib
- FFTWLIB=/usr/lib/libfftw3f.a
+ FFTWLIB=-lfftw3f
 else
  FFTWLIB=-lfftw3
 endif
