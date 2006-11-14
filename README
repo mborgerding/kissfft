@@ -35,8 +35,8 @@ Code definitions for 1d complex FFTs are in kiss_fft.c.
 
 You can do other cool stuff with the extras you'll find in tools/
 
-    * arbitrary dimension complex FFTs 
-    * 1-d real FFTs
+    * multi-dimensional FFTs 
+    * real-optimized FFTs
     * fast convolution FIR filtering
     * spectrum image creation
 
@@ -112,8 +112,7 @@ LICENSE:
     the other end.  See http://www.fsf.org/licensing/licenses
 
 TODO:
-    *) Add real optimization for odd length FFTs (DST?)
-    *) Add real optimization to the n-dimensional FFT
+    *) Add real optimization for odd length FFTs 
     *) Document/revisit the input/output fft scaling
     *) Make doc describing the overlap (tail) scrap fast convolution filtering in kiss_fastfir.c
     *) Test all the ./tools/ code with fixed point (kiss_fastfir.c doesn't work, maybe others)

@@ -41,10 +41,6 @@ else:
 def dopack(x,cpx=1):
     x = Numeric.reshape( x, ( Numeric.size(x),) )
     
-    #print 'packed=[',
-    #print ' '.join([str(y) for y in x]),
-    #print ']'
-
     if cpx:
         s = ''.join( [ struct.pack(fmt*2,c.real,c.imag) for c in x ] )
     else:
@@ -80,7 +76,7 @@ def flatten(x):
 def randmat( ndims ):
     dims=[]
     for i in range( ndims ):
-        curdim = int( random.uniform(4,7) )
+        curdim = int( random.uniform(2,5) )
         if doreal and i==(ndims-1):
             curdim = int(curdim/2)*2 # force even last dimension if real
         dims.append( curdim )
@@ -94,8 +90,6 @@ def test_fft(ndims):
         xver = FFT.real_fftnd(x)
     else:
         xver = FFT.fftnd(x)
-    #print 'x=',x
-    #print 'xver=',xver
     
     open('/tmp/fftexp.dat','w').write(dopack( flatten(xver) , True ) )
 
@@ -161,10 +155,9 @@ def main():
     else:
         print 'Testing multi-dimensional FFTs'
 
-    for dim in range(1,5):
+    for dim in range(1,4):
         test_fft( dim )
 
 if __name__ == "__main__":
-    #random.seed(2);
     main()
 

@@ -1,3 +1,7 @@
+1.2.6 (Nov 14, 2006) The "thanks to GenArts" release.
+  Added multi-dimensional real-optimized FFT, see tools/kiss_fftndr
+  Thanks go to GenArts, Inc. for sponsoring the development.
+
 1.2.5 (June 27, 2006) The "release for no good reason" release.
    Changed some harmless code to make some compilers' warnings go away.
    Added some more digits to pi -- why not.

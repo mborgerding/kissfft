@@ -63,8 +63,6 @@ void fft_filend(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
 
 
 
-#define CHK fprintf(stderr,"LINE=%d\t",__LINE__)
-
 static
 void fft_filend_real(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
 {
