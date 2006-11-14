@@ -177,7 +177,6 @@ void kiss_fftnd(kiss_fftnd_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
     for ( k=0; k < st->ndims; ++k) {
         int curdim = st->dims[k];
         int stride = st->dimprod / curdim;
-        fprintf(stderr,"curdim = %d, stride = %d\n",curdim,stride);
 
         for ( i=0 ; i<stride ; ++i ) 
             kiss_fft_stride( st->states[k], bufin+i , bufout+i*curdim, stride );

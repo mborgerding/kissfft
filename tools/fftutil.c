@@ -77,12 +77,12 @@ void fft_filend_real(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
     for (i=0;i<ndims;++i) 
         dimprod *= dims[i];
     insize = outsize = dimprod;
+    int rdim = dims[ndims-1];
 
     if (isinverse)
-        insize = insize*2*(dims[0]/2+1)/dims[0];
+        insize = insize*2*(rdim/2+1)/rdim;
     else
-        outsize = outsize*2*(dims[0]/2+1)/dims[0];
-    fprintf(stderr,"insize=%d outsize=%d\n",insize,outsize);
+        outsize = outsize*2*(rdim/2+1)/rdim;
 
     ibuf = malloc(insize*sizeof(kiss_fft_scalar));
     obuf = malloc(outsize*sizeof(kiss_fft_scalar));
@@ -144,7 +144,7 @@ int get_dims(char * arg,int * dims)
         if (p0)
             *p0++ = '\0';
         dims[ndims++] = atoi(arg);
-         fprintf(stderr,"dims[%d] = %d\n",ndims-1,dims[ndims-1]); 
+//         fprintf(stderr,"dims[%d] = %d\n",ndims-1,dims[ndims-1]); 
         arg = p0;
     }while (p0);
     return ndims;

@@ -41,9 +41,9 @@ else:
 def dopack(x,cpx=1):
     x = Numeric.reshape( x, ( Numeric.size(x),) )
     
-    print 'packed=[',
-    print ' '.join([str(y) for y in x]),
-    print ']'
+    #print 'packed=[',
+    #print ' '.join([str(y) for y in x]),
+    #print ']'
 
     if cpx:
         s = ''.join( [ struct.pack(fmt*2,c.real,c.imag) for c in x ] )
@@ -80,9 +80,9 @@ def flatten(x):
 def randmat( ndims ):
     dims=[]
     for i in range( ndims ):
-        curdim = int( random.uniform(4,6) )
-        if doreal and i==0:
-            curdim = int(curdim/2)*2 # force even for first dimension of real
+        curdim = int( random.uniform(4,7) )
+        if doreal and i==(ndims-1):
+            curdim = int(curdim/2)*2 # force even last dimension if real
         dims.append( curdim )
     return make_random(dims )
 
@@ -94,9 +94,11 @@ def test_fft(ndims):
         xver = FFT.real_fftnd(x)
     else:
         xver = FFT.fftnd(x)
-    print 'x=',x
-    print 'xver=',xver
+    #print 'x=',x
+    #print 'xver=',xver
     
+    open('/tmp/fftexp.dat','w').write(dopack( flatten(xver) , True ) )
+
     x2=dofft(x)
     err = xver - x2
     errf = flatten(err)
@@ -132,22 +134,20 @@ def dofft(x):
 
     p = popen2.Popen3(cmd )
 
+    open('/tmp/fftin.dat','w').write(dopack( x , iscomp ) )
 
     p.tochild.write( dopack( x , iscomp ) )
     p.tochild.close()
 
     res = dounpack( p.fromchild.read() , 1 )
+    open('/tmp/fftout.dat','w').write(dopack( flatten(res) , True ) )
     if doreal:
         dims[-1] = int( dims[-1]/2 ) + 1
 
     res = scale * res
 
     p.wait()
-    try:
-        return Numeric.reshape(res,dims)
-    finally:
-        print 'len(res)=%d' % len(res)
-        print 'dims=%s' % str(dims)
+    return Numeric.reshape(res,dims)
 
 def main():
     opts,args = getopt.getopt(sys.argv[1:],'r')
@@ -156,11 +156,15 @@ def main():
     global doreal
     doreal = opts.has_key('-r')
 
-    print 'Testing multi-dimensional FFTs'
-    for dim in range(1,4):
+    if doreal:
+        print 'Testing multi-dimensional real FFTs'
+    else:
+        print 'Testing multi-dimensional FFTs'
+
+    for dim in range(1,5):
         test_fft( dim )
 
 if __name__ == "__main__":
-    random.seed(2);
+    #random.seed(2);
     main()
 
