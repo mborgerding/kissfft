@@ -73,27 +73,24 @@ void kiss_fftndr(kiss_fftndr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx
     int k1,k2;
     int dimReal = st->dimReal;
     int dimOther = st->dimOther;
+    int nrbins = dimReal/2+1;
 
     kiss_fft_cpx * tmp1 = (kiss_fft_cpx*)st->tmpbuf; 
-    kiss_fft_cpx * tmp2;
-    if (dimReal/2+1 > dimOther)
-        tmp2 = tmp1+dimReal/2+1;
-    else
-        tmp2 = tmp1+dimOther;
+    kiss_fft_cpx * tmp2 = tmp1 + MAX(nrbins,dimOther);
 
     // timedata is N0 x N1 x ... x Nk real
 
     // take a real chunk of data, fft it and place the output at correct intervals
     for (k1=0;k1<dimOther;++k1) {
-        kiss_fftr( st->cfg_r, timedata + k1*dimReal , tmp1 ); // tmp1 now holds dimReal/2+1 complex points
-        for (k2=0;k2<dimReal/2+1;++k2)
+        kiss_fftr( st->cfg_r, timedata + k1*dimReal , tmp1 ); // tmp1 now holds nrbins complex points
+        for (k2=0;k2<nrbins;++k2)
            tmp2[ k2*dimOther+k1 ] = tmp1[k2];
     }
 
-    for (k2=0;k2<dimReal/2+1;++k2) {
+    for (k2=0;k2<nrbins;++k2) {
         kiss_fftnd(st->cfg_nd, tmp2+k2*dimOther, tmp1);  // tmp1 now holds dimOther complex points
         for (k1=0;k1<dimOther;++k1) 
-            freqdata[ k1*(dimReal/2+1) + k2] = tmp1[k1];
+            freqdata[ k1*(nrbins) + k2] = tmp1[k1];
     }
 }
 
@@ -102,21 +99,18 @@ void kiss_fftndri(kiss_fftndr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scala
     int k1,k2;
     int dimReal = st->dimReal;
     int dimOther = st->dimOther;
+    int nrbins = dimReal/2+1;
     kiss_fft_cpx * tmp1 = (kiss_fft_cpx*)st->tmpbuf; 
-    kiss_fft_cpx * tmp2;
-    if (dimReal/2+1 > dimOther)
-        tmp2 = tmp1+dimReal/2+1;
-    else
-        tmp2 = tmp1+dimOther;
+    kiss_fft_cpx * tmp2 = tmp1 + MAX(nrbins,dimOther);
 
-    for (k2=0;k2<dimReal/2+1;++k2) {
+    for (k2=0;k2<nrbins;++k2) {
         for (k1=0;k1<dimOther;++k1) 
-            tmp1[k1] = freqdata[ k1*(dimReal/2+1) + k2 ];
+            tmp1[k1] = freqdata[ k1*(nrbins) + k2 ];
         kiss_fftnd(st->cfg_nd, tmp1, tmp2+k2*dimOther);
     }
 
     for (k1=0;k1<dimOther;++k1) {
-        for (k2=0;k2<dimReal/2+1;++k2)
+        for (k2=0;k2<nrbins;++k2)
             tmp1[k2] = tmp2[ k2*dimOther+k1 ];
         kiss_fftri( st->cfg_r,tmp1,timedata + k1*dimReal);
     }
