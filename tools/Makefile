@@ -43,7 +43,7 @@ $(FASTFILTREAL): ../kiss_fft.c kiss_fastfir.c kiss_fftr.c
 $(FASTFILT): ../kiss_fft.c kiss_fastfir.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+ -DFAST_FILT_UTIL
 
-$(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fftnd.c kiss_fftr.c
+$(FFTUTIL): ../kiss_fft.c fftutil.c kiss_fftnd.c kiss_fftr.c kiss_fftndr.c
 	$(CC) -o $@ $(CFLAGS) -I.. $(TYPEFLAGS) -lm $+
 
 $(PSDPNG): ../kiss_fft.c psdpng.c kiss_fftr.c

@@ -40,6 +40,11 @@ else:
 
 def dopack(x,cpx=1):
     x = Numeric.reshape( x, ( Numeric.size(x),) )
+    
+    print 'packed=[',
+    print ' '.join([str(y) for y in x]),
+    print ']'
+
     if cpx:
         s = ''.join( [ struct.pack(fmt*2,c.real,c.imag) for c in x ] )
     else:
@@ -75,25 +80,22 @@ def flatten(x):
 def randmat( ndims ):
     dims=[]
     for i in range( ndims ):
-        curdim = int( random.uniform(2,4) )
+        curdim = int( random.uniform(4,6) )
+        if doreal and i==0:
+            curdim = int(curdim/2)*2 # force even for first dimension of real
         dims.append( curdim )
     return make_random(dims )
 
 def test_fft(ndims):
-    if ndims == 1:
-        nfft = int(random.uniform(50,100))
-        if doreal:
-            nfft = int(nfft/2)*2
-
-        x = Numeric.array(make_random( [ nfft ] ) )
-    else:
-        x=randmat( ndims )
+    x=randmat( ndims )
 
     print 'dimensions=%s' % str( Numeric.shape(x) ),
     if doreal:
         xver = FFT.real_fftnd(x)
     else:
         xver = FFT.fftnd(x)
+    print 'x=',x
+    print 'xver=',xver
     
     x2=dofft(x)
     err = xver - x2
@@ -130,6 +132,7 @@ def dofft(x):
 
     p = popen2.Popen3(cmd )
 
+
     p.tochild.write( dopack( x , iscomp ) )
     p.tochild.close()
 
@@ -140,7 +143,11 @@ def dofft(x):
     res = scale * res
 
     p.wait()
-    return Numeric.reshape(res,dims)
+    try:
+        return Numeric.reshape(res,dims)
+    finally:
+        print 'len(res)=%d' % len(res)
+        print 'dims=%s' % str(dims)
 
 def main():
     opts,args = getopt.getopt(sys.argv[1:],'r')
@@ -149,14 +156,11 @@ def main():
     global doreal
     doreal = opts.has_key('-r')
 
-    if doreal:
-        print 'Note: Real optimization not yet done for odd length ffts and multi-D'
-        test_fft(1)
-    else:
-        print 'Testing multi-dimensional FFTs'
-        for dim in range(1,4):
-            test_fft( dim )
+    print 'Testing multi-dimensional FFTs'
+    for dim in range(1,4):
+        test_fft( dim )
 
 if __name__ == "__main__":
+    random.seed(2);
     main()
 

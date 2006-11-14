@@ -22,7 +22,7 @@ struct kiss_fftnd_state{
     int ndims; 
     int *dims;
     kiss_fft_cfg *states; /* cfg states for each dimension */
-    kiss_fft_cpx * tmpbuf; /*buffer capable of hold the entire buffer */
+    kiss_fft_cpx * tmpbuf; /*buffer capable of hold the entire input */
 };
 
 kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
@@ -177,6 +177,7 @@ void kiss_fftnd(kiss_fftnd_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
     for ( k=0; k < st->ndims; ++k) {
         int curdim = st->dims[k];
         int stride = st->dimprod / curdim;
+        fprintf(stderr,"curdim = %d, stride = %d\n",curdim,stride);
 
         for ( i=0 ; i<stride ; ++i ) 
             kiss_fft_stride( st->states[k], bufin+i , bufout+i*curdim, stride );

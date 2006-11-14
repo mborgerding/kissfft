@@ -19,8 +19,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <unistd.h>
 
 #include "kiss_fft.h"
-#include "kiss_fftnd.h"
-#include "kiss_fftr.h"
+#include "kiss_fftndr.h"
 
 static
 void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
@@ -62,6 +61,51 @@ void fft_filend(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
     free (buf);
 }
 
+
+
+#define CHK fprintf(stderr,"LINE=%d\t",__LINE__)
+
+static
+void fft_filend_real(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
+{
+    int dimprod=1,i;
+    kiss_fftndr_cfg st;
+    void *ibuf;
+    void *obuf;
+    int insize,outsize; // size in bytes
+
+    for (i=0;i<ndims;++i) 
+        dimprod *= dims[i];
+    insize = outsize = dimprod;
+
+    if (isinverse)
+        insize = insize*2*(dims[0]/2+1)/dims[0];
+    else
+        outsize = outsize*2*(dims[0]/2+1)/dims[0];
+    fprintf(stderr,"insize=%d outsize=%d\n",insize,outsize);
+
+    ibuf = malloc(insize*sizeof(kiss_fft_scalar));
+    obuf = malloc(outsize*sizeof(kiss_fft_scalar));
+
+    st = kiss_fftndr_alloc(dims, ndims, isinverse, 0, 0);
+
+    while ( fread (ibuf, sizeof(kiss_fft_scalar), insize,  fin) > 0) {
+        if (isinverse) {
+            kiss_fftndri(st,
+                    (kiss_fft_cpx*)ibuf,
+                    (kiss_fft_scalar*)obuf);
+        }else{
+            kiss_fftndr(st,
+                    (kiss_fft_scalar*)ibuf,
+                    (kiss_fft_cpx*)obuf);
+        }
+        fwrite (obuf, sizeof(kiss_fft_scalar), outsize,fout);
+    }
+    free(st);
+    free(ibuf);
+    free(obuf);
+}
+
 static
 void fft_file_real(FILE * fin,FILE * fout,int nfft,int isinverse)
 {
@@ -100,7 +144,7 @@ int get_dims(char * arg,int * dims)
         if (p0)
             *p0++ = '\0';
         dims[ndims++] = atoi(arg);
-        /* fprintf(stderr,"dims[%d] = %d\n",ndims-1,dims[ndims-1]); */
+         fprintf(stderr,"dims[%d] = %d\n",ndims-1,dims[ndims-1]); 
         arg = p0;
     }while (p0);
     return ndims;
@@ -147,12 +191,17 @@ int main(int argc,char ** argv)
         ++optind;
     }
 
-    if (ndims>1 && !isreal)
-        fft_filend(fin,fout,dims,ndims,isinverse);
-    else if (ndims==1 && !isreal)
-        fft_file(fin,fout,dims[0],isinverse);
-    else if (ndims==1 && isreal)
-        fft_file_real(fin,fout,dims[0],isinverse);
+    if (ndims==1) {
+        if (isreal)
+            fft_file_real(fin,fout,dims[0],isinverse);
+        else
+            fft_file(fin,fout,dims[0],isinverse);
+    }else{
+        if (isreal)
+            fft_filend_real(fin,fout,dims,ndims,isinverse);
+        else
+            fft_filend(fin,fout,dims,ndims,isinverse);
+    }
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);
