@@ -1,3 +1,6 @@
+1.2.7 
+  Shrank the real-fft memory footprint. Thanks to Galen Seitz.
+
 1.2.6 (Nov 14, 2006) The "thanks to GenArts" release.
   Added multi-dimensional real-optimized FFT, see tools/kiss_fftndr
   Thanks go to GenArts, Inc. for sponsoring the development.
