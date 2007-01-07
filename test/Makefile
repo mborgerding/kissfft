@@ -56,9 +56,9 @@ tools:
 	cd ../tools && make all
 
 # for x86 pentium+ machines , these flags work well
-CFLAGS=-O3  -march=pentiumpro -ffast-math -fomit-frame-pointer   -I.. -I../tools $(WARNINGS)
+#CFLAGS=-O3  -march=pentiumpro -ffast-math -fomit-frame-pointer   -I.. -I../tools $(WARNINGS)
 # If the above flags do not work, try the following
-#CFLAGS=-O3 -I.. -I../tools $(WARNINGS)
+CFLAGS=-O3 -ffast-math -fomit-frame-pointer  -I.. -I../tools $(WARNINGS)
 
 $(SELFTEST): $(SELFTESTSRC) $(SRCFILES)
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+

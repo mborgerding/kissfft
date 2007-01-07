@@ -6,10 +6,9 @@ ZIPFILE=kiss_fft_v$(KFVER).zip
 
 testall:
 	# The simd and int32_t types may or may not work on your machine 
-	export DATATYPE=simd && cd test && make test
-	export DATATYPE=int32_t && cd test && make test
-
-	export DATATYPE=int16_t && cd test && make test
+	#export DATATYPE=simd && cd test && make test
+	#export DATATYPE=int32_t && cd test && make test
+	#export DATATYPE=int16_t && cd test && make test
 	export DATATYPE=float && cd test && make test
 	export DATATYPE=double && cd test && make test
 
