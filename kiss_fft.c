@@ -269,6 +269,10 @@ void kf_work(
         }while(++Fout != Fout_end );
     }else{
         do{
+            // recursive call:
+            // DFT of size m*p performed by doing
+            // p instances of smaller DFTs of size m, 
+            // each one takes a decimated version of the input
             kf_work( Fout , f, fstride*p, in_stride, factors,st);
             f += fstride*in_stride;
         }while( (Fout += m) != Fout_end );
@@ -276,6 +280,7 @@ void kf_work(
 
     Fout=Fout_beg;
 
+    // recombine the p smaller DFTs 
     switch (p) {
         case 2: kf_bfly2(Fout,fstride,st,m); break;
         case 3: kf_bfly3(Fout,fstride,st,m); break; 
