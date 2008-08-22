@@ -1,3 +1,8 @@
+1.2.8 
+  Changed memory.h to string.h -- apparently more standard
+  
+  Added openmp extensions.  This can have fairly linear speedups for larger FFT sizes.
+
 1.2.7 
   Shrank the real-fft memory footprint. Thanks to Galen Seitz.
 

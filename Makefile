@@ -1,14 +1,18 @@
-KFVER=1_2_7
+KFVER=1_2_8
 
 DISTDIR=kiss_fft_v$(KFVER)
 TARBALL=kiss_fft_v$(KFVER).tar.gz
 ZIPFILE=kiss_fft_v$(KFVER).zip
 
+doc:
+	@echo "Start by reading the README file.  If you want to build and test lots of stuff, do a 'make testall'"
+	@echo "but be aware that 'make testall' has dependencies that the basic kissfft software does not"
+
 testall:
 	# The simd and int32_t types may or may not work on your machine 
-	#export DATATYPE=simd && cd test && make test
-	#export DATATYPE=int32_t && cd test && make test
-	#export DATATYPE=int16_t && cd test && make test
+	export DATATYPE=simd && cd test && make test
+	export DATATYPE=int32_t && cd test && make test
+	export DATATYPE=int16_t && cd test && make test
 	export DATATYPE=float && cd test && make test
 	export DATATYPE=double && cd test && make test
 

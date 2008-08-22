@@ -99,7 +99,7 @@ UNDER THE HOOD:
 
     Optimized butterflies are used for factors 2,3,4, and 5. 
 
-    The real optimization code only works for even length ffts.  It does two half-length
+    The real (i.e. not complex) optimization code only works for even length ffts.  It does two half-length
     FFTs in parallel (packed into real&imag), and then combines them via twiddling.
 
     The fast convolution filtering uses the overlap-scrap method, slightly 

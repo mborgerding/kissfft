@@ -1,4 +1,8 @@
 Speed:
+    * If you want to use multiple cores, then compile with -openmp or -fopenmp (see your compiler docs).
+	Realize that larger FFTs will reap more benefit than smaller FFTs. This generally uses more CPU time, but
+	less wall time.
+
     * experiment with compiler flags
         Special thanks to Oscar Lesta. He suggested some compiler flags 
         for gcc that make a big difference. They shave 10-15% off
@@ -12,7 +16,7 @@ Speed:
 
     * If you can rearrange your code to do 4 FFTs in parallel and you are on a recent Intel or AMD machine,
     then you might want to experiment with the USE_SIMD code.
-    
+
 
 Reducing code size:
     * remove some of the butterflies. There are currently butterflies optimized for radices

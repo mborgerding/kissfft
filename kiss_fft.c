@@ -262,6 +262,29 @@ void kf_work(
     const int m=*factors++; /* stage's fft length/p */
     const kiss_fft_cpx * Fout_end = Fout + p*m;
 
+#ifdef _OPENMP
+    // use openmp extensions at the 
+    // top-level (not recursive)
+    if (fstride==1) {
+        int k;
+
+        // execute the p different work units in different threads
+#       pragma omp parallel for
+        for (k=0;k<p;++k) 
+            kf_work( Fout +k*m, f+ fstride*in_stride*k,fstride*p,in_stride,factors,st);
+        // all threads have joined by this point
+
+        switch (p) {
+            case 2: kf_bfly2(Fout,fstride,st,m); break;
+            case 3: kf_bfly3(Fout,fstride,st,m); break; 
+            case 4: kf_bfly4(Fout,fstride,st,m); break;
+            case 5: kf_bfly5(Fout,fstride,st,m); break; 
+            default: kf_bfly_generic(Fout,fstride,st,m,p); break;
+        }
+        return;
+    }
+#endif
+
     if (m==1) {
         do{
             *Fout = *f;

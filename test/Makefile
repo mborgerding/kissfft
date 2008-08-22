@@ -3,6 +3,12 @@ WARNINGS=-W -Wall -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return \
     -Wcast-align -Wcast-qual -Wnested-externs -Wshadow -Wbad-function-cast \
     -Wwrite-strings
 
+# for x86 pentium+ machines , these flags work well
+#CFLAGS=-O3  -march=pentiumpro -ffast-math -fomit-frame-pointer   -I.. -I../tools $(WARNINGS)
+# If the above flags do not work, try the following
+CFLAGS=-O3 -ffast-math -fomit-frame-pointer  -I.. -I../tools $(WARNINGS) 
+# TIP: try adding -openmp or -fopenmp  to enable OPENMP directives and use of multiple cores
+
 
 ifeq "$(NFFT)" ""
  NFFT=1800
@@ -55,10 +61,6 @@ all: tools $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTKFC)
 tools:
 	cd ../tools && make all
 
-# for x86 pentium+ machines , these flags work well
-#CFLAGS=-O3  -march=pentiumpro -ffast-math -fomit-frame-pointer   -I.. -I../tools $(WARNINGS)
-# If the above flags do not work, try the following
-CFLAGS=-O3 -ffast-math -fomit-frame-pointer  -I.. -I../tools $(WARNINGS)
 
 $(SELFTEST): $(SELFTESTSRC) $(SRCFILES)
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+
