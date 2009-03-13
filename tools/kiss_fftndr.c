@@ -39,6 +39,7 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
     size_t nr=0 , nd=0,ntmp=0;
     int dimReal = dims[ndims-1];
     int dimOther = prod(dims,ndims-1);
+    size_t memneeded;
     
     (void)kiss_fftr_alloc(dimReal,inverse_fft,NULL,&nr);
     (void)kiss_fftnd_alloc(dims,ndims-1,inverse_fft,NULL,&nd);
@@ -46,7 +47,7 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
         MAX( 2*dimOther , dimReal+2) * sizeof(kiss_fft_scalar)  // freq buffer for one pass
         + dimOther*(dimReal+2) * sizeof(kiss_fft_scalar);  // large enough to hold entire input in case of in-place
 
-    size_t memneeded = sizeof( struct kiss_fftndr_state ) + nr + nd + ntmp;
+    memneeded = sizeof( struct kiss_fftndr_state ) + nr + nd + ntmp;
 
     if (lenmem==NULL) {
         st = (kiss_fftndr_cfg) malloc(memneeded);
