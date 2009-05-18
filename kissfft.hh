@@ -22,8 +22,9 @@ struct traits
             std::vector<int> & stageRadix, 
             std::vector<int> & stageRemainder )
     {
-        dst.resize(nfft);
-        fill_twiddles( &dst[0],nfft,inverse);
+        _twiddles.resize(nfft);
+        fill_twiddles( &_twiddles[0],nfft,inverse);
+        dst = _twiddles;
 
         //factorize
         //start factoring out 4's, then 2's, then 3,5,7,9,...
@@ -44,7 +45,10 @@ struct traits
             stageRemainder.push_back(n);
         }while(n>1);
     }
-    //const std::complex<T_scalar> twiddle(int i) { return _twiddle[i]; }
+    std::vector<cpx_type> _twiddles;
+
+
+    const cpx_type twiddle(int i) { return _twiddles[i]; }
 };
 
 }
@@ -67,11 +71,11 @@ class kissfft
 
         void transform(const cpx_type * src , cpx_type * dst)
         {
-            kf_work(0, dst, src, 1);
+            kf_work(0, dst, src, 1,1);
         }
 
     private:
-        void kf_work( int stage,cpx_type * Fout, const cpx_type * f, const size_t fstride)
+        void kf_work( int stage,cpx_type * Fout, const cpx_type * f, size_t fstride,size_t in_stride)
         {
             int p = _stageRadix[stage];
             int m = _stageRemainder[stage];
@@ -81,7 +85,7 @@ class kissfft
             if (m==1) {
                 do{
                     *Fout = *f;
-                    f += fstride;
+                    f += fstride*in_stride;
                 }while(++Fout != Fout_end );
             }else{
                 do{
@@ -89,8 +93,8 @@ class kissfft
                     // DFT of size m*p performed by doing
                     // p instances of smaller DFTs of size m, 
                     // each one takes a decimated version of the input
-                    kf_work(stage+1, Fout , f, fstride*p);
-                    f += fstride;
+                    kf_work(stage+1, Fout , f, fstride*p,in_stride);
+                    f += fstride*in_stride;
                 }while( (Fout += m) != Fout_end );
             }
 
@@ -118,56 +122,33 @@ class kissfft
 
         void kf_bfly2( cpx_type * Fout, const size_t fstride, int m)
         {
-            cpx_type * Fout2;
-            cpx_type * tw1 = &_twiddles[0];
-            cpx_type t;
-            Fout2 = Fout + m;
-            do{
-                C_FIXDIV(*Fout,2); C_FIXDIV(*Fout2,2);
-
-                C_MUL (t,  *Fout2 , *tw1);
-                tw1 += fstride;
-                C_SUB( *Fout2 ,  *Fout , t );
-                C_ADDTO( *Fout ,  t );
-                ++Fout2;
-                ++Fout;
-            }while (--m);
+            for (int k=0;k<m;++k) {
+                cpx_type t = Fout[m+k] * _traits.twiddle(k*fstride);
+                Fout[m+k] = Fout[k] - t;
+                Fout[k] += t;
+            }
         }
 
         void kf_bfly4( cpx_type * Fout, const size_t fstride, const size_t m)
         {
-            cpx_type *tw1,*tw2,*tw3;
-            cpx_type scratch[6];
-            size_t k=m;
-            const size_t m2=2*m;
-            const size_t m3=3*m;
+            cpx_type scratch[7];
+            int negative_if_inverse = _inverse * -2 +1;
+            for (size_t k=0;k<m;++k) {
+                scratch[0] = Fout[k+m] * _traits.twiddle(k*fstride);
+                scratch[1] = Fout[k+2*m] * _traits.twiddle(k*fstride*2);
+                scratch[2] = Fout[k+3*m] * _traits.twiddle(k*fstride*3);
+                scratch[5] = Fout[k] - scratch[1];
 
-            tw3 = tw2 = tw1 = &_twiddles[0];
+                Fout[k] += scratch[1];
+                scratch[3] = scratch[0] + scratch[2];
+                scratch[4] = scratch[0] - scratch[2];
+                scratch[4] = cpx_type( scratch[4].imag()*negative_if_inverse , -scratch[4].real()* negative_if_inverse );
 
-            do {
-                C_MUL(scratch[0],Fout[m] , *tw1 );
-                C_MUL(scratch[1],Fout[m2] , *tw2 );
-                C_MUL(scratch[2],Fout[m3] , *tw3 );
-
-                C_SUB( scratch[5] , *Fout, scratch[1] );
-                C_ADDTO(*Fout, scratch[1]);
-                C_ADD( scratch[3] , scratch[0] , scratch[2] );
-                C_SUB( scratch[4] , scratch[0] , scratch[2] );
-                C_SUB( Fout[m2], *Fout, scratch[3] );
-                tw1 += fstride;
-                tw2 += fstride*2;
-                tw3 += fstride*3;
-                C_ADDTO( *Fout , scratch[3] );
-
-                if(_inverse) {
-                    Fout[m] = cpx_type( scratch[5].real() - scratch[4].imag() , scratch[5].imag() + scratch[4].real() );
-                    Fout[m3] = cpx_type( scratch[5].real() + scratch[4].imag() , scratch[5].imag() - scratch[4].real() );
-                }else{
-                    Fout[m] = cpx_type( scratch[5].real() + scratch[4].imag() , scratch[5].imag() - scratch[4].real() );
-                    Fout[m3] = cpx_type( scratch[5].real() - scratch[4].imag() , scratch[5].imag() + scratch[4].real() );
-                }
-                ++Fout;
-            }while(--k);
+                Fout[k+2*m]  = Fout[k] - scratch[3];
+                Fout[k] += scratch[3];
+                Fout[k+m] = scratch[5] + scratch[4];
+                Fout[k+3*m] = scratch[5] - scratch[4];
+            }
         }
 
         void kf_bfly3( cpx_type * Fout, const size_t fstride, const size_t m)

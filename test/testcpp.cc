@@ -67,7 +67,7 @@ int main(int argc,char ** argv)
     }else{
         dotest<float>(32); dotest<double>(32); dotest<long double>(32);
         dotest<float>(1024); dotest<double>(1024); dotest<long double>(1024);
-        dotest<float>(1800); dotest<double>(1800); dotest<long double>(1800);
+        dotest<float>(840); dotest<double>(840); dotest<long double>(840);
     }
     return 0;
 }
