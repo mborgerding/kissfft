@@ -20,23 +20,16 @@ void dotest(int nfft)
     typedef kissfft<T> FFT;
     typedef std::complex<T> cpx_type;
 
-    cout << typeid(T).name() << ":nfft=" << nfft <<endl;
+    cout << "type:" << typeid(T).name() << " nfft:" << nfft;
 
     FFT fft(nfft,false);
 
     vector<cpx_type> inbuf(nfft);
     vector<cpx_type> outbuf(nfft);
-#if 0
-    for (int k=0;k<nfft;++k) 
-        inbuf[k]= cpx_type(
-               cosl(2*k* M_PIl / nfft ),
-               sinl(2*k* M_PIl / nfft ) );
-#else
     for (int k=0;k<nfft;++k)
         inbuf[k]= cpx_type( 
                 (T)(rand()/(double)RAND_MAX - .5),
                 (T)(rand()/(double)RAND_MAX - .5) );
-#endif
     fft.transform( &inbuf[0] , &outbuf[0] );
 
     long double totalpower=0;
@@ -53,7 +46,7 @@ void dotest(int nfft)
         complex<long double> dif = acc - x;
         difpower += norm(dif);
     }
-    cout << "RMSE:" << sqrt(difpower/totalpower) << "\t";
+    cout << " RMSE:" << sqrt(difpower/totalpower) << "\t";
 
     double t0 = curtime();
     int nits=20e6/nfft;
@@ -61,16 +54,20 @@ void dotest(int nfft)
         fft.transform( &inbuf[0] , &outbuf[0] );
     }
     double t1 = curtime();
-    cout << "MSPS:" << ( (nits*nfft)*1e-6/ (t1-t0) ) << endl;
+    cout << " MSPS:" << ( (nits*nfft)*1e-6/ (t1-t0) ) << endl;
 }
 
 int main(int argc,char ** argv)
 {
-    dotest<float>(32);
-    dotest<double>(32);
-    dotest<long double>(32);
-
-    dotest<float>(1024); dotest<double>(1024); dotest<long double>(1024);
-    dotest<float>(1800); dotest<double>(1800); dotest<long double>(1800);
+    if (argc>1) {
+        for (int k=1;k<argc;++k) {
+            int nfft = atoi(argv[k]);
+            dotest<float>(nfft); dotest<double>(nfft); dotest<long double>(nfft);
+        }
+    }else{
+        dotest<float>(32); dotest<double>(32); dotest<long double>(32);
+        dotest<float>(1024); dotest<double>(1024); dotest<long double>(1024);
+        dotest<float>(1800); dotest<double>(1800); dotest<long double>(1800);
+    }
     return 0;
 }

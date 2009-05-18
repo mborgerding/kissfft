@@ -102,4 +102,4 @@ testcpp: testcpp.cc ../kissfft.hh
 
 
 clean:
-	rm -f *~ bm_* st_* tr_* kf_* tkfc_* ff_* ffr_* *.pyc *.pyo *.dat
+	rm -f *~ bm_* st_* tr_* kf_* tkfc_* ff_* ffr_* *.pyc *.pyo *.dat testcpp

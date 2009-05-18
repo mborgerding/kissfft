@@ -4,14 +4,20 @@
 
 namespace kissfft_utils {
 
-
-template <class T_twid>
+template <typename T_scalar>
 struct traits
 {
-    void fill_twiddles( std::complex<T_twid> * dst ,int nfft,bool inverse);
+    typedef T_scalar scalar_type;
+    typedef std::complex<scalar_type> cpx_type;
+    void fill_twiddles( std::complex<T_scalar> * dst ,int nfft,bool inverse)
+    {
+        T_scalar phinc =  (inverse?2:-2)* acos( (T_scalar) -1)  / nfft;
+        for (int i=0;i<nfft;++i)
+            dst[i] = exp( std::complex<T_scalar>(0,i*phinc) );
+    }
 
     void prepare(
-            std::vector< std::complex<T_twid> > & dst,
+            std::vector< std::complex<T_scalar> > & dst,
             int nfft,bool inverse, 
             std::vector<int> & stageRadix, 
             std::vector<int> & stageRemainder )
@@ -38,33 +44,20 @@ struct traits
             stageRemainder.push_back(n);
         }while(n>1);
     }
+    //const std::complex<T_scalar> twiddle(int i) { return _twiddle[i]; }
 };
 
-template <class T_twid>
-void traits<T_twid>::fill_twiddles( std::complex<T_twid> * dst ,int nfft,bool inverse)
-{
-    T_twid phinc =  (inverse?2:-2)* acos( (T_twid) -1)  / nfft;
-    for (int i=0;i<nfft;++i)
-        dst[i] = exp( std::complex<T_twid>(0,i*phinc) );
-}
-/*
-template <>
-void traits<long double>::fill_twiddles(std::complex<long double> * dst ,int nfft,bool inverse)
-{
-    long double phinc = (inverse?2:-2)*3.14159265358979323846264338327950288419716939937510L / nfft;
-    for (int i=0;i<nfft;++i)
-        dst[i] = std::complex<long double>(cosl(i*phinc),sinl(i*phinc));
-}
-*/
 }
 
-template <typename T_Data,typename T_traits=kissfft_utils::traits<T_Data> >
+template <typename T_Scalar,
+         typename T_traits=kissfft_utils::traits<T_Scalar> 
+         >
 class kissfft
 {
     public:
         typedef T_traits traits_type;
-        typedef T_Data scalar_type;
-        typedef std::complex<scalar_type> cpx_type;
+        typedef typename traits_type::scalar_type scalar_type;
+        typedef typename traits_type::cpx_type cpx_type;
 
         kissfft(int nfft,bool inverse,const traits_type & traits=traits_type() ) 
             :_nfft(nfft),_inverse(inverse),_traits(traits)
@@ -118,7 +111,7 @@ class kissfft
         void C_MUL( cpx_type & c,const cpx_type & a,const cpx_type & b) { c=a*b;}
         void C_SUB( cpx_type & c,const cpx_type & a,const cpx_type & b) { c=a-b;}
         void C_ADDTO( cpx_type & c,const cpx_type & a) { c+=a;}
-        void C_FIXDIV( cpx_type & c,int n) {} // NO-OP for float types
+        void C_FIXDIV( cpx_type & ,int ) {} // NO-OP for float types
         scalar_type S_MUL( const scalar_type & a,const scalar_type & b) { return a*b;}
         scalar_type HALF_OF( const scalar_type & a) { return a*.5;}
         void C_MULBYSCALAR(cpx_type & c,const scalar_type & a) {c*=a;}
@@ -215,7 +208,7 @@ class kissfft
         void kf_bfly5( cpx_type * Fout, const size_t fstride, const size_t m)
         {
             cpx_type *Fout0,*Fout1,*Fout2,*Fout3,*Fout4;
-            int u;
+            size_t u;
             cpx_type scratch[13];
             cpx_type * twiddles = &_twiddles[0];
             cpx_type *tw;
