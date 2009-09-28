@@ -27,7 +27,9 @@ extern "C" {
 #ifdef USE_SIMD
 # include <xmmintrin.h>
 # define kiss_fft_scalar __m128
-#define KISS_FFT_MALLOC(nbytes) memalign(16,nbytes)
+    
+//#define KISS_FFT_MALLOC(nbytes) memalign(16,nbytes)
+#define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
 #else	
 #define KISS_FFT_MALLOC malloc
 #endif	
