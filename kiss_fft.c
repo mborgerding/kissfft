@@ -14,6 +14,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
 #include "_kiss_fft_guts.h"
+
+
 /* The guts header contains all the multiplication and addition macros that are defined for
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
@@ -68,6 +70,7 @@ static void kf_bfly4(
     size_t k=m;
     const size_t m2=2*m;
     const size_t m3=3*m;
+
 
     tw3 = tw2 = tw1 = st->twiddles;
 
@@ -265,7 +268,7 @@ void kf_work(
 #ifdef _OPENMP
     // use openmp extensions at the 
     // top-level (not recursive)
-    if (fstride==1) {
+    if (fstride==1 && m != 1) {
         int k;
 
         // execute the p different work units in different threads
