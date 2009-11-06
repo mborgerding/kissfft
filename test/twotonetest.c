@@ -64,18 +64,24 @@ double two_tone_test( int nfft, int bin1,int bin2)
     return 10*log10(sigpow/(noisepow+1e-50) );
 }
 
-int main(void)
+int main(int argc,char ** argv)
 {
     int nfft = 4*2*2*3*5;
+    if (argc>1) nfft = atoi(argv[1]);
+
     int i,j;
     double minsnr = 500;
     double maxsnr = -500;
     double snr;
-    for (i=0;i<nfft/2;++i) {
-        for (j=i;j<nfft/2;j+=7) {
+    for (i=0;i<nfft/2;i+= (nfft>>4)+1) {
+        for (j=i;j<nfft/2;j+=(nfft>>4)+7) {
             snr = two_tone_test(nfft,i,j);
-            if (snr<minsnr) minsnr=snr;
-            if (snr>maxsnr) maxsnr=snr;
+            if (snr<minsnr) {
+                minsnr=snr;
+            }
+            if (snr>maxsnr) {
+                maxsnr=snr;
+            }
         }
     }
     snr = two_tone_test(nfft,nfft/2,nfft/2);
