@@ -59,38 +59,40 @@ double snr_compare( kiss_fft_cpx * vec1,kiss_fft_cpx * vec2, int n)
     }
     return snr;
 }
-#define NFFT 8*3*5
 
 #ifndef NUMFFTS
 #define NUMFFTS 10000
 #endif
 
 
-int main(void)
+int main(int argc,char ** argv)
 {
+    int nfft = 8*3*5;
     double ts,tfft,trfft;
     int i;
-    kiss_fft_cpx cin[NFFT];
-    kiss_fft_cpx cout[NFFT];
-    kiss_fft_cpx sout[NFFT];
+    if (argc>1)
+        nfft = atoi(argv[1]);
+    kiss_fft_cpx cin[nfft];
+    kiss_fft_cpx cout[nfft];
+    kiss_fft_cpx sout[nfft];
     kiss_fft_cfg  kiss_fft_state;
     kiss_fftr_cfg  kiss_fftr_state;
 
-    kiss_fft_scalar rin[NFFT+2];
-    kiss_fft_scalar rout[NFFT+2];
+    kiss_fft_scalar rin[nfft+2];
+    kiss_fft_scalar rout[nfft+2];
     kiss_fft_scalar zero;
     memset(&zero,0,sizeof(zero) ); // ugly way of setting short,int,float,double, or __m128 to zero
 
     srand(time(0));
 
-    for (i=0;i<NFFT;++i) {
+    for (i=0;i<nfft;++i) {
         rin[i] = rand_scalar();
         cin[i].r = rin[i];
         cin[i].i = zero;
     }
 
-    kiss_fft_state = kiss_fft_alloc(NFFT,0,0,0);
-    kiss_fftr_state = kiss_fftr_alloc(NFFT,0,0,0);
+    kiss_fft_state = kiss_fft_alloc(nfft,0,0,0);
+    kiss_fftr_state = kiss_fftr_alloc(nfft,0,0,0);
     kiss_fft(kiss_fft_state,cin,cout);
     kiss_fftr(kiss_fftr_state,rin,sout);
     /*
@@ -105,7 +107,7 @@ int main(void)
     */
         
     printf( "nfft=%d, inverse=%d, snr=%g\n",
-            NFFT,0, snr_compare(cout,sout,(NFFT/2)+1) );
+            nfft,0, snr_compare(cout,sout,(nfft/2)+1) );
     ts = cputime();
     for (i=0;i<NUMFFTS;++i) {
         kiss_fft(kiss_fft_state,cin,cout);
@@ -124,12 +126,12 @@ int main(void)
     free(kiss_fft_state);
     free(kiss_fftr_state);
 
-    kiss_fft_state = kiss_fft_alloc(NFFT,1,0,0);
-    kiss_fftr_state = kiss_fftr_alloc(NFFT,1,0,0);
+    kiss_fft_state = kiss_fft_alloc(nfft,1,0,0);
+    kiss_fftr_state = kiss_fftr_alloc(nfft,1,0,0);
 
     memset(cin,0,sizeof(cin));
 #if 1
-    for (i=1;i< NFFT/2;++i) {
+    for (i=1;i< nfft/2;++i) {
         //cin[i].r = (kiss_fft_scalar)(rand()-RAND_MAX/2);
         cin[i].r = rand_scalar();
         cin[i].i = rand_scalar();
@@ -137,13 +139,13 @@ int main(void)
 #else
     cin[0].r = 12000;
     cin[3].r = 12000;
-    cin[NFFT/2].r = 12000;
+    cin[nfft/2].r = 12000;
 #endif
 
     // conjugate symmetry of real signal 
-    for (i=1;i< NFFT/2;++i) {
-        cin[NFFT-i].r = cin[i].r;
-        cin[NFFT-i].i = - cin[i].i;
+    for (i=1;i< nfft/2;++i) {
+        cin[nfft-i].r = cin[i].r;
+        cin[nfft-i].i = - cin[i].i;
     }
 
     kiss_fft(kiss_fft_state,cin,cout);
@@ -156,13 +158,13 @@ int main(void)
     printf(" results from inverse kiss_fftr: %f,%f,%f,%f,%f ... \n"
             ,(float)rout[0] ,(float)rout[1] ,(float)rout[2] ,(float)rout[3] ,(float)rout[4]);
 */
-    for (i=0;i<NFFT;++i) {
+    for (i=0;i<nfft;++i) {
         sout[i].r = rout[i];
         sout[i].i = zero;
     }
 
     printf( "nfft=%d, inverse=%d, snr=%g\n",
-            NFFT,1, snr_compare(cout,sout,NFFT/2) );
+            nfft,1, snr_compare(cout,sout,nfft/2) );
     free(kiss_fft_state);
     free(kiss_fftr_state);
 

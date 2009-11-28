@@ -225,29 +225,30 @@ static void kf_bfly_generic(
     kiss_fft_cpx t;
     int Norig = st->nfft;
 
-    CHECKBUF(scratchbuf,nscratchbuf,p);
+    kiss_fft_cpx * scratch = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx)*p);
 
     for ( u=0; u<m; ++u ) {
         k=u;
         for ( q1=0 ; q1<p ; ++q1 ) {
-            scratchbuf[q1] = Fout[ k  ];
-            C_FIXDIV(scratchbuf[q1],p);
+            scratch[q1] = Fout[ k  ];
+            C_FIXDIV(scratch[q1],p);
             k += m;
         }
 
         k=u;
         for ( q1=0 ; q1<p ; ++q1 ) {
             int twidx=0;
-            Fout[ k ] = scratchbuf[0];
+            Fout[ k ] = scratch[0];
             for (q=1;q<p;++q ) {
                 twidx += fstride * k;
                 if (twidx>=Norig) twidx-=Norig;
-                C_MUL(t,scratchbuf[q] , twiddles[twidx] );
+                C_MUL(t,scratch[q] , twiddles[twidx] );
                 C_ADDTO( Fout[ k ] ,t);
             }
             k += m;
         }
     }
+    free(scratch);
 }
 
 static
@@ -268,7 +269,8 @@ void kf_work(
 #ifdef _OPENMP
     // use openmp extensions at the 
     // top-level (not recursive)
-    if (fstride==1 && m != 1) {
+    if (fstride==1 && p<=5)
+    {
         int k;
 
         // execute the p different work units in different threads

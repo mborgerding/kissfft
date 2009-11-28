@@ -3,14 +3,12 @@ WARNINGS=-W -Wall -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return \
     -Wcast-align -Wcast-qual -Wnested-externs -Wshadow -Wbad-function-cast \
     -Wwrite-strings
 
-# for x86 pentium+ machines , these flags work well
-#
 CFLAGS=-O3 -I.. -I../tools $(WARNINGS)
 CFLAGS+=-ffast-math -fomit-frame-pointer 
 CFLAGS+=-march=prescott 
 #CFLAGS+= -mtune=native
 # TIP: try adding -openmp or -fopenmp  to enable OPENMP directives and use of multiple cores
-#CFLAGS+= -fopenmp
+CFLAGS+=-fopenmp
 
 
 ifeq "$(NFFT)" ""
