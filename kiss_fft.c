@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2003-2004, Mark Borgerding
+Copyright (c) 2003-2010, Mark Borgerding
 
 All rights reserved.
 
@@ -14,26 +14,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
 #include "_kiss_fft_guts.h"
-
-
 /* The guts header contains all the multiplication and addition macros that are defined for
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
-
-static kiss_fft_cpx *scratchbuf=NULL;
-static size_t nscratchbuf=0;
-static kiss_fft_cpx *tmpbuf=NULL;
-static size_t ntmpbuf=0;
-
-#define CHECKBUF(buf,nbuf,n) \
-    do { \
-        if ( nbuf < (size_t)(n) ) {\
-            free(buf); \
-            buf = (kiss_fft_cpx*)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx)*(n)); \
-            nbuf = (size_t)(n); \
-        } \
-   }while(0)
-
 
 static void kf_bfly2(
         kiss_fft_cpx * Fout,
@@ -225,7 +208,7 @@ static void kf_bfly_generic(
     kiss_fft_cpx t;
     int Norig = st->nfft;
 
-    kiss_fft_cpx * scratch = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx)*p);
+    kiss_fft_cpx * scratch = (kiss_fft_cpx*)KISS_FFT_TMP_ALLOC(sizeof(kiss_fft_cpx)*p);
 
     for ( u=0; u<m; ++u ) {
         k=u;
@@ -248,7 +231,7 @@ static void kf_bfly_generic(
             k += m;
         }
     }
-    free(scratch);
+    KISS_FFT_TMP_FREE(scratch);
 }
 
 static
@@ -385,14 +368,15 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
 }
 
 
-
-    
 void kiss_fft_stride(kiss_fft_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,int in_stride)
 {
     if (fin == fout) {
-        CHECKBUF(tmpbuf,ntmpbuf,st->nfft);
+        //NOTE: this is not really an in-place FFT algorithm.
+        //It just performs an out-of-place FFT into a temp buffer
+        kiss_fft_cpx * tmpbuf = (kiss_fft_cpx*)KISS_FFT_TMP_ALLOC( sizeof(kiss_fft_cpx)*st->nfft);
         kf_work(tmpbuf,fin,1,in_stride, st->factors,st);
         memcpy(fout,tmpbuf,sizeof(kiss_fft_cpx)*st->nfft);
+        KISS_FFT_TMP_FREE(tmpbuf);
     }else{
         kf_work( fout, fin, 1,in_stride, st->factors,st );
     }
@@ -404,17 +388,9 @@ void kiss_fft(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 }
 
 
-/* not really necessary to call, but if someone is doing in-place ffts, they may want to free the 
-   buffers from CHECKBUF
- */ 
 void kiss_fft_cleanup(void)
 {
-    free(scratchbuf);
-    scratchbuf = NULL;
-    nscratchbuf=0;
-    free(tmpbuf);
-    tmpbuf=NULL;
-    ntmpbuf=0;
+    // nothing needed any more
 }
 
 int kiss_fft_next_fast_size(int n)

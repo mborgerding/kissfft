@@ -22,6 +22,11 @@ ifeq "$(TYPEFLAGS)"  ""
  TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
 endif
 
+ifneq ("$(KISS_FFT_USE_ALLOCA)","")
+	CFLAGS+= -DKISS_FFT_USE_ALLOCA=1
+endif 
+CFLAGS+= $(CFLAGADD)
+
 
 FFTUTIL=fft_$(DATATYPE)
 FASTFILT=fastconv_$(DATATYPE)

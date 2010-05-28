@@ -5,10 +5,12 @@ WARNINGS=-W -Wall -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return \
 
 CFLAGS=-O3 -I.. -I../tools $(WARNINGS)
 CFLAGS+=-ffast-math -fomit-frame-pointer 
-CFLAGS+=-march=prescott 
-#CFLAGS+= -mtune=native
+#CFLAGS+=-funroll-loops
+#CFLAGS+=-march=prescott 
+CFLAGS+= -mtune=native 
 # TIP: try adding -openmp or -fopenmp  to enable OPENMP directives and use of multiple cores
-CFLAGS+=-fopenmp
+#CFLAGS+=-fopenmp
+CFLAGS+= $(CFLAGADD)
 
 
 ifeq "$(NFFT)" ""
