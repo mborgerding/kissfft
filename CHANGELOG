@@ -1,3 +1,8 @@
+1.2.9 2010-05-27
+  threadsafe ( including OpenMP )
+
+  first edition of kissfft.hh the C++ template fft engine
+ 
 1.2.8 
   Changed memory.h to string.h -- apparently more standard
   
