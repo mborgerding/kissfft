@@ -15,7 +15,7 @@ Speed:
       Real ffts are roughly twice as fast as complex.
 
     * If you can rearrange your code to do 4 FFTs in parallel and you are on a recent Intel or AMD machine,
-    then you might want to experiment with the USE_SIMD code.
+    then you might want to experiment with the USE_SIMD code.  See README.simd
 
 
 Reducing code size:
