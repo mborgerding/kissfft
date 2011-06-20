@@ -33,6 +33,8 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
     size_t memneeded = sizeof(struct kiss_fftnd_state);
     char * ptr;
 
+    size_t pad = memneeded % sizeof(DATATYPE);
+
     for (i=0;i<ndims;++i) {
         size_t sublen=0;
         kiss_fft_alloc (dims[i], inverse_fft, NULL, &sublen);
