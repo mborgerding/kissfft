@@ -2,7 +2,9 @@ KFVER=129
 
 doc:
 	@echo "Start by reading the README file.  If you want to build and test lots of stuff, do a 'make testall'"
-	@echo "but be aware that 'make testall' has dependencies that the basic kissfft software does not"
+	@echo "but be aware that 'make testall' has dependencies that the basic kissfft software does not."
+	@echo "It is generally unneeded to run these tests yourself, unless you plan on changing the inner workings"
+	@echo "of kissfft and would like to make use of its regression tests."
 
 testall:
 	# The simd and int32_t types may or may not work on your machine 
