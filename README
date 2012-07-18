@@ -40,8 +40,8 @@ You can do other cool stuff with the extras you'll find in tools/
     * fast convolution FIR filtering (not available for fixed point)
     * spectrum image creation
 
-The core fft and most tools/ code can be compiled to use float, double 
-or Q15 short samples. The default is float.
+The core fft and most tools/ code can be compiled to use float, double,
+ Q15 short or Q31 samples. The default is float.
 
 
 BACKGROUND:

@@ -1,3 +1,16 @@
+1.3.0 2012-07-18
+  removed non-standard malloc.h from kiss_fft.h
+
+  moved -lm to end of link line
+
+  checked various return values
+
+  converted python Numeric code to NumPy
+ 
+  fixed test of int32_t on 64 bit OS
+
+  added padding in a couple of places to allow SIMD alignment of structs
+
 1.2.9 2010-05-27
   threadsafe ( including OpenMP )
 
@@ -24,7 +37,7 @@
 
 1.2.4 (Oct 27, 2005)   The "oops, inverse fixed point real fft was borked" release. 
    Fixed scaling bug for inverse fixed point real fft -- also fixed test code that should've been failing.
-	Thanks to Jean-Marc Valin for bug report.
+    Thanks to Jean-Marc Valin for bug report.
 
    Use sys/types.h for more portable types than short,int,long => int16_t,int32_t,int64_t
    If your system does not have these, you may need to define them -- but at least it breaks in a 

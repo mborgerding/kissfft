@@ -1,4 +1,4 @@
-KFVER=129
+KFVER=130
 
 doc:
 	@echo "Start by reading the README file.  If you want to build and test lots of stuff, do a 'make testall'"
