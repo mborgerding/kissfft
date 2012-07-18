@@ -13,6 +13,7 @@ testall:
 	make -C test DATATYPE=int16_t CFLAGADD="$(CFLAGADD)" test
 	make -C test DATATYPE=float CFLAGADD="$(CFLAGADD)" test
 	make -C test DATATYPE=double CFLAGADD="$(CFLAGADD)" test
+	echo "all tests passed"
 
 tarball: clean
 	hg archive -r v$(KFVER) -t tgz kiss_fft$(KFVER).tar.gz 
