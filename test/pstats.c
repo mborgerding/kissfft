@@ -36,7 +36,9 @@ static void ps_report(void)
 #else /* GNU/Linux */
     sprintf(buf,"ps -o comm,majflt,minflt,rss,drs,pagein,sz,trs,vsz %d 1>&2",getpid() );
 #endif    
-    system( buf );
+    if (system( buf )==-1) {
+        perror("system call to ps failed");
+    }
 }
 
 void pstats_report()
