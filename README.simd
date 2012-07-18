@@ -1,4 +1,5 @@
-If you are reading this, it means you think you may be interested in using the SIMD extensions within kissfft.
+If you are reading this, it means you think you may be interested in using the SIMD extensions in kissfft 
+to do 4 *separate* FFTs at once.
 
 Beware! Beyond here there be dragons!
 
@@ -29,7 +30,8 @@ Search on "SIMD alignment" for more info.
 
 
 Robin at Divide Concept was kind enough to share his code for formatting to/from the SIMD kissfft.  
-I have not run it -- use it at your own risk.
+I have not run it -- use it at your own risk.  It appears to do 4xN and Nx4 transpositions 
+(out of place).
 
 void SSETools::pack128(float* target, float* source, unsigned long size128)
 {

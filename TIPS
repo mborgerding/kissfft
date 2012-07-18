@@ -21,7 +21,7 @@ Speed:
 Reducing code size:
     * remove some of the butterflies. There are currently butterflies optimized for radices
         2,3,4,5.  It is worth mentioning that you can still use FFT sizes that contain 
-        these factors, they just won't be quite as fast.  You can decide for yourself 
+        other factors, they just won't be quite as fast.  You can decide for yourself 
         whether to keep radix 2 or 4.  If you do some work in this area, let me 
         know what you find.
 

@@ -89,6 +89,6 @@ int main(int argc,char ** argv)
     if (snr>maxsnr) maxsnr=snr;
 
     printf("TwoToneTest: snr ranges from %ddB to %ddB\n",(int)minsnr,(int)maxsnr);
-    printf("sizeof(kiss_fft_scalar) = %d\n",sizeof(kiss_fft_scalar) );
+    printf("sizeof(kiss_fft_scalar) = %d\n",(int)sizeof(kiss_fft_scalar) );
     return 0;
 }

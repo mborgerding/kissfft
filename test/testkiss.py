@@ -7,8 +7,7 @@ import random
 import struct
 import popen2
 import getopt
-import Numeric
-import FFT
+import numpy
 
 pi=math.pi
 e=math.e
@@ -26,7 +25,7 @@ elif datatype=='int16_t':
     fmt='h'
     minsnr=10
 elif datatype=='int32_t':
-    fmt='l'
+    fmt='i'
 elif datatype=='simd':
     fmt='4f'
     sys.stderr.write('testkiss.py does not yet test simd')
@@ -39,21 +38,21 @@ else:
  
 
 def dopack(x,cpx=1):
-    x = Numeric.reshape( x, ( Numeric.size(x),) )
+    x = numpy.reshape( x, ( numpy.size(x),) )
     
     if cpx:
         s = ''.join( [ struct.pack(fmt*2,c.real,c.imag) for c in x ] )
     else:
-        s = ''.join( [ struct.pack(fmt,c) for c in x ] )
+        s = ''.join( [ struct.pack(fmt,c.real) for c in x ] )
     return s
 
 def dounpack(x,cpx):
     uf = fmt * ( len(x) / struct.calcsize(fmt) )
     s = struct.unpack(uf,x)
     if cpx:
-        return Numeric.array(s[::2]) + Numeric.array( s[1::2] )*j
+        return numpy.array(s[::2]) + numpy.array( s[1::2] )*j
     else:
-        return Numeric.array(s )
+        return numpy.array(s )
 
 def make_random(dims=[1]):
     res = []
@@ -67,11 +66,11 @@ def make_random(dims=[1]):
                 res.append( complex(r,i) )
         else:
             res.append( make_random( dims[1:] ) )
-    return Numeric.array(res)
+    return numpy.array(res)
 
 def flatten(x):
-    ntotal = Numeric.product(Numeric.shape(x))
-    return Numeric.reshape(x,(ntotal,))
+    ntotal = numpy.size(x)
+    return numpy.reshape(x,(ntotal,))
 
 def randmat( ndims ):
     dims=[]
@@ -85,20 +84,20 @@ def randmat( ndims ):
 def test_fft(ndims):
     x=randmat( ndims )
 
-    print 'dimensions=%s' % str( Numeric.shape(x) ),
+
     if doreal:
-        xver = FFT.real_fftnd(x)
+        xver = numpy.fft.rfftn(x)
     else:
-        xver = FFT.fftnd(x)
+        xver = numpy.fft.fftn(x)
     
     open('/tmp/fftexp.dat','w').write(dopack( flatten(xver) , True ) )
 
-    x2=dofft(x)
+    x2=dofft(x,doreal)
     err = xver - x2
     errf = flatten(err)
     xverf = flatten(xver)
-    errpow = Numeric.vdot(errf,errf)+1e-10
-    sigpow = Numeric.vdot(xverf,xverf)+1e-10
+    errpow = numpy.vdot(errf,errf)+1e-10
+    sigpow = numpy.vdot(xverf,xverf)+1e-10
     snr = 10*math.log10(abs(sigpow/errpow) )
     print 'SNR (compared to NumPy) : %.1fdB' % float(snr)
 
@@ -108,10 +107,9 @@ def test_fft(ndims):
         print 'err',err
         sys.exit(1)
  
-def dofft(x):
-    dims=list( Numeric.shape(x) )
+def dofft(x,isreal):
+    dims=list( numpy.shape(x) )
     x = flatten(x)
-    iscomp = (type(x[0]) == complex)
 
     scale=1
     if datatype=='int16_t':
@@ -126,11 +124,12 @@ def dofft(x):
     if doreal:
         cmd += ' -R '
 
+    print cmd
     p = popen2.Popen3(cmd )
 
-    open('/tmp/fftin.dat','w').write(dopack( x , iscomp ) )
+    open('/tmp/fftin.dat','w').write(dopack( x , isreal==False ) )
 
-    p.tochild.write( dopack( x , iscomp ) )
+    p.tochild.write( dopack( x , isreal==False ) )
     p.tochild.close()
 
     res = dounpack( p.fromchild.read() , 1 )
@@ -141,7 +140,7 @@ def dofft(x):
     res = scale * res
 
     p.wait()
-    return Numeric.reshape(res,dims)
+    return numpy.reshape(res,dims)
 
 def main():
     opts,args = getopt.getopt(sys.argv[1:],'r')

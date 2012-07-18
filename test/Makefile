@@ -7,7 +7,7 @@ CFLAGS=-O3 -I.. -I../tools $(WARNINGS)
 CFLAGS+=-ffast-math -fomit-frame-pointer 
 #CFLAGS+=-funroll-loops
 #CFLAGS+=-march=prescott 
-CFLAGS+= -mtune=native 
+#CFLAGS+= -mtune=native 
 # TIP: try adding -openmp or -fopenmp  to enable OPENMP directives and use of multiple cores
 #CFLAGS+=-fopenmp
 CFLAGS+= $(CFLAGADD)
@@ -66,20 +66,20 @@ tools:
 
 
 $(SELFTEST): $(SELFTESTSRC) $(SRCFILES)
-	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $+ -lm 
 
 $(TESTKFC): $(SRCFILES) 
-	$(CC) -o $@ $(CFLAGS)  -DKFC_TEST $(TYPEFLAGS) -lm $+
+	$(CC) -o $@ $(CFLAGS)  -DKFC_TEST $(TYPEFLAGS) $+ -lm
 	
 $(TESTREAL): test_real.c $(SRCFILES)
-	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm $+
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $+ -lm
 
 $(BENCHKISS): benchkiss.c $(SRCFILES)
-	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) -lm  $+
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS)  $+ -lm
 
 $(BENCHFFTW): benchfftw.c pstats.c
 	@echo "======attempting to build FFTW benchmark"
-	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) $+ -lm $(FFTWLIB) $(FFTWLIBDIR) || echo "FFTW not available for comparison"
+	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) $+ $(FFTWLIB) $(FFTWLIBDIR) -lm || echo "FFTW not available for comparison"
 
 test: all
 	@./$(TESTKFC)
@@ -101,7 +101,7 @@ selftest_short.c:
 
 CXXFLAGS=-O3 -ffast-math -fomit-frame-pointer  -I.. -I../tools -W -Wall
 testcpp: testcpp.cc ../kissfft.hh
-	$(CXX) -o $@ $(CXXFLAGS) -lm testcpp.cc
+	$(CXX) -o $@ $(CXXFLAGS) testcpp.cc -lm
 
 
 clean:
