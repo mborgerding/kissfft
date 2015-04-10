@@ -5,6 +5,9 @@ all:
 	ar crus libkissfft.a kiss_fft.o
 	gcc -shared -Wl,-soname,libkissfft.so -o libkissfft.so kiss_fft.o
 
+install: all
+	cp libkissfft.so /usr/local/lib/
+
 doc:
 	@echo "Start by reading the README file.  If you want to build and test lots of stuff, do a 'make testall'"
 	@echo "but be aware that 'make testall' has dependencies that the basic kissfft software does not."
