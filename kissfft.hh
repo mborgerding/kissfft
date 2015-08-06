@@ -1,4 +1,5 @@
 #ifndef KISSFFT_CLASS_HH
+#define KISSFFT_CLASS_HH
 #include <complex>
 #include <vector>
 
