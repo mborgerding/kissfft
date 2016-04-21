@@ -49,7 +49,7 @@ struct traits
     std::vector<cpx_type> _twiddles;
 
 
-    const cpx_type twiddle(int i) { return _twiddles[i]; }
+    const cpx_type twiddle(int i) const { return _twiddles[i]; }
 };
 
 }
@@ -70,13 +70,13 @@ class kissfft
             _traits.prepare(_twiddles, _nfft,_inverse ,_stageRadix, _stageRemainder);
         }
 
-        void transform(const cpx_type * src , cpx_type * dst)
+        void transform(const cpx_type * src , cpx_type * dst) const
         {
             kf_work(0, dst, src, 1,1);
         }
 
     private:
-        void kf_work( int stage,cpx_type * Fout, const cpx_type * f, size_t fstride,size_t in_stride)
+        void kf_work( int stage,cpx_type * Fout, const cpx_type * f, size_t fstride,size_t in_stride) const
         {
             int p = _stageRadix[stage];
             int m = _stageRemainder[stage];
@@ -112,16 +112,16 @@ class kissfft
         }
 
         // these were #define macros in the original kiss_fft
-        void C_ADD( cpx_type & c,const cpx_type & a,const cpx_type & b) { c=a+b;}
-        void C_MUL( cpx_type & c,const cpx_type & a,const cpx_type & b) { c=a*b;}
-        void C_SUB( cpx_type & c,const cpx_type & a,const cpx_type & b) { c=a-b;}
-        void C_ADDTO( cpx_type & c,const cpx_type & a) { c+=a;}
-        void C_FIXDIV( cpx_type & ,int ) {} // NO-OP for float types
-        scalar_type S_MUL( const scalar_type & a,const scalar_type & b) { return a*b;}
-        scalar_type HALF_OF( const scalar_type & a) { return a*.5;}
-        void C_MULBYSCALAR(cpx_type & c,const scalar_type & a) {c*=a;}
+        static void C_ADD( cpx_type & c,const cpx_type & a,const cpx_type & b) { c=a+b;}
+        static void C_MUL( cpx_type & c,const cpx_type & a,const cpx_type & b) { c=a*b;}
+        static void C_SUB( cpx_type & c,const cpx_type & a,const cpx_type & b) { c=a-b;}
+        static void C_ADDTO( cpx_type & c,const cpx_type & a) { c+=a;}
+        static void C_FIXDIV( cpx_type & ,int ) {} // NO-OP for float types
+        static scalar_type S_MUL( const scalar_type & a,const scalar_type & b) { return a*b;}
+        static scalar_type HALF_OF( const scalar_type & a) { return a*.5;}
+        static void C_MULBYSCALAR(cpx_type & c,const scalar_type & a) {c*=a;}
 
-        void kf_bfly2( cpx_type * Fout, const size_t fstride, int m)
+        void kf_bfly2( cpx_type * Fout, const size_t fstride, int m) const
         {
             for (int k=0;k<m;++k) {
                 cpx_type t = Fout[m+k] * _traits.twiddle(k*fstride);
@@ -130,7 +130,7 @@ class kissfft
             }
         }
 
-        void kf_bfly4( cpx_type * Fout, const size_t fstride, const size_t m)
+        void kf_bfly4( cpx_type * Fout, const size_t fstride, const size_t m) const
         {
             cpx_type scratch[7];
             int negative_if_inverse = _inverse * -2 +1;
@@ -152,11 +152,11 @@ class kissfft
             }
         }
 
-        void kf_bfly3( cpx_type * Fout, const size_t fstride, const size_t m)
+        void kf_bfly3( cpx_type * Fout, const size_t fstride, const size_t m) const
         {
             size_t k=m;
             const size_t m2 = 2*m;
-            cpx_type *tw1,*tw2;
+            const cpx_type *tw1,*tw2;
             cpx_type scratch[5];
             cpx_type epi3;
             epi3 = _twiddles[fstride*m];
@@ -187,13 +187,13 @@ class kissfft
             }while(--k);
         }
 
-        void kf_bfly5( cpx_type * Fout, const size_t fstride, const size_t m)
+        void kf_bfly5( cpx_type * Fout, const size_t fstride, const size_t m) const
         {
             cpx_type *Fout0,*Fout1,*Fout2,*Fout3,*Fout4;
             size_t u;
             cpx_type scratch[13];
-            cpx_type * twiddles = &_twiddles[0];
-            cpx_type *tw;
+            const cpx_type * twiddles = &_twiddles[0];
+            const cpx_type *tw;
             cpx_type ya,yb;
             ya = twiddles[fstride*m];
             yb = twiddles[fstride*2*m];
@@ -259,10 +259,10 @@ class kissfft
                 const size_t fstride,
                 int m,
                 int p
-                )
+                ) const
         {
             int u,k,q1,q;
-            cpx_type * twiddles = &_twiddles[0];
+            const cpx_type * twiddles = &_twiddles[0];
             cpx_type t;
             int Norig = _nfft;
             cpx_type scratchbuf[p];
