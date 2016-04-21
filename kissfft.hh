@@ -3,71 +3,45 @@
 #include <complex>
 #include <vector>
 
-namespace kissfft_utils {
-
-template <typename T_scalar>
-struct traits
-{
-    typedef T_scalar scalar_type;
-    typedef std::complex<scalar_type> cpx_type;
-    static void fill_twiddles( cpx_type * dst,
-                        std::size_t nfft,
-                        bool inverse )
-    {
-        const T_scalar phinc =  (inverse?2:-2)* acos( (T_scalar) -1)  / nfft;
-        for (std::size_t i=0;i<nfft;++i)
-            dst[i] = std::exp( cpx_type(0,i*phinc) );
-    }
-
-    static void prepare(
-            std::vector< cpx_type > & _twiddles,
-            std::size_t nfft,
-            bool inverse,
-            std::vector<std::size_t> & stageRadix,
-            std::vector<std::size_t> & stageRemainder )
-    {
-        _twiddles.resize(nfft);
-        fill_twiddles( &_twiddles[0],nfft,inverse);
-
-        //factorize
-        //start factoring out 4's, then 2's, then 3,5,7,9,...
-        std::size_t n= nfft;
-        std::size_t p=4;
-        do {
-            while (n % p) {
-                switch (p) {
-                    case 4: p = 2; break;
-                    case 2: p = 3; break;
-                    default: p += 2; break;
-                }
-                if (p*p>n)
-                    p = n;// no more factors
-            }
-            n /= p;
-            stageRadix.push_back(p);
-            stageRemainder.push_back(n);
-        }while(n>1);
-    }
-};
-
-}
 
 template <typename T_Scalar,
-         typename T_traits=kissfft_utils::traits<T_Scalar> 
+         typename T_Complex=std::complex<T_Scalar>
          >
 class kissfft
 {
     public:
-        typedef T_traits traits_type;
-        typedef typename traits_type::scalar_type scalar_type;
-        typedef typename traits_type::cpx_type cpx_type;
+        typedef T_Scalar scalar_type;
+        typedef T_Complex cpx_type;
 
         kissfft( std::size_t nfft,
                  bool inverse )
             :_nfft(nfft)
             ,_inverse(inverse)
         {
-            T_traits::prepare(_twiddles, _nfft,_inverse ,_stageRadix, _stageRemainder);
+            // fill twiddle factors
+            _twiddles.resize(_nfft);
+            const scalar_type phinc =  (_inverse?2:-2)* acos( (scalar_type) -1)  / _nfft;
+            for (std::size_t i=0;i<_nfft;++i)
+                _twiddles[i] = std::exp( cpx_type(0,i*phinc) );
+
+            //factorize
+            //start factoring out 4's, then 2's, then 3,5,7,9,...
+            std::size_t n= _nfft;
+            std::size_t p=4;
+            do {
+                while (n % p) {
+                    switch (p) {
+                        case 4: p = 2; break;
+                        case 2: p = 3; break;
+                        default: p += 2; break;
+                    }
+                    if (p*p>n)
+                        p = n;// no more factors
+                }
+                n /= p;
+                _stageRadix.push_back(p);
+                _stageRemainder.push_back(n);
+            }while(n>1);
         }
 
         void transform( const cpx_type * src,
