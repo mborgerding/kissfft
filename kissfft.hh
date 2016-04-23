@@ -22,7 +22,7 @@ class kissfft
             _twiddles.resize(_nfft);
             const scalar_type phinc =  (_inverse?2:-2)* acos( (scalar_type) -1)  / _nfft;
             for (std::size_t i=0;i<_nfft;++i)
-                _twiddles[i] = std::exp( cpx_type(0,i*phinc) );
+                _twiddles[i] = exp( cpx_type(0,i*phinc) );
 
             //factorize
             //start factoring out 4's, then 2's, then 3,5,7,9,...
@@ -44,10 +44,88 @@ class kissfft
             }while(n>1);
         }
 
+        /// Calculates the complex Discrete Fourier Transform.
+        ///
+        /// The size of the passed arrays must be passed in the constructor.
+        /// The sum of the squares of the absolute values in the @c dst
+        /// array will be @c N times the sum of the squares of the absolute
+        /// values in the @c src array, where @c N is the size of the array.
+        /// In other words, the l_2 norm of the resulting array will be
+        /// @c sqrt(N) times as big as the l_2 norm of the input array.
+        /// This is also the case when the inverse flag is set in the
+        /// constructor. Hence when applying the same transform twice, but with
+        /// the inverse flag changed the second time, then the result will
+        /// be equal to the original input times @c N.
         void transform( const cpx_type * src,
                         cpx_type * dst ) const
         {
             kf_work(0, dst, src, 1,1);
+        }
+
+        /// Calculates the Discrete Fourier Transform (DFT) of a real input
+        /// of size @c 2*N.
+        ///
+        /// The 0-th and N-th value of the DFT are real numbers. These are
+        /// stored in @c dst[0].real() and @c dst[1].imag() respectively.
+        /// The remaining DFT values up to the index N-1 are stored in
+        /// @c dst[1] to @c dst[N-1].
+        /// The other half of the DFT values can be calculated from the
+        /// symmetry relation
+        ///     @code
+        ///         DFT(src)[2*N-k] == conj( DFT(src)[k] );
+        ///     @endcode
+        /// The same scaling factors as in @c transform() apply.
+        ///
+        /// @note For this to work, the types @c scalar_type and @c cpx_type
+        /// must fulfill the following requirements:
+        ///
+        /// For any object @c z of type @c cpx_type,
+        /// @c reinterpret_cast<scalar_type(&)[2]>(z)[0] is the real part of @c z and
+        /// @c reinterpret_cast<scalar_type(&)[2]>(z)[1] is the imaginary part of @c z.
+        /// For any pointer to an element of an array of @c cpx_type named @c p
+        /// and any valid array index @c i, @c reinterpret_cast<T*>(p)[2*i]
+        /// is the real part of the complex number @c p[i], and
+        /// @c reinterpret_cast<T*>(p)[2*i+1] is the imaginary part of the
+        /// complex number @c p[i].
+        ///
+        /// Since C++11, these requirements are guaranteed to be satisfied for
+        /// @c scalar_types being @c float, @c double or @c long @c double
+        /// together with @c cpx_type being @c std::complex<scalar_type>.
+        void transform_real( const scalar_type * src,
+                             cpx_type * dst ) const
+        {
+            const std::size_t N = _nfft;
+            if ( N == 0 )
+              return;
+
+            // perform complex FFT
+            transform( reinterpret_cast<const cpx_type*>(src), dst );
+
+            // post processing for k = 0 and k = N
+            dst[0] = cpx_type( dst[0].real() + dst[0].imag(),
+                               dst[0].real() - dst[0].imag() );
+
+            // post processing for all the other k = 1, 2, ..., N-1
+            const scalar_type pi = acos( (scalar_type) -1);
+            const scalar_type half_phi_inc = ( _inverse ? pi : -pi ) / N;
+            const cpx_type twiddle_mul = exp( cpx_type(0, half_phi_inc) );
+            for ( std::size_t k = 1; 2*k < N; ++k )
+            {
+              const cpx_type w = 0.5 * cpx_type(
+                   dst[k].real() + dst[N-k].real(),
+                   dst[k].imag() - dst[N-k].imag() );
+              const cpx_type z = 0.5 * cpx_type(
+                   dst[k].imag() + dst[N-k].imag(),
+                  -dst[k].real() + dst[N-k].real() );
+              const cpx_type twiddle =
+                  k % 2 == 0 ?
+                  _twiddles[k/2] :
+                  _twiddles[k/2] * twiddle_mul;
+              dst[  k] =       w + twiddle * z;
+              dst[N-k] = conj( w - twiddle * z );
+            }
+            if ( N % 2 == 0 )
+              dst[N/2] = conj( dst[N/2] );
         }
 
     private:
