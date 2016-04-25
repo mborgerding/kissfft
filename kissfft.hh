@@ -96,7 +96,7 @@ class kissfft
         {
             const std::size_t N = _nfft;
             if ( N == 0 )
-              return;
+                return;
 
             // perform complex FFT
             transform( reinterpret_cast<const cpx_type*>(src), dst );
@@ -111,21 +111,21 @@ class kissfft
             const cpx_type twiddle_mul = exp( cpx_type(0, half_phi_inc) );
             for ( std::size_t k = 1; 2*k < N; ++k )
             {
-              const cpx_type w = 0.5 * cpx_type(
-                   dst[k].real() + dst[N-k].real(),
-                   dst[k].imag() - dst[N-k].imag() );
-              const cpx_type z = 0.5 * cpx_type(
-                   dst[k].imag() + dst[N-k].imag(),
-                  -dst[k].real() + dst[N-k].real() );
-              const cpx_type twiddle =
-                  k % 2 == 0 ?
-                  _twiddles[k/2] :
-                  _twiddles[k/2] * twiddle_mul;
-              dst[  k] =       w + twiddle * z;
-              dst[N-k] = conj( w - twiddle * z );
+                const cpx_type w = 0.5 * cpx_type(
+                     dst[k].real() + dst[N-k].real(),
+                     dst[k].imag() - dst[N-k].imag() );
+                const cpx_type z = 0.5 * cpx_type(
+                     dst[k].imag() + dst[N-k].imag(),
+                    -dst[k].real() + dst[N-k].real() );
+                const cpx_type twiddle =
+                    k % 2 == 0 ?
+                    _twiddles[k/2] :
+                    _twiddles[k/2] * twiddle_mul;
+                dst[  k] =       w + twiddle * z;
+                dst[N-k] = conj( w - twiddle * z );
             }
             if ( N % 2 == 0 )
-              dst[N/2] = conj( dst[N/2] );
+                dst[N/2] = conj( dst[N/2] );
         }
 
     private:
