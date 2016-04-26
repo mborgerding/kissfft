@@ -1,6 +1,7 @@
 #ifndef KISSFFT_CLASS_HH
 #define KISSFFT_CLASS_HH
 #include <complex>
+#include <utility>
 #include <vector>
 
 
@@ -42,6 +43,30 @@ class kissfft
                 _stageRadix.push_back(p);
                 _stageRemainder.push_back(n);
             }while(n>1);
+        }
+
+
+        /// Changes the FFT-length and/or the transform direction.
+        ///
+        /// @post The @c kissfft object will be in the same state as if it
+        /// had been newly constructed with the passed arguments.
+        /// However, the implementation may be faster than constructing a
+        /// new fft object.
+        void assign( std::size_t nfft,
+                     bool inverse )
+        {
+            if ( nfft != _nfft )
+            {
+                kissfft tmp( nfft, inverse ); // O(n) time.
+                std::swap( tmp, *this ); // this is O(1) in C++11, O(n) otherwise.
+            }
+            else if ( inverse != _inverse )
+            {
+                // conjugate the twiddle factors.
+                for ( typename std::vector<cpx_type>::iterator it = _twiddles.begin();
+                      it != _twiddles.end(); ++it )
+                    it->imag( -it->imag() );
+            }
         }
 
         /// Calculates the complex Discrete Fourier Transform.
