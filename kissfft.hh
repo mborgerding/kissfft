@@ -136,10 +136,10 @@ class kissfft
             const cpx_type twiddle_mul = exp( cpx_type(0, half_phi_inc) );
             for ( std::size_t k = 1; 2*k < N; ++k )
             {
-                const cpx_type w = 0.5 * cpx_type(
+                const cpx_type w = (scalar_type)0.5 * cpx_type(
                      dst[k].real() + dst[N-k].real(),
                      dst[k].imag() - dst[N-k].imag() );
-                const cpx_type z = 0.5 * cpx_type(
+                const cpx_type z = (scalar_type)0.5 * cpx_type(
                      dst[k].imag() + dst[N-k].imag(),
                     -dst[k].real() + dst[N-k].real() );
                 const cpx_type twiddle =
@@ -174,7 +174,7 @@ class kissfft
                 do{
                     // recursive call:
                     // DFT of size m*p performed by doing
-                    // p instances of smaller DFTs of size m, 
+                    // p instances of smaller DFTs of size m,
                     // each one takes a decimated version of the input
                     kf_work(stage+1, Fout , f, fstride*p,in_stride);
                     f += fstride*in_stride;
@@ -183,7 +183,7 @@ class kissfft
 
             Fout=Fout_beg;
 
-            // recombine the p smaller DFTs 
+            // recombine the p smaller DFTs
             switch (p) {
                 case 2: kf_bfly2(Fout,fstride,m); break;
                 case 3: kf_bfly3(Fout,fstride,m); break;
@@ -290,7 +290,7 @@ class kissfft
                         scratch[7].imag()*ya.real() + scratch[8].imag()*yb.real()
                         );
 
-                scratch[6] =  cpx_type( 
+                scratch[6] =  cpx_type(
                          scratch[10].imag()*ya.imag() + scratch[9].imag()*yb.imag(),
                         -scratch[10].real()*ya.imag() - scratch[9].real()*yb.imag()
                         );
@@ -298,7 +298,7 @@ class kissfft
                 *Fout1 = scratch[5] - scratch[6];
                 *Fout4 = scratch[5] + scratch[6];
 
-                scratch[11] = scratch[0] + 
+                scratch[11] = scratch[0] +
                     cpx_type(
                             scratch[7].real()*yb.real() + scratch[8].real()*ya.real(),
                             scratch[7].imag()*yb.real() + scratch[8].imag()*ya.real()
