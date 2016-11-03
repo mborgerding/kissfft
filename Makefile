@@ -1,9 +1,15 @@
 KFVER=130
 
+ifeq ($(shell uname -s),Darwin)
+	SHARED := -Wl,-install_name,libkissfft.dylib -o libkissfft.dylib
+else
+	SHARED := -Wl,-soname,libkissfft.so -o libkissfft.so
+endif
+
 all:
 	gcc -Wall -fPIC -c *.c -Dkiss_fft_scalar=float -o kiss_fft.o
 	ar crus libkissfft.a kiss_fft.o
-	gcc -shared -Wl,-soname,libkissfft.so -o libkissfft.so kiss_fft.o
+	gcc -shared $(SHARED) kiss_fft.o
 
 install: all
 	cp libkissfft.so /usr/local/lib/
