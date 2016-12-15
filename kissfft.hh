@@ -41,7 +41,7 @@ class kissfft
                 _stageRadix.push_back(p);
                 _stageRemainder.push_back(n);
             }while(n>1);
-        };
+        }
 
 
         /// Changes the FFT-length and/or the transform direction.
@@ -65,7 +65,7 @@ class kissfft
                       it != _twiddles.end(); ++it )
                     it->imag( -it->imag() );
             }
-        };
+        }
 
         /// Calculates the complex Discrete Fourier Transform.
         ///
@@ -112,7 +112,7 @@ class kissfft
                 case 5: kf_bfly5(fft_out,fstride,m); break;
                 default: kf_bfly_generic(fft_out,fstride,m,p); break;
             }
-        };
+        }
 
         /// Calculates the Discrete Fourier Transform (DFT) of a real input
         /// of size @c 2*N.
@@ -178,7 +178,7 @@ class kissfft
             }
             if ( N % 2 == 0 )
                 dst[N/2] = conj( dst[N/2] );
-        };
+        }
 
     private:
 
@@ -189,7 +189,7 @@ class kissfft
                 Fout[m+k] = Fout[k] - t;
                 Fout[k] += t;
             }
-        };
+        }
 
         void kf_bfly3( cpx_t * Fout, const std::size_t fstride, const std::size_t m) const
         {
@@ -220,7 +220,7 @@ class kissfft
                 Fout[m] += cpx_t( -scratch[0].imag(),scratch[0].real() );
                 ++Fout;
             }while(--k);
-        };
+        }
 
         void kf_bfly4( cpx_t * Fout, const std::size_t fstride, const std::size_t m) const
         {
@@ -243,7 +243,7 @@ class kissfft
                 Fout[k+  m] = scratch[5] + scratch[4];
                 Fout[k+3*m] = scratch[5] - scratch[4];
             }
-        };
+        }
 
         void kf_bfly5( cpx_t * Fout, const std::size_t fstride, const std::size_t m) const
         {
@@ -307,7 +307,7 @@ class kissfft
                 ++Fout3;
                 ++Fout4;
             }
-        };
+        }
 
         /* perform the butterfly for one stage of a mixed radix FFT */
         void kf_bfly_generic(
@@ -340,12 +340,12 @@ class kissfft
                     k += m;
                 }
             }
-        };
+        }
 
-    std::size_t _nfft;
-    bool _inverse;
-    std::vector<cpx_t> _twiddles;
-    std::vector<std::size_t> _stageRadix;
-    std::vector<std::size_t> _stageRemainder;
+        std::size_t _nfft;
+        bool _inverse;
+        std::vector<cpx_t> _twiddles;
+        std::vector<std::size_t> _stageRadix;
+        std::vector<std::size_t> _stageRemainder;
 };
 #endif
