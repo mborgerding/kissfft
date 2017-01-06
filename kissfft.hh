@@ -5,25 +5,23 @@
 #include <vector>
 
 
-template <typename T_Scalar,
-         typename T_Complex=std::complex<T_Scalar>
-         >
+template <typename scalar_t>
 class kissfft
 {
     public:
-        typedef T_Scalar scalar_type;
-        typedef T_Complex cpx_type;
 
-        kissfft( std::size_t nfft,
-                 bool inverse )
+        using cpx_t = std::complex<scalar_t>;
+
+        kissfft( const std::size_t nfft,
+                 const bool inverse )
             :_nfft(nfft)
             ,_inverse(inverse)
         {
             // fill twiddle factors
             _twiddles.resize(_nfft);
-            const scalar_type phinc =  (_inverse?2:-2)* acos( (scalar_type) -1)  / _nfft;
+            const scalar_t phinc =  (_inverse?2:-2)* acos( (scalar_t) -1)  / _nfft;
             for (std::size_t i=0;i<_nfft;++i)
-                _twiddles[i] = exp( cpx_type(0,i*phinc) );
+                _twiddles[i] = exp( cpx_t(0,i*phinc) );
 
             //factorize
             //start factoring out 4's, then 2's, then 3,5,7,9,...
@@ -52,8 +50,8 @@ class kissfft
         /// had been newly constructed with the passed arguments.
         /// However, the implementation may be faster than constructing a
         /// new fft object.
-        void assign( std::size_t nfft,
-                     bool inverse )
+        void assign( const std::size_t nfft,
+                     const bool inverse )
         {
             if ( nfft != _nfft )
             {
@@ -63,7 +61,7 @@ class kissfft
             else if ( inverse != _inverse )
             {
                 // conjugate the twiddle factors.
-                for ( typename std::vector<cpx_type>::iterator it = _twiddles.begin();
+                for ( typename std::vector<cpx_t>::iterator it = _twiddles.begin();
                       it != _twiddles.end(); ++it )
                     it->imag( -it->imag() );
             }
@@ -81,10 +79,39 @@ class kissfft
         /// constructor. Hence when applying the same transform twice, but with
         /// the inverse flag changed the second time, then the result will
         /// be equal to the original input times @c N.
-        void transform( const cpx_type * src,
-                        cpx_type * dst ) const
+        void transform(const cpx_t * fft_in, cpx_t * fft_out, const std::size_t stage = 0, const std::size_t fstride = 1, const std::size_t in_stride = 1) const
         {
-            kf_work(0, dst, src, 1,1);
+            const std::size_t p = _stageRadix[stage];
+            const std::size_t m = _stageRemainder[stage];
+            cpx_t * const Fout_beg = fft_out;
+            cpx_t * const Fout_end = fft_out + p*m;
+
+            if (m==1) {
+                do{
+                    *fft_out = *fft_in;
+                    fft_in += fstride*in_stride;
+                }while(++fft_out != Fout_end );
+            }else{
+                do{
+                    // recursive call:
+                    // DFT of size m*p performed by doing
+                    // p instances of smaller DFTs of size m,
+                    // each one takes a decimated version of the input
+                    transform(fft_in, fft_out, stage+1, fstride*p,in_stride);
+                    fft_in += fstride*in_stride;
+                }while( (fft_out += m) != Fout_end );
+            }
+
+            fft_out=Fout_beg;
+
+            // recombine the p smaller DFTs
+            switch (p) {
+                case 2: kf_bfly2(fft_out,fstride,m); break;
+                case 3: kf_bfly3(fft_out,fstride,m); break;
+                case 4: kf_bfly4(fft_out,fstride,m); break;
+                case 5: kf_bfly5(fft_out,fstride,m); break;
+                default: kf_bfly_generic(fft_out,fstride,m,p); break;
+            }
         }
 
         /// Calculates the Discrete Fourier Transform (DFT) of a real input
@@ -101,48 +128,48 @@ class kissfft
         ///     @endcode
         /// The same scaling factors as in @c transform() apply.
         ///
-        /// @note For this to work, the types @c scalar_type and @c cpx_type
+        /// @note For this to work, the types @c scalar_t and @c cpx_t
         /// must fulfill the following requirements:
         ///
-        /// For any object @c z of type @c cpx_type,
-        /// @c reinterpret_cast<scalar_type(&)[2]>(z)[0] is the real part of @c z and
-        /// @c reinterpret_cast<scalar_type(&)[2]>(z)[1] is the imaginary part of @c z.
-        /// For any pointer to an element of an array of @c cpx_type named @c p
+        /// For any object @c z of type @c cpx_t,
+        /// @c reinterpret_cast<scalar_t(&)[2]>(z)[0] is the real part of @c z and
+        /// @c reinterpret_cast<scalar_t(&)[2]>(z)[1] is the imaginary part of @c z.
+        /// For any pointer to an element of an array of @c cpx_t named @c p
         /// and any valid array index @c i, @c reinterpret_cast<T*>(p)[2*i]
         /// is the real part of the complex number @c p[i], and
         /// @c reinterpret_cast<T*>(p)[2*i+1] is the imaginary part of the
         /// complex number @c p[i].
         ///
         /// Since C++11, these requirements are guaranteed to be satisfied for
-        /// @c scalar_types being @c float, @c double or @c long @c double
-        /// together with @c cpx_type being @c std::complex<scalar_type>.
-        void transform_real( const scalar_type * src,
-                             cpx_type * dst ) const
+        /// @c scalar_ts being @c float, @c double or @c long @c double
+        /// together with @c cpx_t being @c std::complex<scalar_t>.
+        void transform_real( const scalar_t * const src,
+                             cpx_t * const dst ) const
         {
             const std::size_t N = _nfft;
             if ( N == 0 )
                 return;
 
             // perform complex FFT
-            transform( reinterpret_cast<const cpx_type*>(src), dst );
+            transform( reinterpret_cast<const cpx_t*>(src), dst );
 
             // post processing for k = 0 and k = N
-            dst[0] = cpx_type( dst[0].real() + dst[0].imag(),
+            dst[0] = cpx_t( dst[0].real() + dst[0].imag(),
                                dst[0].real() - dst[0].imag() );
 
             // post processing for all the other k = 1, 2, ..., N-1
-            const scalar_type pi = acos( (scalar_type) -1);
-            const scalar_type half_phi_inc = ( _inverse ? pi : -pi ) / N;
-            const cpx_type twiddle_mul = exp( cpx_type(0, half_phi_inc) );
+            const scalar_t pi = acos( (scalar_t) -1);
+            const scalar_t half_phi_inc = ( _inverse ? pi : -pi ) / N;
+            const cpx_t twiddle_mul = exp( cpx_t(0, half_phi_inc) );
             for ( std::size_t k = 1; 2*k < N; ++k )
             {
-                const cpx_type w = (scalar_type)0.5 * cpx_type(
+                const cpx_t w = (scalar_t)0.5 * cpx_t(
                      dst[k].real() + dst[N-k].real(),
                      dst[k].imag() - dst[N-k].imag() );
-                const cpx_type z = (scalar_type)0.5 * cpx_type(
+                const cpx_t z = (scalar_t)0.5 * cpx_t(
                      dst[k].imag() + dst[N-k].imag(),
                     -dst[k].real() + dst[N-k].real() );
-                const cpx_type twiddle =
+                const cpx_t twiddle =
                     k % 2 == 0 ?
                     _twiddles[k/2] :
                     _twiddles[k/2] * twiddle_mul;
@@ -154,84 +181,23 @@ class kissfft
         }
 
     private:
-        void kf_work( std::size_t stage,
-                      cpx_type * Fout,
-                      const cpx_type * f,
-                      std::size_t fstride,
-                      std::size_t in_stride) const
-        {
-            const std::size_t p = _stageRadix[stage];
-            const std::size_t m = _stageRemainder[stage];
-            cpx_type * const Fout_beg = Fout;
-            cpx_type * const Fout_end = Fout + p*m;
 
-            if (m==1) {
-                do{
-                    *Fout = *f;
-                    f += fstride*in_stride;
-                }while(++Fout != Fout_end );
-            }else{
-                do{
-                    // recursive call:
-                    // DFT of size m*p performed by doing
-                    // p instances of smaller DFTs of size m,
-                    // each one takes a decimated version of the input
-                    kf_work(stage+1, Fout , f, fstride*p,in_stride);
-                    f += fstride*in_stride;
-                }while( (Fout += m) != Fout_end );
-            }
-
-            Fout=Fout_beg;
-
-            // recombine the p smaller DFTs
-            switch (p) {
-                case 2: kf_bfly2(Fout,fstride,m); break;
-                case 3: kf_bfly3(Fout,fstride,m); break;
-                case 4: kf_bfly4(Fout,fstride,m); break;
-                case 5: kf_bfly5(Fout,fstride,m); break;
-                default: kf_bfly_generic(Fout,fstride,m,p); break;
-            }
-        }
-
-        void kf_bfly2( cpx_type * Fout, const size_t fstride, std::size_t m) const
+        void kf_bfly2( cpx_t * Fout, const size_t fstride, const std::size_t m) const
         {
             for (std::size_t k=0;k<m;++k) {
-                const cpx_type t = Fout[m+k] * _twiddles[k*fstride];
+                const cpx_t t = Fout[m+k] * _twiddles[k*fstride];
                 Fout[m+k] = Fout[k] - t;
                 Fout[k] += t;
             }
         }
 
-        void kf_bfly4( cpx_type * Fout, const std::size_t fstride, const std::size_t m) const
-        {
-            cpx_type scratch[7];
-            const scalar_type negative_if_inverse = _inverse ? -1 : +1;
-            for (std::size_t k=0;k<m;++k) {
-                scratch[0] = Fout[k+  m] * _twiddles[k*fstride  ];
-                scratch[1] = Fout[k+2*m] * _twiddles[k*fstride*2];
-                scratch[2] = Fout[k+3*m] * _twiddles[k*fstride*3];
-                scratch[5] = Fout[k] - scratch[1];
-
-                Fout[k] += scratch[1];
-                scratch[3] = scratch[0] + scratch[2];
-                scratch[4] = scratch[0] - scratch[2];
-                scratch[4] = cpx_type( scratch[4].imag()*negative_if_inverse ,
-                                      -scratch[4].real()*negative_if_inverse );
-
-                Fout[k+2*m]  = Fout[k] - scratch[3];
-                Fout[k    ]+= scratch[3];
-                Fout[k+  m] = scratch[5] + scratch[4];
-                Fout[k+3*m] = scratch[5] - scratch[4];
-            }
-        }
-
-        void kf_bfly3( cpx_type * Fout, const std::size_t fstride, const std::size_t m) const
+        void kf_bfly3( cpx_t * Fout, const std::size_t fstride, const std::size_t m) const
         {
             std::size_t k=m;
             const std::size_t m2 = 2*m;
-            const cpx_type *tw1,*tw2;
-            cpx_type scratch[5];
-            const cpx_type epi3 = _twiddles[fstride*m];
+            const cpx_t *tw1,*tw2;
+            cpx_t scratch[5];
+            const cpx_t epi3 = _twiddles[fstride*m];
 
             tw1=tw2=&_twiddles[0];
 
@@ -244,24 +210,47 @@ class kissfft
                 tw1 += fstride;
                 tw2 += fstride*2;
 
-                Fout[m] = Fout[0] - scratch[3]*scalar_type(0.5);
+                Fout[m] = Fout[0] - scratch[3]*scalar_t(0.5);
                 scratch[0] *= epi3.imag();
 
                 Fout[0] += scratch[3];
 
-                Fout[m2] = cpx_type(  Fout[m].real() + scratch[0].imag() , Fout[m].imag() - scratch[0].real() );
+                Fout[m2] = cpx_t(  Fout[m].real() + scratch[0].imag() , Fout[m].imag() - scratch[0].real() );
 
-                Fout[m] += cpx_type( -scratch[0].imag(),scratch[0].real() );
+                Fout[m] += cpx_t( -scratch[0].imag(),scratch[0].real() );
                 ++Fout;
             }while(--k);
         }
 
-        void kf_bfly5( cpx_type * Fout, const std::size_t fstride, const std::size_t m) const
+        void kf_bfly4( cpx_t * const Fout, const std::size_t fstride, const std::size_t m) const
         {
-            cpx_type *Fout0,*Fout1,*Fout2,*Fout3,*Fout4;
-            cpx_type scratch[13];
-            const cpx_type ya = _twiddles[fstride*m];
-            const cpx_type yb = _twiddles[fstride*2*m];
+            cpx_t scratch[7];
+            const scalar_t negative_if_inverse = _inverse ? -1 : +1;
+            for (std::size_t k=0;k<m;++k) {
+                scratch[0] = Fout[k+  m] * _twiddles[k*fstride  ];
+                scratch[1] = Fout[k+2*m] * _twiddles[k*fstride*2];
+                scratch[2] = Fout[k+3*m] * _twiddles[k*fstride*3];
+                scratch[5] = Fout[k] - scratch[1];
+
+                Fout[k] += scratch[1];
+                scratch[3] = scratch[0] + scratch[2];
+                scratch[4] = scratch[0] - scratch[2];
+                scratch[4] = cpx_t( scratch[4].imag()*negative_if_inverse ,
+                                      -scratch[4].real()*negative_if_inverse );
+
+                Fout[k+2*m]  = Fout[k] - scratch[3];
+                Fout[k    ]+= scratch[3];
+                Fout[k+  m] = scratch[5] + scratch[4];
+                Fout[k+3*m] = scratch[5] - scratch[4];
+            }
+        }
+
+        void kf_bfly5( cpx_t * const Fout, const std::size_t fstride, const std::size_t m) const
+        {
+            cpx_t *Fout0,*Fout1,*Fout2,*Fout3,*Fout4;
+            cpx_t scratch[13];
+            const cpx_t ya = _twiddles[fstride*m];
+            const cpx_t yb = _twiddles[fstride*2*m];
 
             Fout0=Fout;
             Fout1=Fout0+m;
@@ -285,12 +274,12 @@ class kissfft
                 *Fout0 += scratch[7];
                 *Fout0 += scratch[8];
 
-                scratch[5] = scratch[0] + cpx_type(
+                scratch[5] = scratch[0] + cpx_t(
                         scratch[7].real()*ya.real() + scratch[8].real()*yb.real(),
                         scratch[7].imag()*ya.real() + scratch[8].imag()*yb.real()
                         );
 
-                scratch[6] =  cpx_type(
+                scratch[6] =  cpx_t(
                          scratch[10].imag()*ya.imag() + scratch[9].imag()*yb.imag(),
                         -scratch[10].real()*ya.imag() - scratch[9].real()*yb.imag()
                         );
@@ -299,12 +288,12 @@ class kissfft
                 *Fout4 = scratch[5] + scratch[6];
 
                 scratch[11] = scratch[0] +
-                    cpx_type(
+                    cpx_t(
                             scratch[7].real()*yb.real() + scratch[8].real()*ya.real(),
                             scratch[7].imag()*yb.real() + scratch[8].imag()*ya.real()
                             );
 
-                scratch[12] = cpx_type(
+                scratch[12] = cpx_t(
                         -scratch[10].imag()*yb.imag() + scratch[9].imag()*ya.imag(),
                          scratch[10].real()*yb.imag() - scratch[9].real()*ya.imag()
                         );
@@ -322,14 +311,14 @@ class kissfft
 
         /* perform the butterfly for one stage of a mixed radix FFT */
         void kf_bfly_generic(
-                cpx_type * Fout,
+                cpx_t * const Fout,
                 const size_t fstride,
-                std::size_t m,
-                std::size_t p
+                const std::size_t m,
+                const std::size_t p
                 ) const
         {
-            const cpx_type * twiddles = &_twiddles[0];
-            cpx_type scratchbuf[p];
+            const cpx_t * twiddles = &_twiddles[0];
+            cpx_t scratchbuf[p];
 
             for ( std::size_t u=0; u<m; ++u ) {
                 std::size_t k = u;
@@ -355,7 +344,7 @@ class kissfft
 
         std::size_t _nfft;
         bool _inverse;
-        std::vector<cpx_type> _twiddles;
+        std::vector<cpx_t> _twiddles;
         std::vector<std::size_t> _stageRadix;
         std::vector<std::size_t> _stageRemainder;
 };
