@@ -12,8 +12,8 @@ class kissfft
 
         using cpx_t = std::complex<scalar_t>;
 
-        kissfft( std::size_t nfft,
-                 bool inverse )
+        kissfft( const std::size_t nfft,
+                 const bool inverse )
             :_nfft(nfft)
             ,_inverse(inverse)
         {
@@ -50,8 +50,8 @@ class kissfft
         /// had been newly constructed with the passed arguments.
         /// However, the implementation may be faster than constructing a
         /// new fft object.
-        void assign( std::size_t nfft,
-                     bool inverse )
+        void assign( const std::size_t nfft,
+                     const bool inverse )
         {
             if ( nfft != _nfft )
             {
@@ -79,7 +79,7 @@ class kissfft
         /// constructor. Hence when applying the same transform twice, but with
         /// the inverse flag changed the second time, then the result will
         /// be equal to the original input times @c N.
-        void transform(const cpx_t * fft_in, cpx_t * fft_out, std::size_t stage = 0, std::size_t fstride = 1, std::size_t in_stride = 1) const
+        void transform(const cpx_t * fft_in, cpx_t * fft_out, const std::size_t stage = 0, const std::size_t fstride = 1, const std::size_t in_stride = 1) const
         {
             const std::size_t p = _stageRadix[stage];
             const std::size_t m = _stageRemainder[stage];
@@ -143,8 +143,8 @@ class kissfft
         /// Since C++11, these requirements are guaranteed to be satisfied for
         /// @c scalar_ts being @c float, @c double or @c long @c double
         /// together with @c cpx_t being @c std::complex<scalar_t>.
-        void transform_real( const scalar_t * src,
-                             cpx_t * dst ) const
+        void transform_real( const scalar_t * const src,
+                             cpx_t * const dst ) const
         {
             const std::size_t N = _nfft;
             if ( N == 0 )
@@ -182,7 +182,7 @@ class kissfft
 
     private:
 
-        void kf_bfly2( cpx_t * Fout, const size_t fstride, std::size_t m) const
+        void kf_bfly2( cpx_t * Fout, const size_t fstride, const std::size_t m) const
         {
             for (std::size_t k=0;k<m;++k) {
                 const cpx_t t = Fout[m+k] * _twiddles[k*fstride];
@@ -222,7 +222,7 @@ class kissfft
             }while(--k);
         }
 
-        void kf_bfly4( cpx_t * Fout, const std::size_t fstride, const std::size_t m) const
+        void kf_bfly4( cpx_t * const Fout, const std::size_t fstride, const std::size_t m) const
         {
             cpx_t scratch[7];
             const scalar_t negative_if_inverse = _inverse ? -1 : +1;
@@ -245,7 +245,7 @@ class kissfft
             }
         }
 
-        void kf_bfly5( cpx_t * Fout, const std::size_t fstride, const std::size_t m) const
+        void kf_bfly5( cpx_t * const Fout, const std::size_t fstride, const std::size_t m) const
         {
             cpx_t *Fout0,*Fout1,*Fout2,*Fout3,*Fout4;
             cpx_t scratch[13];
@@ -311,10 +311,10 @@ class kissfft
 
         /* perform the butterfly for one stage of a mixed radix FFT */
         void kf_bfly_generic(
-                cpx_t * Fout,
+                cpx_t * const Fout,
                 const size_t fstride,
-                std::size_t m,
-                std::size_t p
+                const std::size_t m,
+                const std::size_t p
                 ) const
         {
             const cpx_t * twiddles = &_twiddles[0];
