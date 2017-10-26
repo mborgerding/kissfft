@@ -246,7 +246,7 @@ void kf_work(
 #ifdef _OPENMP
     // use openmp extensions at the 
     // top-level (not recursive)
-    if (fstride==1 && p<=5)
+    if (fstride==1 && p<=5 && m!=1)
     {
         int k;
 
