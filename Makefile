@@ -1,5 +1,19 @@
 KFVER=130
 
+ifeq ($(shell uname -s),Darwin)
+	SHARED := -Wl,-install_name,libkissfft.dylib -o libkissfft.dylib
+else
+	SHARED := -Wl,-soname,libkissfft.so -o libkissfft.so
+endif
+
+all:
+	gcc -Wall -fPIC -c *.c -Dkiss_fft_scalar=float -o kiss_fft.o
+	ar crus libkissfft.a kiss_fft.o
+	gcc -shared $(SHARED) kiss_fft.o
+
+install: all
+	cp libkissfft.so /usr/local/lib/
+
 doc:
 	@echo "Start by reading the README file.  If you want to build and test lots of stuff, do a 'make testall'"
 	@echo "but be aware that 'make testall' has dependencies that the basic kissfft software does not."
