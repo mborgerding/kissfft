@@ -1,6 +1,11 @@
-/* this program is in the public domain 
-   A program that helps the authors of the fine fftw library benchmark kiss 
-*/
+/*
+ *  This program is in the public domain 
+ *  A program that helps the authors of the fine fftw library benchmark kiss 
+ *  This file is part of KISS FFT - https://github.com/mborgerding/kissfft
+ *
+ *  SPDX-License-Identifier: Unlicense
+ *  See LICENSES/Unlicense for more information.
+ */
 
 #include "bench-user.h"
 #include <math.h>
