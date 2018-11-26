@@ -27,9 +27,9 @@ class kissfft
         {
             // fill twiddle factors
             _twiddles.resize(_nfft);
-            const scalar_t phinc =  (_inverse?2:-2)* acos( (scalar_t) -1)  / _nfft;
+            const scalar_t phinc =  (_inverse?2:-2)* std::acos( (scalar_t) -1)  / _nfft;
             for (std::size_t i=0;i<_nfft;++i)
-                _twiddles[i] = exp( cpx_t(0,i*phinc) );
+                _twiddles[i] = std::exp( cpx_t(0,i*phinc) );
 
             //factorize
             //start factoring out 4's, then 2's, then 3,5,7,9,...
@@ -166,9 +166,9 @@ class kissfft
                                dst[0].real() - dst[0].imag() );
 
             // post processing for all the other k = 1, 2, ..., N-1
-            const scalar_t pi = acos( (scalar_t) -1);
+            const scalar_t pi = std::acos( (scalar_t) -1);
             const scalar_t half_phi_inc = ( _inverse ? pi : -pi ) / N;
-            const cpx_t twiddle_mul = exp( cpx_t(0, half_phi_inc) );
+            const cpx_t twiddle_mul = std::exp( cpx_t(0, half_phi_inc) );
             for ( std::size_t k = 1; 2*k < N; ++k )
             {
                 const cpx_t w = (scalar_t)0.5 * cpx_t(
@@ -182,10 +182,10 @@ class kissfft
                     _twiddles[k/2] :
                     _twiddles[k/2] * twiddle_mul;
                 dst[  k] =       w + twiddle * z;
-                dst[N-k] = conj( w - twiddle * z );
+                dst[N-k] = std::conj( w - twiddle * z );
             }
             if ( N % 2 == 0 )
-                dst[N/2] = conj( dst[N/2] );
+                dst[N/2] = std::conj( dst[N/2] );
         }
 
     private:
