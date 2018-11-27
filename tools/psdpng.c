@@ -211,6 +211,9 @@ void make_png(void)
 
     png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY , NULL);
 
+    free(row_pointers);
+    free(row_data);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
 }
 
 int main(int argc,char ** argv)
@@ -223,5 +226,6 @@ int main(int argc,char ** argv)
 
     if (fout!=stdout) fclose(fout);
     if (fin!=stdin) fclose(fin);
+    free(vals);
     return 0;
 }
