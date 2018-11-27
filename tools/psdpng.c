@@ -129,9 +129,7 @@ void transform_signal(void)
     CHECKNULL( inbuf=(short*)malloc(sizeof(short)*2*nfft ) );
     CHECKNULL( tbuf=(kiss_fft_scalar*)malloc(sizeof(kiss_fft_scalar)*nfft ) );
     CHECKNULL( fbuf=(kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx)*nfreqs ) );
-    CHECKNULL( mag2buf=(float*)malloc(sizeof(float)*nfreqs ) );
-
-    memset(mag2buf,0,sizeof(mag2buf)*nfreqs);
+    CHECKNULL( mag2buf=(float*)calloc(nfreqs,sizeof(float) ) );
 
     while (1) {
         if (stereo) {
