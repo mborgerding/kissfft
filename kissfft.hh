@@ -326,24 +326,25 @@ class kissfft
                 ) const
         {
             const cpx_t * twiddles = &_twiddles[0];
-            cpx_t scratchbuf[p];
+
+            if(p > _scratchbuf.size()) _scratchbuf.resize(p);
 
             for ( std::size_t u=0; u<m; ++u ) {
                 std::size_t k = u;
                 for ( std::size_t q1=0 ; q1<p ; ++q1 ) {
-                    scratchbuf[q1] = Fout[ k  ];
+                    _scratchbuf[q1] = Fout[ k  ];
                     k += m;
                 }
 
                 k=u;
                 for ( std::size_t q1=0 ; q1<p ; ++q1 ) {
                     std::size_t twidx=0;
-                    Fout[ k ] = scratchbuf[0];
+                    Fout[ k ] = _scratchbuf[0];
                     for ( std::size_t q=1;q<p;++q ) {
                         twidx += fstride * k;
                         if (twidx>=_nfft)
                           twidx-=_nfft;
-                        Fout[ k ] += scratchbuf[q] * twiddles[twidx];
+                        Fout[ k ] += _scratchbuf[q] * twiddles[twidx];
                     }
                     k += m;
                 }
@@ -355,5 +356,6 @@ class kissfft
         std::vector<cpx_t> _twiddles;
         std::vector<std::size_t> _stageRadix;
         std::vector<std::size_t> _stageRemainder;
+        mutable std::vector<cpx_t> _scratchbuf;
 };
 #endif
