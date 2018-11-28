@@ -119,9 +119,6 @@ LICENSE:
     Basically, "free to use&change, give credit where due, no guarantees"
     Note this license is compatible with GPL at one end of the spectrum and closed, commercial software at 
     the other end.  See http://www.fsf.org/licensing/licenses
-
-    A commercial license is available which removes the requirement for attribution.  Contact me for details.
-
   
 TODO:
     *) Add real optimization for odd length FFTs 
