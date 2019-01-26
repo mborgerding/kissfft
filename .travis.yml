@@ -3,6 +3,8 @@ language: python
 python:
   - "3.4.3"
 
+dist: trusty
+
 sudo: true
 
 before_install:
