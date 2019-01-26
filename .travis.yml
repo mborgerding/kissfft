@@ -1,0 +1,14 @@
+language: python
+
+python:
+  - "3.4.3"
+
+sudo: true
+
+before_install:
+   - apt-get install libfftw3-dev
+
+install: true
+
+script:
+  - make testall
