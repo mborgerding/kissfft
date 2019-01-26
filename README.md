@@ -2,6 +2,7 @@
 
 KISS FFT - A mixed-radix Fast Fourier Transform based up on the principle, 
 "Keep It Simple, Stupid."
+
 There are many great fft libraries already around.  Kiss FFT is not trying
 to be better than any of them.  It only attempts to be a reasonably efficient, 
 moderately useful FFT that can use fixed or floating data types and can be 
@@ -69,16 +70,16 @@ last bit of performance.
 **Sometimes simpler is better, even if it's not better.**
 
 ## FREQUENTLY ASKED QUESTIONS:
-> Q: Can I use kissfft in a project with a ___ license?
+> Q: Can I use kissfft in a project with a ___ license?</br>
 > A: Yes.  See LICENSE below.
 
->Q: Why don't I get the output I expect?
+> Q: Why don't I get the output I expect?</br>
 > A: The two most common causes of this are
 > 	1) scaling : is there a constant multiplier between what you got and what you want?
 > 	2) mixed build environment -- all code must be compiled with same preprocessor 
 > 	definitions for FIXED_POINT and kiss_fft_scalar
 
-> Q: Will you write/debug my code for me?
+> Q: Will you write/debug my code for me?</br>
 > A: Probably not unless you pay me.  I am happy to answer pointed and topical questions, but 
 > I may refer you to a book, a forum, or some other resource.
 
@@ -99,7 +100,7 @@ Transforming 5 minutes of CD quality audio takes less than a second (nfft=1024).
 Kiss FFT uses a time decimation, mixed-radix, out-of-place FFT. If you give it an input buffer  
 and output buffer that are the same, a temporary buffer will be created to hold the data.
 
-No static data is used.  The core routines of kiss_fft are thread-safe (but not all of the tools directory).
+No static data is used.  The core routines of kiss_fft are thread-safe (but not all of the tools directory).[
 
 No scaling is done for the floating point version (for speed).  
 Scaling is done both ways for the fixed-point version (for overflow prevention).
