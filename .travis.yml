@@ -1,14 +1,16 @@
 language: python
 
 python:
-  - "3.4.3"
+  - "2.6"
 
 dist: trusty
 
-sudo: true
-
 before_install:
-   - apt-get install libfftw3-dev
+  - sudo apt-get install -y libfftw3-dev
+
+addons:
+  apt:
+    update: true
 
 install: true
 
