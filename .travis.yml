@@ -15,4 +15,5 @@ addons:
 install: true
 
 script:
+  - make all
   - make testall
