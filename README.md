@@ -1,4 +1,4 @@
-# KISS FFT [![Build Status](https://travis-ci.com/lucifetsmith/kissfft.svg?branch=master)](https://travis-ci.com/lucifetsmith/kissfft)
+# KISS FFT [![Build Status](https://api.travis-ci.com/mborgerding/kissfft.svg?branch=master)](https://travis-ci.com/mborgerding/kissfft)
 
 KISS FFT - A mixed-radix Fast Fourier Transform based up on the principle, 
 "Keep It Simple, Stupid."
