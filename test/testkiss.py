@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #  See COPYING file for more information.
-
+from __future__ import division,print_function
 import math
 import sys
 import os
@@ -50,7 +50,7 @@ def dopack(x,cpx=1):
     return s
 
 def dounpack(x,cpx):
-    uf = fmt * ( len(x) / struct.calcsize(fmt) )
+    uf = fmt * ( len(x) // struct.calcsize(fmt) )
     s = struct.unpack(uf,x)
     if cpx:
         return numpy.array(s[::2]) + numpy.array( s[1::2] )*1j
@@ -99,12 +99,12 @@ def test_fft(ndims):
     errpow = numpy.vdot(errf,errf)+1e-10
     sigpow = numpy.vdot(xverf,xverf)+1e-10
     snr = 10*math.log10(abs(sigpow/errpow) )
-    print 'SNR (compared to NumPy) : %.1fdB' % float(snr)
+    print( 'SNR (compared to NumPy) : {0:.1f}dB'.format( float(snr) ) )
 
     if snr<minsnr:
-        print 'xver=',xver
-        print 'x2=',x2
-        print 'err',err
+        print( 'xver=',xver )
+        print( 'x2=',x2)
+        print( 'err',err)
         sys.exit(1)
  
 def dofft(x,isreal):
@@ -124,7 +124,7 @@ def dofft(x,isreal):
     if doreal:
         cmd += ' -R '
 
-    print cmd
+    print( cmd)
 
     from subprocess import Popen,PIPE
     p = Popen(cmd,shell=True,stdin=PIPE,stdout=PIPE )
@@ -149,9 +149,9 @@ def main():
     doreal = opts.has_key('-r')
 
     if doreal:
-        print 'Testing multi-dimensional real FFTs'
+        print( 'Testing multi-dimensional real FFTs')
     else:
-        print 'Testing multi-dimensional FFTs'
+        print( 'Testing multi-dimensional FFTs')
 
     for dim in range(1,4):
         test_fft( dim )
