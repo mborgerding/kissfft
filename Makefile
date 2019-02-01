@@ -22,6 +22,7 @@ doc:
 
 testall:
 	# The simd and int32_t types may or may not work on your machine 
+	make -C test testcpp && test/testcpp
 	make -C test DATATYPE=simd CFLAGADD="$(CFLAGADD)" test
 	make -C test DATATYPE=int32_t CFLAGADD="$(CFLAGADD)" test
 	make -C test DATATYPE=int16_t CFLAGADD="$(CFLAGADD)" test
