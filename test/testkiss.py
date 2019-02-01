@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#  Copyright (c) 2003-2010, Mark Borgerding. All rights reserved.
+#  Copyright (c) 2003-2019, Mark Borgerding. All rights reserved.
 #  This file is part of KISS FFT - https://github.com/mborgerding/kissfft
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -10,13 +10,11 @@ import sys
 import os
 import random
 import struct
-import popen2
 import getopt
 import numpy
 
 pi=math.pi
 e=math.e
-j=complex(0,1)
 
 doreal=0
 
@@ -55,7 +53,7 @@ def dounpack(x,cpx):
     uf = fmt * ( len(x) / struct.calcsize(fmt) )
     s = struct.unpack(uf,x)
     if cpx:
-        return numpy.array(s[::2]) + numpy.array( s[1::2] )*j
+        return numpy.array(s[::2]) + numpy.array( s[1::2] )*1j
     else:
         return numpy.array(s )
 
@@ -89,14 +87,11 @@ def randmat( ndims ):
 def test_fft(ndims):
     x=randmat( ndims )
 
-
     if doreal:
         xver = numpy.fft.rfftn(x)
     else:
         xver = numpy.fft.fftn(x)
     
-    open('/tmp/fftexp.dat','w').write(dopack( flatten(xver) , True ) )
-
     x2=dofft(x,doreal)
     err = xver - x2
     errf = flatten(err)
@@ -130,15 +125,14 @@ def dofft(x,isreal):
         cmd += ' -R '
 
     print cmd
-    p = popen2.Popen3(cmd )
 
-    open('/tmp/fftin.dat','w').write(dopack( x , isreal==False ) )
+    from subprocess import Popen,PIPE
+    p = Popen(cmd,shell=True,stdin=PIPE,stdout=PIPE )
 
-    p.tochild.write( dopack( x , isreal==False ) )
-    p.tochild.close()
+    p.stdin.write( dopack( x , isreal==False ) )
+    p.stdin.close()
 
-    res = dounpack( p.fromchild.read() , 1 )
-    open('/tmp/fftout.dat','w').write(dopack( flatten(res) , True ) )
+    res = dounpack( p.stdout.read() , 1 )
     if doreal:
         dims[-1] = int( dims[-1]/2 ) + 1
 
