@@ -18,7 +18,7 @@ class kissfft
 {
     public:
 
-        using cpx_t = std::complex<scalar_t>;
+        typedef std::complex<scalar_t> cpx_t;
 
         kissfft( const std::size_t nfft,
                  const bool inverse )
