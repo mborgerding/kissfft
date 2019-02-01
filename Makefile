@@ -31,8 +31,8 @@ testall:
 	echo "all tests passed"
 
 tarball: clean
-	hg archive -r v$(KFVER) -t tgz kiss_fft$(KFVER).tar.gz 
-	hg archive -r v$(KFVER) -t zip kiss_fft$(KFVER).zip
+	git archive --prefix=kissfft/ -o kissfft$(KFVER).tar.gz v$(KFVER)
+	git archive --prefix=kissfft/ -o kissfft$(KFVER).zip v$(KFVER)
 
 clean:
 	cd test && make clean
