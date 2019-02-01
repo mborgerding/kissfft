@@ -3,6 +3,7 @@
 *.so
 *.a
 *.dylib
+test/testcpp
 test/bm_fftw_double
 test/bm_fftw_float
 test/bm_fftw_int16_t

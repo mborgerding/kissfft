@@ -1,4 +1,4 @@
-KFVER=130
+KFVER=131
 
 ifeq ($(shell uname -s),Darwin)
 	SHARED := -Wl,-install_name,libkissfft.dylib -o libkissfft.dylib
