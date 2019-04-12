@@ -56,6 +56,10 @@ extern "C" {
 # endif
 #endif
 
+#ifndef kiss_fft_pi
+#define kiss_fft_pi 3.141592653589793238462643383279502884197169399375105820974944
+#endif
+
 typedef struct {
     kiss_fft_scalar r;
     kiss_fft_scalar i;
