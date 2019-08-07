@@ -6,6 +6,9 @@
  *  See COPYING file for more information.
  */
 
+#ifndef KISS_FFT_GUTS_H
+#define KISS_FFT_GUTS_H
+
 /* kiss_fft.h
    defines kiss_fft_scalar as either short or a float type
    and defines
@@ -156,4 +159,6 @@ struct kiss_fft_state{
 #else
 #define  KISS_FFT_TMP_ALLOC(nbytes) KISS_FFT_MALLOC(nbytes)
 #define  KISS_FFT_TMP_FREE(ptr) KISS_FFT_FREE(ptr)
+#endif
+
 #endif
