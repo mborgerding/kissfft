@@ -37,8 +37,13 @@ extern "C" {
 # define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
 # define KISS_FFT_FREE _mm_free
 #else
-# define KISS_FFT_MALLOC malloc
-# define KISS_FFT_FREE free
+/* user may override KISS_FFT_MALLOC and/or KISS_FFT_FREE */
+# ifndef KISS_FFT_MALLOC
+#  define KISS_FFT_MALLOC malloc
+# endif
+# ifndef KISS_FFT_FREE
+#  define KISS_FFT_FREE free
+# endif
 #endif
 
 
