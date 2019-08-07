@@ -31,13 +31,17 @@ extern "C" {
   in the tools/ directory.
 */
 
+/* User may override KISS_FFT_MALLOC and/or KISS_FFT_FREE. */
 #ifdef USE_SIMD
 # include <xmmintrin.h>
 # define kiss_fft_scalar __m128
-# define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
-# define KISS_FFT_FREE _mm_free
+# ifndef KISS_FFT_MALLOC
+#  define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
+# endif
+# ifndef KISS_FFT_FREE
+#  define KISS_FFT_FREE _mm_free
+# endif
 #else
-/* user may override KISS_FFT_MALLOC and/or KISS_FFT_FREE */
 # ifndef KISS_FFT_MALLOC
 #  define KISS_FFT_MALLOC malloc
 # endif
