@@ -13,6 +13,13 @@
 #include "kiss_fft.h"
 #include <limits.h>
 
+#ifdef  _MSC_VER
+#ifdef USE_SIMD
+#define MSVC_SIMD
+#include <xmmintrin.h>
+#endif
+#endif
+
 #define MAXFACTORS 32
 /* e.g. an fft of length 128 has 4 factors 
  as far as kissfft is concerned
@@ -78,20 +85,66 @@ struct kiss_fft_state{
 
 #else  /* not FIXED_POINT*/
 
-#   define S_MUL(a,b) ( (a)*(b) )
+#define C_FIXDIV(c,div) /* NOOP */
+
+#ifdef  MSVC_SIMD
+#define S_SUB(a, b)		_mm_sub_ps((a), (b))
+#define S_ADD(a, b)		_mm_add_ps((a), (b))
+#define S_ADD3(a, b, c)	_mm_add_ps((c), _mm_add_ps((a), (b)))
+#define S_INV_SIGN(a)	_mm_sub_ps(_mm_set1_ps(0.0f), (a))	
+#define S_MUL(a,b)		_mm_mul_ps((a),(b))
+#define C_MUL(m,a,b) \
+	do{ (m).r = _mm_sub_ps(_mm_mul_ps((a).r, (b).r), _mm_mul_ps((a).i, (b).i));\
+		(m).i = _mm_add_ps(_mm_mul_ps((a).r, (b).i), _mm_mul_ps((a).i, (b).r));} while(0)
+#define C_MULBYSCALAR( c, s ) \
+	do{ (c).r = _mm_mul_ps((c).r, s);\
+		(c).i = _mm_mul_ps((c).i, s); }while(0)
+#else
+#define S_SUB(a, b)		((a)-(b))
+#define S_ADD(a, b)		((a)+(b))
+#define S_ADD3(a, b, c)	((a)+(b)+(c))
+#define S_INV_SIGN(a) (-a)	
+#define S_MUL(a,b) ( (a)*(b) )
 #define C_MUL(m,a,b) \
     do{ (m).r = (a).r*(b).r - (a).i*(b).i;\
         (m).i = (a).r*(b).i + (a).i*(b).r; }while(0)
-#   define C_FIXDIV(c,div) /* NOOP */
-#   define C_MULBYSCALAR( c, s ) \
+#define C_MULBYSCALAR( c, s ) \
     do{ (c).r *= (s);\
         (c).i *= (s); }while(0)
+#endif
 #endif
 
 #ifndef CHECK_OVERFLOW_OP
 #  define CHECK_OVERFLOW_OP(a,op,b) /* noop */
 #endif
 
+#ifdef  MSVC_SIMD
+#define  C_ADD( res, a,b)\
+	do { \
+	CHECK_OVERFLOW_OP((a).r,+,(b).r)\
+	CHECK_OVERFLOW_OP((a).i,+,(b).i)\
+	(res).r = _mm_add_ps((a).r, (b).r); (res).i=_mm_add_ps((a).i, (b).i); \
+	}while(0)
+#define  C_SUB( res, a,b)\
+	do { \
+	CHECK_OVERFLOW_OP((a).r,-,(b).r)\
+	CHECK_OVERFLOW_OP((a).i,-,(b).i)\
+	(res).r = _mm_sub_ps((a).r, (b).r); (res).i=_mm_sub_ps((a).i, (b).i); \
+	}while(0)
+#define C_ADDTO( res , a)\
+	do { \
+	CHECK_OVERFLOW_OP((res).r,+,(a).r)\
+	CHECK_OVERFLOW_OP((res).i,+,(a).i)\
+	(res).r = _mm_add_ps((res).r, (a).r); (res).i=_mm_add_ps((res).i, (a).i); \
+	}while(0)
+
+#define C_SUBFROM( res , a)\
+	do {\
+	CHECK_OVERFLOW_OP((res).r,-,(a).r)\
+	CHECK_OVERFLOW_OP((res).i,-,(a).i)\
+	(res).r = _mm_sub_ps((r).r, (a).r); (res).i=_mm_sub_ps((r).i, (b).i); \
+	}while(0)
+#else
 #define  C_ADD( res, a,b)\
     do { \
 	    CHECK_OVERFLOW_OP((a).r,+,(b).r)\
@@ -117,6 +170,7 @@ struct kiss_fft_state{
 	    CHECK_OVERFLOW_OP((res).i,-,(a).i)\
 	    (res).r -= (a).r;  (res).i -= (a).i; \
     }while(0)
+#endif
 
 
 #ifdef FIXED_POINT
@@ -126,7 +180,11 @@ struct kiss_fft_state{
 #elif defined(USE_SIMD)
 #  define KISS_FFT_COS(phase) _mm_set1_ps( cos(phase) )
 #  define KISS_FFT_SIN(phase) _mm_set1_ps( sin(phase) )
+#ifdef MSVC_SIMD
+#  define HALF_OF(x) _mm_mul_ps((x), _mm_set1_ps(.5f))
+#else
 #  define HALF_OF(x) ((x)*_mm_set1_ps(.5))
+#endif
 #else
 #  define KISS_FFT_COS(phase) (kiss_fft_scalar) cos(phase)
 #  define KISS_FFT_SIN(phase) (kiss_fft_scalar) sin(phase)
