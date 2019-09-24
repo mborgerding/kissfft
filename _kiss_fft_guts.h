@@ -119,6 +119,52 @@ struct kiss_fft_state{
     }while(0)
 
 
+// Normally same as kiss_fft_scalar, but for USE_SIMD this is only a single number
+#ifndef kiss_fft_scalar_one
+#define kiss_fft_scalar_one kiss_fft_scalar
+#endif
+
+
+// If kiss_fft_suffix is not provided, determine it automatically based on kiss_fft_scalar_one
+#if !defined (kiss_fft_suffix) && !defined (kiss_fft_suffix_empty)
+#ifdef FIXED_POINT
+#undef kiss_fft_suffix
+#define kiss_fft_suffix_empty 1
+#endif
+
+#define KISS_X_float_X 1
+#define KISS_X__X 2
+#define KISS_X_long_X 3
+#define KISS_concat2(a, b, c) a##b##c
+#define KISS_concat(a, b, c) KISS_concat2(a, b, c)
+
+#define double // This is because otherwise KISS_concat(KISS_X_, long double, _X) would produce two tokens which would break the preprocessor comparison
+
+#if KISS_concat(KISS_X_, kiss_fft_scalar_one, _X) == KISS_X_float_X // float
+#define kiss_fft_suffix f
+#elif KISS_concat(KISS_X_, kiss_fft_scalar_one, _X) == KISS_X__X // double
+#undef kiss_fft_suffix
+#define kiss_fft_suffix_empty 1
+#elif KISS_concat(KISS_X_, kiss_fft_scalar_one, _X) == KISS_X_long_X // long double
+#define kiss_fft_suffix l
+#else
+#undef kiss_fft_suffix
+#define kiss_fft_suffix_empty 1
+#warning "Unknown kiss_fft_scalar type"
+#endif
+
+#undef double
+#endif
+
+
+#ifdef kiss_fft_suffix_empty
+#define KISS_ADD_SUFFIX(x) x
+#else
+#define KISS_ADD_SUFFIX2(x, y) x##y
+#define KISS_ADD_SUFFIX1(x, y) KISS_ADD_SUFFIX2(x, y)
+#define KISS_ADD_SUFFIX(x) KISS_ADD_SUFFIX1(x, kiss_fft_suffix)
+#endif
+
 #ifdef FIXED_POINT
 #  define KISS_FFT_COS(phase)  floor(.5+SAMP_MAX * cos (phase))
 #  define KISS_FFT_SIN(phase)  floor(.5+SAMP_MAX * sin (phase))
@@ -128,9 +174,9 @@ struct kiss_fft_state{
 #  define KISS_FFT_SIN(phase) _mm_set1_ps( sin(phase) )
 #  define HALF_OF(x) ((x)*_mm_set1_ps(.5))
 #else
-#  define KISS_FFT_COS(phase) (kiss_fft_scalar) cos(phase)
-#  define KISS_FFT_SIN(phase) (kiss_fft_scalar) sin(phase)
-#  define HALF_OF(x) ((x)*.5)
+#  define KISS_FFT_COS(phase) (kiss_fft_scalar) KISS_ADD_SUFFIX(cos)(phase)
+#  define KISS_FFT_SIN(phase) (kiss_fft_scalar) KISS_ADD_SUFFIX(sin)(phase)
+#  define HALF_OF(x) ((x)*KISS_ADD_SUFFIX(.5))
 #endif
 
 #define  kf_cexp(x,phase) \

@@ -35,6 +35,8 @@ extern "C" {
 #ifdef USE_SIMD
 # include <xmmintrin.h>
 # define kiss_fft_scalar __m128
+# define kiss_fft_scalar_one double
+//# define kiss_fft_scalar_one float
 # ifndef KISS_FFT_MALLOC
 #  define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
 # endif
@@ -55,8 +57,10 @@ extern "C" {
 #include <stdint.h>
 # if (FIXED_POINT == 32)
 #  define kiss_fft_scalar int32_t
+#  define kiss_fft_scalar_one double
 # else	
 #  define kiss_fft_scalar int16_t
+#  define kiss_fft_scalar_one double
 # endif
 #else
 # ifndef kiss_fft_scalar
