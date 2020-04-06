@@ -4,18 +4,20 @@ PREFIX ?= /usr/local
 LIBDIR ?= $(PREFIX)/lib
 
 ifeq ($(shell uname -s),Darwin)
-	SHARED := -Wl,-install_name,libkissfft.dylib -o libkissfft.dylib
+	SHARED_NAME := libkissfft.dylib
+	SHARED_FLAGS := -Wl,-install_name,$(SHARED_NAME)
 else
-	SHARED := -Wl,-soname,libkissfft.so -o libkissfft.so
+	SHARED_NAME := libkissfft.so
+	SHARED_FLAGS := -Wl,-soname,$(SHARED_NAME)
 endif
 
 all:
 	gcc -Wall -fPIC -c *.c -Dkiss_fft_scalar=float -o kiss_fft.o
 	ar crus libkissfft.a kiss_fft.o
-	gcc -shared $(SHARED) kiss_fft.o
+	gcc -shared $(SHARED_FLAGS) -o $(SHARED_NAME) kiss_fft.o
 
 install: all
-	cp libkissfft.so $(LIBDIR)
+	cp $(SHARED_NAME) $(LIBDIR)
 
 doc:
 	@echo "Start by reading the README file.  If you want to build and test lots of stuff, do a 'make testall'"
