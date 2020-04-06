@@ -3,6 +3,8 @@ KFVER=131
 PREFIX ?= /usr/local
 LIBDIR ?= $(PREFIX)/lib
 
+INSTALL ?= install
+
 ifeq ($(shell uname -s),Darwin)
 	SHARED_NAME := libkissfft.dylib
 	SHARED_FLAGS := -Wl,-install_name,$(SHARED_NAME)
@@ -17,7 +19,7 @@ all:
 	gcc -shared $(SHARED_FLAGS) -o $(SHARED_NAME) kiss_fft.o
 
 install: all
-	cp $(SHARED_NAME) $(LIBDIR)
+	$(INSTALL) -Dt $(LIBDIR) $(SHARED_NAME)
 
 doc:
 	@echo "Start by reading the README file.  If you want to build and test lots of stuff, do a 'make testall'"
