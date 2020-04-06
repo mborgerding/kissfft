@@ -1,5 +1,7 @@
 KFVER=131
 
+DATATYPE ?= float
+
 PREFIX ?= /usr/local
 LIBDIR ?= $(PREFIX)/lib
 
@@ -14,7 +16,7 @@ else
 endif
 
 all:
-	gcc -Wall -fPIC -c *.c -Dkiss_fft_scalar=float -o kiss_fft.o
+	gcc -Wall -fPIC -c *.c -Dkiss_fft_scalar=$(DATATYPE) -o kiss_fft.o
 	ar crus libkissfft.a kiss_fft.o
 	gcc -shared $(SHARED_FLAGS) -o $(SHARED_NAME) kiss_fft.o
 
