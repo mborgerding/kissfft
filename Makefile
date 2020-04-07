@@ -4,6 +4,7 @@ DATATYPE ?= float
 
 PREFIX ?= /usr/local
 LIBDIR ?= $(PREFIX)/lib
+INCLUDEDIR ?= $(PREFIX)/include
 
 INSTALL ?= install
 
@@ -20,8 +21,17 @@ all:
 	ar crus libkissfft.a kiss_fft.o
 	gcc -shared $(SHARED_FLAGS) -o $(SHARED_NAME) kiss_fft.o
 
+HEADERS = \
+	kiss_fft.h \
+	kissfft.hh \
+	tools/kfc.h \
+	tools/kiss_fftnd.h \
+	tools/kiss_fftndr.h \
+	tools/kiss_fftr.h
+
 install: all
 	$(INSTALL) -Dt $(LIBDIR) $(SHARED_NAME)
+	$(INSTALL) -Dt $(INCLUDEDIR)/kissfft $(HEADERS)
 
 doc:
 	@echo "Start by reading the README file.  If you want to build and test lots of stuff, do a 'make testall'"
