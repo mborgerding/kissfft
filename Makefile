@@ -37,6 +37,7 @@ testall:
 	make -C test DATATYPE=int16_t CFLAGADD="$(CFLAGADD)" test
 	make -C test DATATYPE=float CFLAGADD="$(CFLAGADD)" test
 	make -C test DATATYPE=double CFLAGADD="$(CFLAGADD)" test
+	make -C test testsse
 	echo "all tests passed"
 
 tarball: clean
