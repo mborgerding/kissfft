@@ -29,14 +29,14 @@ static int prod(const int *dims, int ndims)
 
 kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
 {
-	KISS_FFT_ALIGN_CHECK(mem)
+    KISS_FFT_ALIGN_CHECK(mem)
 
     kiss_fftndr_cfg st = NULL;
     size_t nr=0 , nd=0,ntmp=0;
     int dimReal = dims[ndims-1];
     int dimOther = prod(dims,ndims-1);
     size_t memneeded;
-	char * ptr = NULL;
+    char * ptr = NULL;
 
     (void)kiss_fftr_alloc(dimReal,inverse_fft,NULL,&nr);
     (void)kiss_fftnd_alloc(dims,ndims-1,inverse_fft,NULL,&nd);
@@ -55,8 +55,8 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
     }
     if (ptr==NULL)
         return NULL;
-	
-	st = (kiss_fftndr_cfg) ptr;
+    
+    st = (kiss_fftndr_cfg) ptr;
     memset( st , 0 , memneeded);
     ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fftndr_state));
     

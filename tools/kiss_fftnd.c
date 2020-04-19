@@ -19,7 +19,7 @@ struct kiss_fftnd_state{
 
 kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
 {
-	KISS_FFT_ALIGN_CHECK(mem)
+    KISS_FFT_ALIGN_CHECK(mem)
 
     kiss_fftnd_cfg st = NULL;
     int i;
@@ -47,7 +47,7 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
     if (!ptr)
         return NULL; /*malloc failed or buffer too small */
 
-	st = (kiss_fftnd_cfg) ptr;
+    st = (kiss_fftnd_cfg) ptr;
     st->dimprod = dimprod;
     st->ndims = ndims;
     ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fftnd_state));
