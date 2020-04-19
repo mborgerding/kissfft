@@ -10,6 +10,10 @@
    defines kiss_fft_scalar as either short or a float type
    and defines
    typedef struct { kiss_fft_scalar r; kiss_fft_scalar i; }kiss_fft_cpx; */
+
+#ifndef _kiss_fft_guts_h
+#define _kiss_fft_guts_h
+
 #include "kiss_fft.h"
 #include <limits.h>
 
@@ -157,3 +161,6 @@ struct kiss_fft_state{
 #define  KISS_FFT_TMP_ALLOC(nbytes) KISS_FFT_MALLOC(nbytes)
 #define  KISS_FFT_TMP_FREE(ptr) KISS_FFT_FREE(ptr)
 #endif
+
+#endif /* _kiss_fft_guts_h */
+

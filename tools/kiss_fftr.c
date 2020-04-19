@@ -20,6 +20,8 @@ struct kiss_fftr_state{
 
 kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem)
 {
+	KISS_FFT_ALIGN_CHECK(mem)
+
     int i;
     kiss_fftr_cfg st = NULL;
     size_t subsize = 0, memneeded;

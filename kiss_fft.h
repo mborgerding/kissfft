@@ -37,11 +37,15 @@ extern "C" {
 # define kiss_fft_scalar __m128
 # ifndef KISS_FFT_MALLOC
 #  define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
+#  define KISS_FFT_ALIGN_CHECK(ptr) assert((((uintptr_t) ptr) & 0xF) == 0);
+#  define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
 # endif
 # ifndef KISS_FFT_FREE
 #  define KISS_FFT_FREE _mm_free
 # endif
 #else
+# define KISS_FFT_ALIGN_CHECK(ptr)
+# define KISS_FFT_ALIGN_SIZE_UP(size) (size)
 # ifndef KISS_FFT_MALLOC
 #  define KISS_FFT_MALLOC malloc
 # endif
