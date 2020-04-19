@@ -19,11 +19,13 @@ struct kiss_fftnd_state{
 
 kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
 {
+	KISS_FFT_ALIGN_CHECK(mem)
+
     kiss_fftnd_cfg st = NULL;
     int i;
     int dimprod=1;
-    size_t memneeded = sizeof(struct kiss_fftnd_state);
-    char * ptr;
+    size_t memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fftnd_state));
+    char * ptr = NULL;
 
     for (i=0;i<ndims;++i) {
         size_t sublen=0;
@@ -31,32 +33,33 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
         memneeded += sublen;   /* st->states[i] */
         dimprod *= dims[i];
     }
-    memneeded += sizeof(int) * ndims;/*  st->dims */
-    memneeded += sizeof(void*) * ndims;/* st->states  */
-    memneeded += sizeof(kiss_fft_cpx) * dimprod; /* st->tmpbuf */
+    memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(int) * ndims);/*  st->dims */
+    memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(void*) * ndims);/* st->states  */
+    memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(kiss_fft_cpx) * dimprod); /* st->tmpbuf */
 
     if (lenmem == NULL) {/* allocate for the caller*/
-        st = (kiss_fftnd_cfg) malloc (memneeded);
+        ptr = (char *) malloc (memneeded);
     } else { /* initialize supplied buffer if big enough */
         if (*lenmem >= memneeded)
-            st = (kiss_fftnd_cfg) mem;
+            ptr = (char *) mem;
         *lenmem = memneeded; /*tell caller how big struct is (or would be) */
     }
-    if (!st)
+    if (!ptr)
         return NULL; /*malloc failed or buffer too small */
 
+	st = (kiss_fftnd_cfg) ptr;
     st->dimprod = dimprod;
     st->ndims = ndims;
-    ptr=(char*)(st+1);
+    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fftnd_state));
 
     st->states = (kiss_fft_cfg *)ptr;
-    ptr += sizeof(void*) * ndims;
+    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(void*) * ndims);
 
     st->dims = (int*)ptr;
-    ptr += sizeof(int) * ndims;
+    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(int) * ndims);
 
     st->tmpbuf = (kiss_fft_cpx*)ptr;
-    ptr += sizeof(kiss_fft_cpx) * dimprod;
+    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(kiss_fft_cpx) * dimprod);
 
     for (i=0;i<ndims;++i) {
         size_t len;

@@ -29,36 +29,44 @@ static int prod(const int *dims, int ndims)
 
 kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
 {
+	KISS_FFT_ALIGN_CHECK(mem)
+
     kiss_fftndr_cfg st = NULL;
     size_t nr=0 , nd=0,ntmp=0;
     int dimReal = dims[ndims-1];
     int dimOther = prod(dims,ndims-1);
     size_t memneeded;
-    
+	char * ptr = NULL;
+
     (void)kiss_fftr_alloc(dimReal,inverse_fft,NULL,&nr);
     (void)kiss_fftnd_alloc(dims,ndims-1,inverse_fft,NULL,&nd);
     ntmp =
         MAX( 2*dimOther , dimReal+2) * sizeof(kiss_fft_scalar)  // freq buffer for one pass
         + dimOther*(dimReal+2) * sizeof(kiss_fft_scalar);  // large enough to hold entire input in case of in-place
 
-    memneeded = sizeof( struct kiss_fftndr_state ) + nr + nd + ntmp;
+    memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof( struct kiss_fftndr_state )) + KISS_FFT_ALIGN_SIZE_UP(nr) + KISS_FFT_ALIGN_SIZE_UP(nd) + KISS_FFT_ALIGN_SIZE_UP(ntmp);
 
     if (lenmem==NULL) {
-        st = (kiss_fftndr_cfg) malloc(memneeded);
+        ptr = (char*) malloc(memneeded);
     }else{
         if (*lenmem >= memneeded)
-            st = (kiss_fftndr_cfg)mem;
+            ptr = (char *)mem;
         *lenmem = memneeded; 
     }
-    if (st==NULL)
+    if (ptr==NULL)
         return NULL;
+	
+	st = (kiss_fftndr_cfg) ptr;
     memset( st , 0 , memneeded);
+    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fftndr_state));
     
     st->dimReal = dimReal;
     st->dimOther = dimOther;
-    st->cfg_r = kiss_fftr_alloc( dimReal,inverse_fft,st+1,&nr);
-    st->cfg_nd = kiss_fftnd_alloc(dims,ndims-1,inverse_fft, ((char*) st->cfg_r)+nr,&nd);
-    st->tmpbuf = (char*)st->cfg_nd + nd;
+    st->cfg_r = kiss_fftr_alloc( dimReal,inverse_fft,ptr,&nr);
+    ptr += KISS_FFT_ALIGN_SIZE_UP(nr);
+    st->cfg_nd = kiss_fftnd_alloc(dims,ndims-1,inverse_fft, ptr,&nd);
+    ptr += KISS_FFT_ALIGN_SIZE_UP(nd);
+    st->tmpbuf = ptr;
 
     return st;
 }
