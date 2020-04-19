@@ -44,3 +44,4 @@ tools/fft_float
 tools/fft_int16_t
 tools/fft_int32_t
 tools/fft_simd
+test/test_simd

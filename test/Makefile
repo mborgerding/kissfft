@@ -64,6 +64,8 @@ all: tools $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTKFC)
 tools:
 	cd ../tools && make all
 
+test_simd: test_simd.c  $(SRCFILES)
+	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -msse $+ -lm
 
 $(SELFTEST): $(SELFTESTSRC) $(SRCFILES)
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $+ -lm 
