@@ -15,10 +15,11 @@
 #define _kiss_fft_guts_h
 
 #include "kiss_fft.h"
+#include "kiss_fft_log.h"
 #include <limits.h>
 
 #define MAXFACTORS 32
-/* e.g. an fft of length 128 has 4 factors 
+/* e.g. an fft of length 128 has 4 factors
  as far as kissfft is concerned
  4*4*4*2
  */
@@ -56,7 +57,7 @@ struct kiss_fft_state{
 #if defined(CHECK_OVERFLOW)
 #  define CHECK_OVERFLOW_OP(a,op,b)  \
     if ( (SAMPPROD)(a) op (SAMPPROD)(b) > SAMP_MAX || (SAMPPROD)(a) op (SAMPPROD)(b) < SAMP_MIN ) { \
-        fprintf(stderr,"WARNING:overflow @ " __FILE__ "(%d): (%d " #op" %d) = %ld\n",__LINE__,(a),(b),(SAMPPROD)(a) op (SAMPPROD)(b) );  }
+        KISS_FFT_WARNING("overflow (%d " #op" %d) = %ld", (a),(b),(SAMPPROD)(a) op (SAMPPROD)(b)); }
 #endif
 
 
@@ -146,17 +147,17 @@ struct kiss_fft_state{
 
 /* a debugging function */
 #define pcpx(c)\
-    fprintf(stderr,"%g + %gi\n",(double)((c)->r),(double)((c)->i) )
+    KISS_FFT_DEBUG("%g + %gi\n",(double)((c)->r),(double)((c)->i))
 
 
 #ifdef KISS_FFT_USE_ALLOCA
 // define this to allow use of alloca instead of malloc for temporary buffers
-// Temporary buffers are used in two case: 
+// Temporary buffers are used in two case:
 // 1. FFT sizes that have "bad" factors. i.e. not 2,3 and 5
 // 2. "in-place" FFTs.  Notice the quotes, since kissfft does not really do an in-place transform.
 #include <alloca.h>
 #define  KISS_FFT_TMP_ALLOC(nbytes) alloca(nbytes)
-#define  KISS_FFT_TMP_FREE(ptr) 
+#define  KISS_FFT_TMP_FREE(ptr)
 #else
 #define  KISS_FFT_TMP_ALLOC(nbytes) KISS_FFT_MALLOC(nbytes)
 #define  KISS_FFT_TMP_FREE(ptr) KISS_FFT_FREE(ptr)
