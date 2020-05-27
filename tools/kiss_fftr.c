@@ -27,7 +27,7 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
     size_t subsize = 0, memneeded;
 
     if (nfft & 1) {
-        fprintf(stderr,"Real FFT optimization must be even.\n");
+        KISS_FFT_ERROR("Real FFT optimization must be even.");
         return NULL;
     }
     nfft >>= 1;
@@ -67,7 +67,7 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
     kiss_fft_cpx fpnk,fpk,f1k,f2k,tw,tdc;
 
     if ( st->substate->inverse) {
-        fprintf(stderr,"kiss fft usage error: improper alloc\n");
+        KISS_FFT_ERROR("kiss fft usage error: improper alloc");
         exit(1);
     }
 
@@ -79,12 +79,12 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
      * contains the sum of the even-numbered elements of the input time sequence
      * The imag part is the sum of the odd-numbered elements
      *
-     * The sum of tdc.r and tdc.i is the sum of the input time sequence. 
+     * The sum of tdc.r and tdc.i is the sum of the input time sequence.
      *      yielding DC of input time sequence
-     * The difference of tdc.r - tdc.i is the sum of the input (dot product) [1,-1,1,-1... 
+     * The difference of tdc.r - tdc.i is the sum of the input (dot product) [1,-1,1,-1...
      *      yielding Nyquist bin of input time sequence
      */
- 
+
     tdc.r = st->tmpbuf[0].r;
     tdc.i = st->tmpbuf[0].i;
     C_FIXDIV(tdc,2);
@@ -92,14 +92,14 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
     CHECK_OVERFLOW_OP(tdc.r ,-, tdc.i);
     freqdata[0].r = tdc.r + tdc.i;
     freqdata[ncfft].r = tdc.r - tdc.i;
-#ifdef USE_SIMD    
+#ifdef USE_SIMD
     freqdata[ncfft].i = freqdata[0].i = _mm_set1_ps(0);
 #else
     freqdata[ncfft].i = freqdata[0].i = 0;
 #endif
 
     for ( k=1;k <= ncfft/2 ; ++k ) {
-        fpk    = st->tmpbuf[k]; 
+        fpk    = st->tmpbuf[k];
         fpnk.r =   st->tmpbuf[ncfft-k].r;
         fpnk.i = - st->tmpbuf[ncfft-k].i;
         C_FIXDIV(fpk,2);
@@ -122,7 +122,7 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
     int k, ncfft;
 
     if (st->substate->inverse == 0) {
-        fprintf (stderr, "kiss fft usage error: improper alloc\n");
+        KISS_FFT_ERROR("kiss fft usage error: improper alloc");
         exit (1);
     }
 
@@ -145,7 +145,7 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
         C_MUL (fok, tmp, st->super_twiddles[k-1]);
         C_ADD (st->tmpbuf[k],     fek, fok);
         C_SUB (st->tmpbuf[ncfft - k], fek, fok);
-#ifdef USE_SIMD        
+#ifdef USE_SIMD
         st->tmpbuf[ncfft - k].i *= _mm_set1_ps(-1.0);
 #else
         st->tmpbuf[ncfft - k].i *= -1;
