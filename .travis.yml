@@ -14,6 +14,14 @@ addons:
 
 install: true
 
-script:
-  - make all
-  - make testall
+jobs:
+  include:
+    - name: "build (make)"
+      script:
+      - make all
+      - make testall
+    - name: "build (cmake)"
+      script:
+      - mkdir build && cd build
+      - cmake ..
+      - make
