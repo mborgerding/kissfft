@@ -126,7 +126,7 @@ class kissfft
         /// of size @c 2*N.
         ///
         /// The 0-th and N-th value of the DFT are real numbers. These are
-        /// stored in @c dst[0].real() and @c dst[1].imag() respectively.
+        /// stored in @c dst[0].real() and @c dst[0].imag() respectively.
         /// The remaining DFT values up to the index N-1 are stored in
         /// @c dst[1] to @c dst[N-1].
         /// The other half of the DFT values can be calculated from the
