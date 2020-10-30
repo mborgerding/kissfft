@@ -3,7 +3,7 @@ language: python
 python:
   - "3.7"
 
-dist: bionic
+dist: focal
 
 before_install:
   - sudo apt-get install -y libfftw3-dev
