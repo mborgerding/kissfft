@@ -14,9 +14,8 @@ option(KISSFFT_OPENMP "Build kissfft with openmp" OFF)
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     add_compile_options(-ffast-math -fomit-frame-pointer
-        -W -Wall -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return
-        -Wcast-align -Wcast-qual -Wnested-externs -Wshadow -Wbad-function-cast
-        -Wwrite-strings)
+        -W -Wall -Waggregate-return -Wcast-align -Wcast-qual -Wshadow -Wwrite-strings
+        "$<$<COMPILE_LANGUAGE:C>:-Wstrict-prototypes;-Wmissing-prototypes;-Wnested-externs;-Wbad-function-cast>")
 endif()
 
 set(KISSFFT_FIXED_WIDTH_VALID 16 32)
@@ -35,11 +34,10 @@ endif()
 
 add_library(kissfft
   kiss_fft.c)
-add_library(kissfft::kissfft ALIAS kissfft)
 
 target_include_directories(kissfft PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-    $<INSTALL_INTERFACE:.>)
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 set(KISSFFT_COMPILE_DEFINITIONS)
 if(KISSFFT_SIMD)
@@ -51,7 +49,7 @@ else()
         set(KISSFFT_DATATYPE "${KISSFFT_FLOAT_TYPE}")
     else()
         list(APPEND KISSFFT_COMPILE_DEFINITIONS KISSFFT_FIXED_POINT=${KISSFFT_FIXED_WIDTH})
-        set(KISSFFT_DATATYPE "int${KISSFFT_FIXED_WIDTH}_t")
+        set(KISSFFT_DATATYPE "int${KISSFFT_FIXED_WIDTH}")
     endif()
 endif()
 if(KISSFFT_OPENMP)
@@ -64,29 +62,35 @@ if(KISSFFT_OPENMP)
 endif()
 message(STATUS "Building KissFFT with datatype=${KISSFFT_DATATYPE}")
 
-set(KISSFFT_EXPORT_SUFFIX "")
 if(BUILD_SHARED_LIBS)
     list(APPEND KISSFFT_COMPILE_DEFINITIONS KISS_FFT_SHARED)
     set_target_properties(kissfft PROPERTIES
         C_VISIBILITY_PRESET hidden)
     set(KISSFFT_EXPORT_SUFFIX "-shared")
+else()
+    set(KISSFFT_EXPORT_SUFFIX "-static")
 endif()
 target_compile_definitions(kissfft PUBLIC ${KISSFFT_COMPILE_DEFINITIONS})
 set(KISSFFT_OUTPUT_NAME "kissfft_${KISSFFT_DATATYPE}")
 set_target_properties(kissfft PROPERTIES
     OUTPUT_NAME "${KISSFFT_OUTPUT_NAME}"
     DEFINE_SYMBOL KISS_FFT_BUILD
-    EXPORT_NAME "kissfit_${KISSFFT_DATATYPE}${KISSFFT_EXPORT_SUFFIX}"
+    EXPORT_NAME "kissfft-${KISSFFT_DATATYPE}"
     VERSION ${PROJECT_VERSION})
+add_library(kissfft::kissfft ALIAS kissfft)
+add_library(kissfft::kissff-${KISSFFT_DATATYPE} ALIAS kissfft)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(kissfft PRIVATE m)
+endif()
 
 function(add_kissfft_executable NAME)
     add_executable(${NAME} ${ARGN})
     target_link_libraries(${NAME} PRIVATE kissfft::kissfft)
-    set_target_properties(${NAME} PROPERTIES
-        OUTPUT_NAME "${NAME}_${KISSFFT_DATATYPE}")
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(${NAME} PRIVATE m)
     endif()
+    set_target_properties(${NAME} PROPERTIES
+        OUTPUT_NAME "${NAME}_${KISSFFT_DATATYPE}")
 endfunction()
 
 option(KISSFFT_TOOLS "Build kissfft tools" ON)
@@ -99,7 +103,6 @@ if(KISSFFT_TEST)
     enable_testing()
     add_subdirectory(test)
 endif()
-
 
 option(KISSFFT_INSTALL "Enable kissfft install" ON)
 if (KISSFFT_INSTALL)

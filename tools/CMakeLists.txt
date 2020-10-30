@@ -14,5 +14,5 @@ if(NOT KISSFFT_DATATYPE MATCHES "simd")
     target_link_libraries(psdpng PRIVATE PkgConfig::libpng)
 endif()
 
-#dumphdr.c is not available
+#FIXME: dumphdr.c is not available
 #add_kissfft_executable(dumphdr dumphdr.c)
