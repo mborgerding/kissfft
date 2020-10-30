@@ -62,6 +62,7 @@ if(KISSFFT_OPENMP)
         message(FATAL_ERROR "Don't know how to enable openmp for this compiler")
     endif()
 endif()
+message(STATUS "Building KissFFT with datatype=${KISSFFT_DATATYPE}")
 
 set(KISSFFT_EXPORT_SUFFIX "")
 if(BUILD_SHARED_LIBS)
