@@ -11,6 +11,13 @@ project(kissfft VERSION "${MAKEFILE_EXTRACTED_VERSION}")
 option(KISSFFT_SIMD "Build kissfft with SIMD" OFF)
 option(KISSFFT_FLOAT "Build kissfft with float type" ON)
 option(KISSFFT_OPENMP "Build kissfft with openmp" OFF)
+option(KISSFFT_TOOLS "Build kissfft tools" ON)
+option(KISSFFT_TEST "Build and enable kissfft tests" ON)
+option(KISSFFT_INSTALL "Enable kissfft install" ON)
+
+if (KISSFFT_INSTALL)
+    include(GNUInstallDirs)
+endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     add_compile_options(-ffast-math -fomit-frame-pointer
@@ -93,20 +100,16 @@ function(add_kissfft_executable NAME)
         OUTPUT_NAME "${NAME}_${KISSFFT_DATATYPE}")
 endfunction()
 
-option(KISSFFT_TOOLS "Build kissfft tools" ON)
 if(KISSFFT_TOOLS)
     add_subdirectory(tools)
 endif()
 
-option(KISSFFT_TEST "Build and enable kissfft tests" ON)
 if(KISSFFT_TEST)
     enable_testing()
     add_subdirectory(test)
 endif()
 
-option(KISSFFT_INSTALL "Enable kissfft install" ON)
 if (KISSFFT_INSTALL)
-    include(GNUInstallDirs)
     install(TARGETS kissfft EXPORT kissfft
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
