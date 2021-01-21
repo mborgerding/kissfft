@@ -40,7 +40,11 @@ if(NOT KISSFFT_FLOAT_TYPE IN_LIST KISSFFT_FLOAT_TYPE_VALID)
 endif()
 
 add_library(kissfft
-  kiss_fft.c)
+  kiss_fft.c
+  tools/kfc.c
+  tools/kiss_fftnd.c
+  tools/kiss_fftndr.c
+  tools/kiss_fftr.c)
 
 target_include_directories(kissfft PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
@@ -114,7 +118,13 @@ if (KISSFFT_INSTALL)
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-    install(FILES "kiss_fft.h" "kissfft.hh" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+    install(FILES kiss_fft.h
+                  kissfft.hh
+                  tools/kfc.h
+                  tools/kiss_fftnd.h
+                  tools/kiss_fftndr.h
+                  tools/kiss_fftr.h
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
     set(KISSFFT_INSTALL_CMAKE "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}" CACHE FILEPATH "Install destination of kissfft cmake modules")
     mark_as_advanced(KISSFFT_INSTALL_CMAKE)
