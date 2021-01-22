@@ -12,14 +12,14 @@ function(add_kissfft_test_executable NAME)
     add_kissfft_executable(${NAME} ${ARGN} $<TARGET_OBJECTS:kissfft_help_library>)
     target_include_directories(${NAME} PRIVATE ../tools)
     add_test(NAME ${NAME} COMMAND ${NAME})
-    set_tests_properties(${NAME} PROPERTIES TIMEOUT 10)
+    set_tests_properties(${NAME} PROPERTIES TIMEOUT 3600)
 endfunction()
 
 set(KISSFFT_TEST_NUMFFTS 10000)
 
 add_kissfft_test_executable(bm_kiss benchkiss.c)
 # add_test(NAME benchmar COMMAND ${NAME})
-# set_tests_properties(${NAME} PROPERTIES TIMEOUT 10)
+# set_tests_properties(${NAME} PROPERTIES TIMEOUT 3600)
 
 include(FindPkgConfig)
 if(KISSFFT_FLOAT)
@@ -44,6 +44,6 @@ add_kissfft_test_executable(testcpp testcpp.cc)
 find_package(PythonInterp REQUIRED)
 add_test(NAME testkiss.py COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/testkiss.py")
 set_tests_properties(testkiss.py PROPERTIES
-    TIMEOUT 20
+    TIMEOUT 3600
     ENVIRONMENT "DATATYPE=${KISSFFT_DATATYPE}"
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")

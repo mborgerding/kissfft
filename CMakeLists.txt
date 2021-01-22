@@ -11,6 +11,13 @@ project(kissfft VERSION "${MAKEFILE_EXTRACTED_VERSION}")
 option(KISSFFT_SIMD "Build kissfft with SIMD" OFF)
 option(KISSFFT_FLOAT "Build kissfft with float type" ON)
 option(KISSFFT_OPENMP "Build kissfft with openmp" OFF)
+option(KISSFFT_TOOLS "Build kissfft tools" ON)
+option(KISSFFT_TEST "Build and enable kissfft tests" ON)
+option(KISSFFT_INSTALL "Enable kissfft install" ON)
+
+if (KISSFFT_INSTALL)
+    include(GNUInstallDirs)
+endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     add_compile_options(-ffast-math -fomit-frame-pointer
@@ -33,7 +40,11 @@ if(NOT KISSFFT_FLOAT_TYPE IN_LIST KISSFFT_FLOAT_TYPE_VALID)
 endif()
 
 add_library(kissfft
-  kiss_fft.c)
+  kiss_fft.c
+  tools/kfc.c
+  tools/kiss_fftnd.c
+  tools/kiss_fftndr.c
+  tools/kiss_fftr.c)
 
 target_include_directories(kissfft PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
@@ -93,25 +104,27 @@ function(add_kissfft_executable NAME)
         OUTPUT_NAME "${NAME}_${KISSFFT_DATATYPE}")
 endfunction()
 
-option(KISSFFT_TOOLS "Build kissfft tools" ON)
 if(KISSFFT_TOOLS)
     add_subdirectory(tools)
 endif()
 
-option(KISSFFT_TEST "Build and enable kissfft tests" ON)
 if(KISSFFT_TEST)
     enable_testing()
     add_subdirectory(test)
 endif()
 
-option(KISSFFT_INSTALL "Enable kissfft install" ON)
 if (KISSFFT_INSTALL)
-    include(GNUInstallDirs)
     install(TARGETS kissfft EXPORT kissfft
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-    install(FILES "kiss_fft.h" "kissfft.hh" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+    install(FILES kiss_fft.h
+                  kissfft.hh
+                  tools/kfc.h
+                  tools/kiss_fftnd.h
+                  tools/kiss_fftndr.h
+                  tools/kiss_fftr.h
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
     set(KISSFFT_INSTALL_CMAKE "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}" CACHE FILEPATH "Install destination of kissfft cmake modules")
     mark_as_advanced(KISSFFT_INSTALL_CMAKE)
