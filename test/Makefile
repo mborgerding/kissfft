@@ -1,5 +1,5 @@
 
-WARNINGS=-W -Wall -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return \
+WARNINGS=-W -Wall -Wstrict-prototypes -Wmissing-prototypes  \
     -Wcast-align -Wcast-qual -Wnested-externs -Wshadow -Wbad-function-cast \
     -Wwrite-strings
 

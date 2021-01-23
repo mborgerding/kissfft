@@ -21,7 +21,7 @@ endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     add_compile_options(-ffast-math -fomit-frame-pointer
-        -W -Wall -Waggregate-return -Wcast-align -Wcast-qual -Wshadow -Wwrite-strings
+        -W -Wall -Wcast-align -Wcast-qual -Wshadow -Wwrite-strings
         "$<$<COMPILE_LANGUAGE:C>:-Wstrict-prototypes;-Wmissing-prototypes;-Wnested-externs;-Wbad-function-cast>")
 endif()
 
