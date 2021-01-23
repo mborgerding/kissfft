@@ -46,6 +46,7 @@ void config(int argc,char** argv)
                      "\t-s : input is stereo, channels will be combined before fft\n"
                      "16 bit machine format real input is assumed\n"
                      );
+            break;
         default:
             fprintf (stderr, "bad %c\n", c);
             exit (1);
