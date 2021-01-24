@@ -33,6 +33,8 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
     nfft >>= 1;
 
     kiss_fft_alloc (nfft, inverse_fft, NULL, &subsize);
+    /* nfft kiss_fft_cpx'es for the tmpbuf; half as many for the
+     * super_twiddles */
     memneeded = sizeof(struct kiss_fftr_state) + subsize + sizeof(kiss_fft_cpx) * ( nfft * 3 / 2);
 
     if (lenmem == NULL) {
@@ -45,9 +47,9 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
     if (!st)
         return NULL;
 
-    st->substate = (kiss_fft_cfg) (st + 1); /*just beyond kiss_fftr_state struct */
-    st->tmpbuf = (kiss_fft_cpx *) (((char *) st->substate) + subsize);
-    st->super_twiddles = st->tmpbuf + nfft;
+    st->tmpbuf = (kiss_fft_cpx *) (st + 1); /*just beyond kiss_fftr_state struct */
+    st->super_twiddles = st->tmpbuf + nfft; /*just beyond tmpbuf */
+    st->substate = (kiss_fft_cfg) (st->tmpbuf + nfft * 3 / 2); /*just beyond super_twiddles */
     kiss_fft_alloc(nfft, inverse_fft, st->substate, &subsize);
 
     for (i = 0; i < nfft/2; ++i) {
