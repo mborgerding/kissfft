@@ -1,9 +1,10 @@
-libdir=@CMAKE_INSTALL_FULL_LIBDIR@
-includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+prefix=@PKGCONFIG_KISSFFT_PREFIX@
+libdir=@PKGCONFIG_KISSFFT_LIBDIR@
+includedir=@PKGCONFIG_KISSFFT_INCLUDEDIR@
 
 Name: kissfft
 Description: A Fast Fourier Transform (FFT) library that tries to Keep it Simple, Stupid
-Version: @kissfft_VERSION@
+Version: @PKGCONFIG_KISSFFT_VERSION@
 
-Libs: -L${libdir} -l@KISSFFT_OUTPUT_NAME@
-Cflags: -I${includedir} @PKG_KISSFFT_DEFS@
+Libs: @PKG_OPENMP@ -L${libdir} -l@KISSFFT_OUTPUT_NAME@
+Cflags: -I@PKGCONFIG_KISSFFT_PKGINCLUDEDIR@ @PKG_KISSFFT_DEFS@

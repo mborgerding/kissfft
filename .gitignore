@@ -1,6 +1,7 @@
 *.o
 *.swp
 *.so
+*.so.*
 *.a
 *.dylib
 test/testcpp

@@ -1,106 +1,188 @@
+#
+# Warnings
+#
 
-WARNINGS=-W -Wall -Wstrict-prototypes -Wmissing-prototypes  \
+WARNINGS = -W -Wall -Wstrict-prototypes -Wmissing-prototypes  \
     -Wcast-align -Wcast-qual -Wnested-externs -Wshadow -Wbad-function-cast \
     -Wwrite-strings
 
-CFLAGS=-O3 -I.. -I../tools $(WARNINGS)
-CFLAGS+=-ffast-math -fomit-frame-pointer 
-#CFLAGS+=-funroll-loops
-#CFLAGS+=-march=prescott 
-#CFLAGS+= -mtune=native 
-# TIP: try adding -openmp or -fopenmp  to enable OPENMP directives and use of multiple cores
-#CFLAGS+=-fopenmp
-CFLAGS+= $(CFLAGADD)
+#
+# Compile-time definitions
+#
 
+CFLAGS  =  -O3 -I.. -I../tools $(WARNINGS)
+CFLAGS += -ffast-math -fomit-frame-pointer
+#CFLAGS += -funroll-loops
+#CFLAGS += -march=prescott
+#CFLAGS += -mtune=native
+# TIP: try adding -openmp or -fopenmp  to enable OPENMP directives and use of multiple cores
+#CFLAGS += -fopenmp
+CFLAGS += $(CFLAGADD)
+
+CXXFLAGS = -O3 -ffast-math -fomit-frame-pointer  -I.. -W -Wall -march=native -mtune=native
+
+#
+# Count of FFT runs tested
+#
 
 ifeq "$(NFFT)" ""
- NFFT=1800
+ NFFT = 1800
 endif
 ifeq "$(NUMFFTS)" ""
- NUMFFTS=10000
+ NUMFFTS = 10000
 endif
 
-ifeq "$(DATATYPE)" ""
- DATATYPE=float
-endif
+#
+# Test binary executable names
+#
 
-BENCHKISS=bm_kiss_$(DATATYPE)
-BENCHFFTW=bm_fftw_$(DATATYPE)
-SELFTEST=st_$(DATATYPE)
-TESTREAL=tr_$(DATATYPE)
-TESTKFC=tkfc_$(DATATYPE)
-FASTFILTREAL=ffr_$(DATATYPE)
-SELFTESTSRC=twotonetest.c
+SELFTESTSRC = twotonetest.c
 
-
-TYPEFLAGS=-Dkiss_fft_scalar=$(DATATYPE)
-
-ifeq  "$(DATATYPE)" "int16_t" 
- TYPEFLAGS=-DFIXED_POINT=16
-endif
-
-ifeq  "$(DATATYPE)" "int32_t"
- TYPEFLAGS=-DFIXED_POINT=32 
-endif
-
-ifeq  "$(DATATYPE)" "simd"
- TYPEFLAGS=-DUSE_SIMD=1 -msse
-endif
-
-
-ifeq  "$(DATATYPE)" "float"
- # fftw needs to be built with --enable-float to build this lib
- FFTWLIB=-lfftw3f
+ifneq ($(KISSFFT_OPENMP),1)
+BENCHKISS = bm-kiss-$(KISSFFT_DATATYPE)
+BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)
+SELFTEST = st-$(KISSFFT_DATATYPE)
+TESTREAL = tr-$(KISSFFT_DATATYPE)
+TESTKFC = tkfc-$(KISSFFT_DATATYPE)
+TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)
+TESTCPP = testcpp-$(KISSFFT_DATATYPE)
+TESTSIMD = testsimd
 else
- FFTWLIB=-lfftw3
+BENCHKISS = bm-kiss-$(KISSFFT_DATATYPE)-openmp
+BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)-openmp
+SELFTEST = st-$(KISSFFT_DATATYPE)-openmp
+TESTREAL = tr-$(KISSFFT_DATATYPE)-openmp
+TESTKFC = tkfc-$(KISSFFT_DATATYPE)-openmp
+TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)-openmp
+TESTCPP = testcpp-$(KISSFFT_DATATYPE)-openmp
+TESTSIMD = testsimd-openmp
+CFLAGS += -fopenmp
+CXXFLAGS += -fopenmp
 endif
 
-FFTWLIBDIR=-L/usr/local/lib/
+ifeq "$(KISSFFT_DATATYPE)" "float"
+ # fftw needs to be built with --enable-float to build this lib
+ FFTWLIB = -lfftw3f
+else
+ FFTWLIB = -lfftw3
+endif
 
-SRCFILES=../kiss_fft.c ../tools/kiss_fftnd.c ../tools/kiss_fftr.c pstats.c ../tools/kfc.c ../tools/kiss_fftndr.c
+FFTWLIBDIR ?= $(ABS_LIBDIR)
+ABS_FFTWLIBDIR = $(abspath $(FFTWLIBDIR))
 
-all: tools $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTKFC)
+#
+# Check missing external libraries
+#
 
-tools:
-	cd ../tools && make all
+ifneq ($(MAKECMDGOALS),clean)
+LIBFFTW_MISSING = $(shell echo "int main(){return 0;}" > _test_library_dummy.c; \
+	$(CC) -o _test_library_dummy _test_library_dummy.c $(FFTWLIB) -L$(ABS_FFTWLIBDIR); \
+	echo $$?; \
+	rm -f _test_library_dummy.c _test_library_dummy)
+endif
 
-test_simd: test_simd.c  $(SRCFILES)
-	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -msse $+ -lm
+#
+# Find Python interpreter
+#
 
-testsse: test_simd
-	./test_simd
+ifneq ($(MAKECMDGOALS),clean)
+  PYTHON_INTERPRETER = $(shell python --version)
+  ifeq ($(PYTHON_INTERPRETER), )
+	PYTHON_INTERPRETER = $(shell python2 --version)
+    ifeq ($(PYTHON_INTERPRETER), )
+	PYTHON_INTERPRETER = $(shell python3 --version)
+      ifeq ($(PYTHON_INTERPRETER), )
+	$(error ERROR: Can not find Python interpreter!)
+      else
+	PYTHON_INTERPRETER = "python3"
+      endif
+    else
+	PYTHON_INTERPRETER = "python2"
+    endif
+  else
+	PYTHON_INTERPRETER = "python"
+  endif
+endif
 
-$(SELFTEST): $(SELFTESTSRC) $(SRCFILES)
-	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $+ -lm 
+#
+# Target: "make all"
+#
 
-$(TESTKFC): $(SRCFILES) 
-	$(CC) -o $@ $(CFLAGS)  -DKFC_TEST $(TYPEFLAGS) $+ -lm
-	
-$(TESTREAL): test_real.c $(SRCFILES)
-	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $+ -lm
+all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTKFC) $(TESTFASTFILT)
 
-$(BENCHKISS): benchkiss.c $(SRCFILES)
-	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS)  $+ -lm
+#
+# Individual test make rules
+#
+
+$(SELFTEST): $(SELFTESTSRC)
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+
+$(TESTKFC): ../kfc.c
+	$(CC) -o $@ $(CFLAGS)  -DKFC_TEST $(TYPEFLAGS) $^ -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+
+$(TESTREAL): test_real.c
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+
+$(BENCHKISS): benchkiss.c pstats.c
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS)  $^ -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+
+$(TESTFASTFILT): ../tools/fftutil.c
+	$(CC) -o $@ $(CFLAGS)  -DKFC_TEST $(TYPEFLAGS) $^ -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 
 $(BENCHFFTW): benchfftw.c pstats.c
-	@echo "======attempting to build FFTW benchmark"
-	@$(CC) -o $@ $(CFLAGS) -DDATATYPE$(DATATYPE) $+ $(FFTWLIB) $(FFTWLIBDIR) -lm || echo "FFTW not available for comparison"
+	$(warning ======attempting to build FFTW benchmark)
+ifeq ($(LIBFFTW_MISSING), 0)
+	$(CC) -o $@ $(CFLAGS) -DDATATYPE$(KISSFFT_DATATYPE) $^ $(FFTWLIB) -L$(ABS_FFTWLIBDIR) -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+else
+	$(warning WARNING: No FFTW development files found! FFTW not available for comparison!0
+endif
+
+#
+# Test SSE
+#
+
+$(TESTSIMD): test_simd.c
+ifeq "$(KISSFFT_DATATYPE)" "simd"
+	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -msse $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+else
+	$(error ERROR: This test makes sense only with KISSFFT_DATATYPE=simd)
+endif
+
+testsse: $(TESTSIMD)
+	LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTSIMD)
+
+#
+# Test C++
+#
+
+$(TESTCPP): testcpp.cc ../kissfft.hh
+	$(CXX) -o $@ $(CXXFLAGS) testcpp.cc -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+
+testcpp: $(TESTCPP)
+	LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTCPP)
+
+#
+# Target: "make test"
+#
 
 test: all
-	@./$(TESTKFC)
-	@echo "======1d & 2-d complex fft self test (type= $(DATATYPE) )"
-	@./$(SELFTEST)
-	@echo "======real FFT (type= $(DATATYPE) )"
-	@./$(TESTREAL)
-	@echo "======timing test (type=$(DATATYPE))"
-	@./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT) 
-	@[ -x ./$(BENCHFFTW) ] && ./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT) ||true
-	@echo "======higher dimensions type=$(DATATYPE))"
-	@./testkiss.py
+ifeq "$(KISSFFT_DATATYPE)" "simd"
+	make testsse
+endif
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTKFC)
+	$(warning ======1d & 2-d complex fft self test (type= $(KISSFFT_DATATYPE) ))
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(SELFTEST)
+	$(warning ======real FFT (type= $(KISSFFT_DATATYPE) ))
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTREAL)
+	$(warning ======timing test (type=$(KISSFFT_DATATYPE)))
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT)
+	@[ -x ./$(BENCHFFTW) ] && LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT) || true
+	$(warning ======higher dimensions (type=$(KISSFFT_DATATYPE)))
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." $(PYTHON_INTERPRETER) ./testkiss.py
 
-CXXFLAGS=-O3 -ffast-math -fomit-frame-pointer  -I.. -I../tools -W -Wall -march=native -mtune=native
-testcpp: testcpp.cc ../kissfft.hh
-	$(CXX) -o $@ $(CXXFLAGS) testcpp.cc -lm
+#
+# Target: "make clean"
+#
 
 clean:
-	rm -f *~ bm_* st_* tr_* kf_* tkfc_* ff_* ffr_* *.pyc *.pyo *.dat testcpp
+	rm -f *~ bm-* st-* tr-* kf-* tkfc-* ff-* fastfilt-* *.pyc *.pyo *.dat testcpp-* testsimd testsimd-* _test_library_dummy _test_library_dummy.c
