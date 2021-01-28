@@ -16,9 +16,14 @@ import numpy as np
 po = math.pi
 e = math.e
 do_real = False
-datatype = os.environ.get('DATATYPE', 'float')
+datatype = os.environ.get('KISSFFT_DATATYPE', 'float')
+openmp = os.environ.get('KISSFFT_OPENMP', 'float')
 
-util = '../tools/fft_' + datatype
+util = './fastfilt-' + datatype
+
+if openmp == '1' or openmp == 'ON':
+    util = util + '-openmp'
+
 minsnr = 90
 if datatype == 'double':
     dtype = np.float64
