@@ -44,6 +44,120 @@ You can do other cool stuff with the extras you'll find in tools/
 The core fft and most tools/ code can be compiled to use float, double,
  Q15 short or Q31 samples. The default is float.
 
+## BUILDING:
+
+There are two functionally-equivalent build systems supported by kissfft:
+
+ - Make (traditional Makefiles for Unix / Linux systems)
+ - CMake (more modern and feature-rich build system developed by Kitware)
+
+To build kissfft, the following build environment can be used:
+
+ - GNU build environment with GCC, Clang and GNU Make or CMake (>= 3.6)
+ - Microsoft Visual C++ (MSVC) with CMake (>= 3.6)
+
+Additional libraries required to build and test kissfft include:
+
+ - libpng for psdpng tool,
+ - libfftw3 to validate kissfft results against it,
+ - python 2/3 with Numpy to validate kissfft results against it.
+ - OpenMP supported by GCC, Clang or MSVC for multi-core FFT transformations
+
+Environments like Cygwin and MinGW can be highly likely used to build kissfft
+targeting Windows platform, but no tests were performed to the date.
+
+Both Make and CMake builds are easily configurable:
+
+ - `KISSFFT_DATATYPE=<datatype>` (for Make) or `-DKISSFFT_DATATYPE=<datatype>`
+   (for CMake) denote the principal datatype used by kissfft. It can be one
+   of the following:
+
+   - float (default)
+   - double
+   - int16_t
+   - int32_t
+   - SIMD (requires SSE instruction set support on target CPU)
+
+ - `KISSFFT_OPENMP=1` (for Make) or `-DKISSFFT_OPENMP=ON` (for CMake) builds kissfft
+   with OpenMP support. Please note that a supported compiler is required and this
+   option is turned off by default.
+
+ - `KISSFFT_STATIC=1` (for Make) or `-DKISSFFT_STATIC=ON` (for CMake) instructs
+   the builder to create static library ('.lib' for Windows / '.a' for Unix or Linux).
+   By default, this option is turned off and the shared library is created
+   ('.dll' for Windows, '.so' for Linux or Unix, '.dylib' for Mac OSX)
+
+ - `-DKISSFFT_TEST=OFF` (for CMake) disables building tests for kissfft. On Make,
+   building tests is done separately by 'make testall' or 'make testsingle', so
+   no specific setting is required.
+
+ - `KISSFFT_TOOLS=0` (for Make) or `-DKISSFFT_TOOLS=OFF` (for CMake) builds kissfft
+    without command-line tools like 'fastconv'. By default the tools are built.
+
+    - `KISSFFT_USE_ALLOCA=1` (for Make) or `-DKISSFFT_USE_ALLOCA=ON` (for CMake)
+       build kissfft with 'alloca' usage instead of 'malloc' / 'free'.
+
+    - `PREFIX=/full/path/to/installation/prefix/directory` (for Make) or
+      `-DCMAKE_INSTALL_PREFIX=/full/path/to/installation/prefix/directory` (for CMake)
+      specifies the prefix directory to install kissfft into.
+
+For example, to build kissfft as a static library with 'int16_t' datatype and
+OpenMP support using Make, run the command from kissfft source tree:
+
+```
+make KISSFFT_DATATYPE=int16_t KISSFFT_STATIC=1 KISSFFT_OPENMP=1 all
+```
+
+The same configuration for CMake is:
+
+```
+mkdir build && cd build
+cmake -DKISSFFT_DATATYPE=int16_t -DKISSFFT_STATIC=ON -DKISSFFT_OPENMP=ON ..
+make all
+```
+
+To specify '/tmp/1234' as installation prefix directory, run:
+
+
+```
+make PREFIX=/tmp/1234 KISSFFT_DATATYPE=int16_t KISSFFT_STATIC=1 KISSFFT_OPENMP=1 install
+```
+
+or
+
+```
+mkdir build && cd build
+cmake -DCMAKE_INSTALL_PREFIX=/tmp/1234 -DKISSFFT_DATATYPE=int16_t -DKISSFFT_STATIC=ON -DKISSFFT_OPENMP=ON ..
+make all
+make install
+```
+
+## TESTING:
+
+To validate the build configured as an example above, run the following command from
+kissfft source tree:
+
+```
+make KISSFFT_DATATYPE=int16_t KISSFFT_STATIC=1 KISSFFT_OPENMP=1 testsingle
+```
+
+if using Make, or:
+
+```
+make test
+```
+
+if using CMake.
+
+To test all possible build configurations, please run an extended testsuite from
+kissfft source tree:
+
+```
+sh test/kissfft-testsuite.sh
+```
+
+Please note that the extended testsuite takes around 20-40 minutes depending on device
+it runs on. This testsuite is useful for reporting bugs or testing the pull requests.
 
 ## BACKGROUND
 
