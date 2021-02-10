@@ -297,8 +297,6 @@ install(TARGETS kissfft EXPORT kissfft
 
 install(FILES kiss_fft.h
               kissfft.hh
-              kissfft_i32.hh
-              kfc.h
               kiss_fftnd.h
               kiss_fftndr.h
               kiss_fftr.h

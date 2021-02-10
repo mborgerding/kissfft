@@ -213,10 +213,8 @@ endif
 
 install: all
 	$(INSTALL) -Dt $(ABS_PKGINCLUDEDIR) -m 644 \
-		kfc.h \
 		kiss_fft.h \
 		kissfft.hh \
-		kissfft_i32.hh \
 		kiss_fftnd.h \
 		kiss_fftndr.h \
 		kiss_fftr.h
