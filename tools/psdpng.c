@@ -135,13 +135,13 @@ void transform_signal(void)
     while (1) {
         if (stereo) {
             n = fread(inbuf,sizeof(short)*2,nfft,fin);
-            if (n != nfft ) 
+            if (n != (size_t)nfft ) 
                 break;
             for (i=0;i<nfft;++i) 
                 tbuf[i] = inbuf[2*i] + inbuf[2*i+1];
         }else{
             n = fread(inbuf,sizeof(short),nfft,fin);
-            if (n != nfft ) 
+            if (n != (size_t)nfft ) 
                 break;
             for (i=0;i<nfft;++i) 
                 tbuf[i] = inbuf[i];
