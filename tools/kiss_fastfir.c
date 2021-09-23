@@ -149,7 +149,7 @@ kiss_fastfir_cfg kiss_fastfir_alloc(
     FFTFWD(st->fftcfg,st->tmpbuf,st->fir_freq_resp);
 
     /* TODO: this won't work for fixed point */
-    scale = 1.0 / st->nfft;
+    scale = 1.0f / st->nfft;
 
     for ( i=0; i < st->n_freq_bins; ++i ) {
 #ifdef USE_SIMD

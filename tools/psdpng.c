@@ -103,7 +103,7 @@ void cpx2pixels(rgb_t * res,const float * fbuf,size_t n)
 
     fprintf(stderr,"min ==%f,max=%f\n",minval,maxval);
     valrange = maxval-minval;
-    if (valrange == 0) {
+    if (valrange == 0.0f) {
         fprintf(stderr,"min == max == %f\n",minval);
         exit (1);
     }
@@ -164,9 +164,9 @@ void transform_signal(void)
             avgctr=0;
             ++nrows;
             CHECKNULL( vals = (float*)realloc(vals,sizeof(float)*nrows*nfreqs) );
-            float eps = 1;
+            float eps = 1.0f;
             for (i=0;i<nfreqs;++i)
-                vals[(nrows - 1) * nfreqs + i] = 10 * log10 ( mag2buf[i] / navg + eps );
+                vals[(nrows - 1) * nfreqs + i] = 10.0f * log10f ( mag2buf[i] / navg + eps );
             memset(mag2buf,0,sizeof(mag2buf[0])*nfreqs);
         }
     }
