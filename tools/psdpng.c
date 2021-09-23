@@ -16,15 +16,15 @@
 #include "kiss_fft.h"
 #include "kiss_fftr.h"
 
-int nfft=1024;
-FILE * fin=NULL;
-FILE * fout=NULL;
+static int nfft=1024;
+static FILE * fin=NULL;
+static FILE * fout=NULL;
 
-int navg=20;
-int remove_dc=0;
-int nrows=0;
-float * vals=NULL;
-int stereo=0;
+static int navg=20;
+static int remove_dc=0;
+static int nrows=0;
+static float * vals=NULL;
+static int stereo=0;
 
 static
 void config(int argc,char** argv)
