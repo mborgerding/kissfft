@@ -41,7 +41,6 @@ size_t kiss_fastfir( kiss_fastfir_cfg cfg, kffsamp_t * inbuf, kffsamp_t * outbuf
 
 
 
-static int verbose=0;
 
 
 struct kiss_fastfir_state{
@@ -243,6 +242,8 @@ size_t kiss_fastfir(
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <assert.h>
+
+static int verbose=0;
 
 static
 void direct_file_filter(
