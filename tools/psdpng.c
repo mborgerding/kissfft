@@ -121,7 +121,7 @@ void transform_signal(void)
     kiss_fft_cpx *fbuf;
     float *mag2buf;
     int i;
-    int n;
+    size_t n;
     int avgctr=0;
 
     int nfreqs=nfft/2+1;
