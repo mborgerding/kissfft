@@ -25,12 +25,31 @@ class kissfft
             :_nfft(nfft)
             ,_inverse(inverse)
         {
+            using std::acos; using std::cos; using std::sin;
             // fill twiddle factors
             _twiddles.resize(_nfft);
-            const scalar_t phinc =  (_inverse?2:-2)* std::acos( (scalar_t) -1)  / _nfft;
-            for (std::size_t i=0;i<_nfft;++i)
-                _twiddles[i] = std::exp( cpx_t(0,i*phinc) );
-
+            {
+              const scalar_t s = _inverse ? 1 : -1;
+              const scalar_t d = acos( (scalar_t) -1) / (2 * _nfft);
+              int i = 0, N = _nfft; // signed ints needed for subtractions
+              // enforce trigonometric symmetries by evaluating sin and cos
+              // with arguments in the range [-pi/4, pi/4]
+              for (; 8*i <   N; ++i)
+                _twiddles[i] = cpx_t(+  cos((4*i    )*d),
+                                     +s*sin((4*i    )*d)); // pi/4*[0, 1)
+              for (; 8*i < 3*N; ++i)
+                _twiddles[i] = cpx_t(-  sin((4*i-  N)*d),
+                                     +s*cos((4*i-  N)*d)); // pi/4*[1, 3)
+              for (; 8*i < 5*N; ++i)
+                _twiddles[i] = cpx_t(-  cos((4*i-2*N)*d),
+                                     -s*sin((4*i-2*N)*d)); // pi/4*[3, 5)
+              for (; 8*i < 7*N; ++i)
+                _twiddles[i] = cpx_t(+  sin((4*i-3*N)*d),
+                                     -s*cos((4*i-3*N)*d)); // pi/4*[5, 7)
+              for (;   i <   N; ++i)
+                _twiddles[i] = cpx_t(+  cos((4*i-4*N)*d),
+                                     +s*sin((4*i-4*N)*d)); // pi/4*[5, 8)
+            }
             //factorize
             //start factoring out 4's, then 2's, then 3,5,7,9,...
             std::size_t n= _nfft;
@@ -154,6 +173,7 @@ class kissfft
         void transform_real( const scalar_t * const src,
                              cpx_t * const dst ) const
         {
+            using std::acos; using std::exp;
             const std::size_t N = _nfft;
             if ( N == 0 )
                 return;
@@ -166,9 +186,9 @@ class kissfft
                                dst[0].real() - dst[0].imag() );
 
             // post processing for all the other k = 1, 2, ..., N-1
-            const scalar_t pi = std::acos( (scalar_t) -1);
+            const scalar_t pi =      acos( (scalar_t) -1);
             const scalar_t half_phi_inc = ( _inverse ? pi : -pi ) / N;
-            const cpx_t twiddle_mul = std::exp( cpx_t(0, half_phi_inc) );
+            const cpx_t twiddle_mul =      exp( cpx_t(0, half_phi_inc) );
             for ( std::size_t k = 1; 2*k < N; ++k )
             {
                 const cpx_t w = (scalar_t)0.5 * cpx_t(
