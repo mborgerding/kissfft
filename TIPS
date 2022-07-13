@@ -11,7 +11,7 @@ Speed:
                 -ffast-math
                 -fomit-frame-pointer
 
-    * If the input data has no imaginary component, use the kiss_fftr code under tools/.
+    * If the input data has no imaginary component, use the kiss_fftr code.
       Real ffts are roughly twice as fast as complex.
 
     * If you can rearrange your code to do 4 FFTs in parallel and you are on a recent Intel or AMD machine,
