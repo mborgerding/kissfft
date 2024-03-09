@@ -134,7 +134,7 @@ $(BENCHFFTW): benchfftw.c pstats.c
 ifeq ($(LIBFFTW_MISSING), 0)
 	$(CC) -o $@ $(CFLAGS) -DDATATYPE$(KISSFFT_DATATYPE) $^ $(FFTWLIB) -L$(ABS_FFTWLIBDIR) -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 else
-	$(warning WARNING: No FFTW development files found! FFTW not available for comparison!0
+	$(warning WARNING: No FFTW development files found! FFTW not available for comparison!)
 endif
 
 #
