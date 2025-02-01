@@ -204,7 +204,7 @@ else
 	$(AR) crus $(KISSFFTLIB_NAME) $^
 endif
 ifneq ($(KISSFFT_TOOLS), 0)
-	make -C tools CFLAGADD="$(CFLAGADD)" all
+	$(MAKE) -C tools CFLAGADD="$(CFLAGADD)" all
 endif
 
 #
@@ -240,7 +240,7 @@ ifneq ($(shell uname -s),Darwin)
 		kissfft.pc.in 1>"$(ABS_LIBDIR)/pkgconfig/$(KISSFFT_PKGCONFIG)"
 endif
 ifneq ($(KISSFFT_TOOLS), 0)
-	make -C tools install
+	$(MAKE) -C tools install
 endif
 
 #
@@ -258,9 +258,9 @@ doc:
 #
 
 testsingle:
-	make clean
-	make all
-	make -C test CFLAGADD="$(CFLAGADD)" test testcpp
+	$(MAKE) clean
+	$(MAKE) all
+	$(MAKE) -C test CFLAGADD="$(CFLAGADD)" test testcpp
 
 #
 # Target: "make testall"
@@ -268,26 +268,26 @@ testsingle:
 
 testall:
 	# Shared libraries
-	make KISSFFT_DATATYPE=double testsingle
-	make KISSFFT_DATATYPE=float testsingle
-	make KISSFFT_DATATYPE=int16_t testsingle
+	$(MAKE) KISSFFT_DATATYPE=double testsingle
+	$(MAKE) KISSFFT_DATATYPE=float testsingle
+	$(MAKE) KISSFFT_DATATYPE=int16_t testsingle
 	# The simd and int32_t types may or may not work on your machine
-	make KISSFFT_DATATYPE=int32_t testsingle
-	make KISSFFT_DATATYPE=simd testsingle
+	$(MAKE) KISSFFT_DATATYPE=int32_t testsingle
+	$(MAKE) KISSFFT_DATATYPE=simd testsingle
 	# Static libraries
-	make KISSFFT_DATATYPE=double KISSFFT_STATIC=1 testsingle
-	make KISSFFT_DATATYPE=float KISSFFT_STATIC=1 testsingle
-	make KISSFFT_DATATYPE=int16_t KISSFFT_STATIC=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=double KISSFFT_STATIC=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=float KISSFFT_STATIC=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=int16_t KISSFFT_STATIC=1 testsingle
 	# The simd and int32_t types may or may not work on your machine
-	make KISSFFT_DATATYPE=int32_t KISSFFT_STATIC=1 testsingle
-	make KISSFFT_DATATYPE=simd KISSFFT_STATIC=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=int32_t KISSFFT_STATIC=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=simd KISSFFT_STATIC=1 testsingle
 	# OpenMP libraries
-	make KISSFFT_DATATYPE=double KISSFFT_OPENMP=1 testsingle
-	make KISSFFT_DATATYPE=float KISSFFT_OPENMP=1 testsingle
-	make KISSFFT_DATATYPE=int16_t KISSFFT_OPENMP=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=double KISSFFT_OPENMP=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=float KISSFFT_OPENMP=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=int16_t KISSFFT_OPENMP=1 testsingle
 	# The simd and int32_t types may or may not work on your machine
-	make KISSFFT_DATATYPE=int32_t KISSFFT_OPENMP=1 testsingle
-	make KISSFFT_DATATYPE=simd KISSFFT_OPENMP=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=int32_t KISSFFT_OPENMP=1 testsingle
+	$(MAKE) KISSFFT_DATATYPE=simd KISSFFT_OPENMP=1 testsingle
 	$(warning All tests passed!)
 
 #
@@ -304,8 +304,8 @@ tarball: clean
 
 clean:
 	rm -f *.o *.a *.so *.so.*
-	cd test && make clean
-	cd tools && make clean
+	cd test && $(MAKE) clean
+	cd tools && $(MAKE) clean
 	rm -f kiss_fft*.tar.gz *~ *.pyc kiss_fft*.zip
 
 #
