@@ -167,7 +167,7 @@ testcpp: $(TESTCPP)
 
 test: all
 ifeq "$(KISSFFT_DATATYPE)" "simd"
-	make testsse
+	$(MAKE) testsse
 endif
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTKFC)
 	$(warning ======1d & 2-d complex fft self test (type= $(KISSFFT_DATATYPE) ))
