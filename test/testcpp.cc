@@ -43,7 +43,7 @@ void dotest(int nfft)
     long double difpower=0;
     for (int k0=0;k0<nfft;++k0) {
         complex<long double> acc = 0;
-        long double phinc = 2*k0* M_PIl / nfft;
+        long double phinc = 2*k0* M_PI / nfft;
         for (int k1=0;k1<nfft;++k1) {
             complex<long double> x(inbuf[k1].real(),inbuf[k1].imag()); 
             acc += x * exp( complex<long double>(0,-k1*phinc) );
