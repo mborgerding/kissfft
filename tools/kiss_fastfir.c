@@ -41,7 +41,6 @@ size_t kiss_fastfir( kiss_fastfir_cfg cfg, kffsamp_t * inbuf, kffsamp_t * outbuf
 
 
 
-static int verbose=0;
 
 
 struct kiss_fastfir_state{
@@ -68,7 +67,7 @@ kiss_fastfir_cfg kiss_fastfir_alloc(
     size_t i;
     size_t nfft=0;
     float scale;
-    int n_freq_bins;
+    size_t n_freq_bins;
     if (pnfft)
         nfft=*pnfft;
 
@@ -150,7 +149,7 @@ kiss_fastfir_cfg kiss_fastfir_alloc(
     FFTFWD(st->fftcfg,st->tmpbuf,st->fir_freq_resp);
 
     /* TODO: this won't work for fixed point */
-    scale = 1.0 / st->nfft;
+    scale = 1.0f / st->nfft;
 
     for ( i=0; i < st->n_freq_bins; ++i ) {
 #ifdef USE_SIMD
@@ -243,6 +242,8 @@ size_t kiss_fastfir(
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <assert.h>
+
+static int verbose=0;
 
 static
 void direct_file_filter(
@@ -345,7 +346,7 @@ void do_file_filter(
 
     kiss_fastfir_cfg cfg;
     kffsamp_t *inbuf,*outbuf;
-    int nread,nwrite;
+    size_t nread,nwrite;
     size_t idx_inbuf;
 
     fdout = fileno(fout);
@@ -373,7 +374,8 @@ void do_file_filter(
         nwrite = kiss_fastfir(cfg, inbuf, outbuf,nread,&idx_inbuf) * sizeof(kffsamp_t);
         /* kiss_fastfir moved any unused samples to the front of inbuf and updated idx_inbuf */
 
-        if ( write(fdout, outbuf, nwrite) != nwrite ) {
+        ssize_t written = write(fdout, outbuf, nwrite);
+        if ( written < 0 || (size_t)written != nwrite ) {
             perror("short write");
             exit(1);
         }

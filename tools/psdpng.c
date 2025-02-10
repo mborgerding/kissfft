@@ -16,15 +16,15 @@
 #include "kiss_fft.h"
 #include "kiss_fftr.h"
 
-int nfft=1024;
-FILE * fin=NULL;
-FILE * fout=NULL;
+static int nfft=1024;
+static FILE * fin=NULL;
+static FILE * fout=NULL;
 
-int navg=20;
-int remove_dc=0;
-int nrows=0;
-float * vals=NULL;
-int stereo=0;
+static int navg=20;
+static int remove_dc=0;
+static int nrows=0;
+static float * vals=NULL;
+static int stereo=0;
 
 static
 void config(int argc,char** argv)
@@ -83,9 +83,9 @@ static
 void val2rgb(float x,rgb_t *p)
 {
     const double pi = 3.14159265358979;
-    p->g = (int)(255*sin(x*pi));
-    p->r = (int)(255*abs(sin(x*pi*3/2)));
-    p->b = (int)(255*abs(sin(x*pi*5/2)));
+    p->g = (png_byte)(255*sin(x*pi));
+    p->r = (png_byte)(255*fabs(sin(x*pi*3/2)));
+    p->b = (png_byte)(255*fabs(sin(x*pi*5/2)));
     //fprintf(stderr,"%.2f : %d,%d,%d\n",x,(int)p->r,(int)p->g,(int)p->b);
 }
 
@@ -103,7 +103,7 @@ void cpx2pixels(rgb_t * res,const float * fbuf,size_t n)
 
     fprintf(stderr,"min ==%f,max=%f\n",minval,maxval);
     valrange = maxval-minval;
-    if (valrange == 0) {
+    if (valrange == 0.0f) {
         fprintf(stderr,"min == max == %f\n",minval);
         exit (1);
     }
@@ -121,7 +121,7 @@ void transform_signal(void)
     kiss_fft_cpx *fbuf;
     float *mag2buf;
     int i;
-    int n;
+    size_t n;
     int avgctr=0;
 
     int nfreqs=nfft/2+1;
@@ -135,13 +135,13 @@ void transform_signal(void)
     while (1) {
         if (stereo) {
             n = fread(inbuf,sizeof(short)*2,nfft,fin);
-            if (n != nfft ) 
+            if (n != (size_t)nfft ) 
                 break;
             for (i=0;i<nfft;++i) 
                 tbuf[i] = inbuf[2*i] + inbuf[2*i+1];
         }else{
             n = fread(inbuf,sizeof(short),nfft,fin);
-            if (n != nfft ) 
+            if (n != (size_t)nfft ) 
                 break;
             for (i=0;i<nfft;++i) 
                 tbuf[i] = inbuf[i];
@@ -164,9 +164,9 @@ void transform_signal(void)
             avgctr=0;
             ++nrows;
             CHECKNULL( vals = (float*)realloc(vals,sizeof(float)*nrows*nfreqs) );
-            float eps = 1;
+            float eps = 1.0f;
             for (i=0;i<nfreqs;++i)
-                vals[(nrows - 1) * nfreqs + i] = 10 * log10 ( mag2buf[i] / navg + eps );
+                vals[(nrows - 1) * nfreqs + i] = 10.0f * log10f ( mag2buf[i] / navg + eps );
             memset(mag2buf,0,sizeof(mag2buf[0])*nfreqs);
         }
     }
