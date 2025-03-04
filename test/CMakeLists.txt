@@ -24,7 +24,7 @@ add_kissfft_test_executable(bm_kiss benchkiss.c pstats.c)
 # set_tests_properties(${NAME} PROPERTIES TIMEOUT 3600)
 
 include(FindPkgConfig)
-if(KISSFFT_FLOAT)
+if(KISSFFT_DATATYPE MATCHES "^float$")
     set(fftw3_pkg fftw3f)
 else()
     set(fftw3_pkg fftw3)
