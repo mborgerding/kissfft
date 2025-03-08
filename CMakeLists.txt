@@ -105,7 +105,7 @@ endif()
 # Add GNUInstallDirs for GNU infrastructure before target)include_directories
 #
 
-if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|kFreeBSD|GNU)$" AND NOT CMAKE_CROSSCOMPILING)
+if(UNIX AND NOT CMAKE_CROSSCOMPILING)
     include(GNUInstallDirs)
 endif()
 
@@ -239,10 +239,10 @@ add_library(kissfft::kissfft ALIAS kissfft)
 add_library(kissfft::kissfft-${KISSFFT_DATATYPE} ALIAS kissfft)
 
 #
-# Build with libm (-lm) on Linux and kFreeBSD
+# Build with libm (-lm) on Unix
 #
 
-if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|kFreeBSD|GNU)$" AND NOT CMAKE_CROSSCOMPILING)
+if(UNIX AND NOT CMAKE_CROSSCOMPILING)
     target_link_libraries(kissfft PRIVATE m)
 endif()
 
@@ -255,10 +255,10 @@ function(add_kissfft_executable NAME)
     target_link_libraries(${NAME} PRIVATE kissfft::kissfft)
 
     #
-    # Build with libm (-lm) on Linux and kFreeBSD
+    # Build with libm (-lm) on Unix
     #
 
-    if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|kFreeBSD|GNU)$" AND NOT CMAKE_CROSSCOMPILING)
+    if(UNIX AND NOT CMAKE_CROSSCOMPILING)
         target_link_libraries(${NAME} PRIVATE m)
     endif()
 
