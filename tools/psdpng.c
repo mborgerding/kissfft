@@ -71,7 +71,7 @@ void config(int argc,char** argv)
 }
 
 #define CHECKNULL(p) if ( (p)==NULL ) do { fprintf(stderr,"CHECKNULL failed @ %s(%d): %s\n",__FILE__,__LINE__,#p );exit(1);} while(0)
-
+#define MAKE_POSITIVE(x) ((x)>=0?(x):(-1*(x)))
 typedef struct
 {
     png_byte r;
@@ -84,8 +84,8 @@ void val2rgb(float x,rgb_t *p)
 {
     const double pi = 3.14159265358979;
     p->g = (int)(255*sin(x*pi));
-    p->r = (int)(255*abs(sin(x*pi*3/2)));
-    p->b = (int)(255*abs(sin(x*pi*5/2)));
+    p->r = (int)(255*MAKE_POSITIVE(sin(x*pi*3/2)));
+    p->b = (int)(255*MAKE_POSITIVE(sin(x*pi*5/2)));
     //fprintf(stderr,"%.2f : %d,%d,%d\n",x,(int)p->r,(int)p->g,(int)p->b);
 }
 
