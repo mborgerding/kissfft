@@ -63,7 +63,7 @@ Additional libraries required to build and test kissfft include:
  - python 2/3 with Numpy to validate kissfft results against it.
  - OpenMP supported by GCC, Clang or MSVC for multi-core FFT transformations
 
-While no tests have been performed to date, KISS FFT can likely be built using 
+While no tests have been performed to date, kissfft can likely be built using 
 environments like Cygwin and MinGW when targeting the Windows platform.
 
 Both Make and CMake builds are easily configurable:
