@@ -7,6 +7,7 @@
  */
 #include "kissfft.hh"
 #include <iostream>
+#include <cmath>
 #include <cstdlib>
 #include <typeinfo>
 
@@ -41,9 +42,14 @@ void dotest(int nfft)
 
     long double totalpower=0;
     long double difpower=0;
+
+    // Create long double constant for pi because M_PIl is not defined by
+    // all toolchains.
+    const long double pi = std::acosl(-1);
+
     for (int k0=0;k0<nfft;++k0) {
         complex<long double> acc = 0;
-        long double phinc = 2*k0* M_PIl / nfft;
+        long double phinc = 2*k0* pi / nfft;
         for (int k1=0;k1<nfft;++k1) {
             complex<long double> x(inbuf[k1].real(),inbuf[k1].imag()); 
             acc += x * exp( complex<long double>(0,-k1*phinc) );
