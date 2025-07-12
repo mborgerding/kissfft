@@ -105,9 +105,7 @@ endif()
 # Add GNUInstallDirs for GNU infrastructure before target)include_directories
 #
 
-if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|kFreeBSD|GNU)$" AND NOT CMAKE_CROSSCOMPILING)
-    include(GNUInstallDirs)
-endif()
+include(GNUInstallDirs)
 
 #
 # Declare PKGINCLUDEDIR for kissfft include path
