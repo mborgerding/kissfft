@@ -76,7 +76,7 @@ Both Make and CMake builds are easily configurable:
    - double
    - int16_t
    - int32_t
-   - SIMD (requires SSE instruction set support on target CPU)
+   - simd (requires SSE instruction set support on target CPU)
 
  - `KISSFFT_OPENMP=1` (for Make) or `-DKISSFFT_OPENMP=ON` (for CMake) builds kissfft
    with OpenMP support. Please note that a supported compiler is required and this
