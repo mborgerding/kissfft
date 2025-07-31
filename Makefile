@@ -227,7 +227,7 @@ ifneq ($(KISSFFT_STATIC), 1)
   endif
 endif
 ifneq ($(shell uname -s),Darwin)
-	mkdir "$(ABS_LIBDIR)/pkgconfig"
+	mkdir -p "$(ABS_LIBDIR)/pkgconfig"
 	sed \
 		-e 's+@PKGCONFIG_KISSFFT_VERSION@+$(PKGCONFIG_KISSFFT_VERSION)+' \
 		-e 's+@KISSFFT_OUTPUT_NAME@+$(PKGCONFIG_KISSFFT_OUTPUT_NAME)+' \
