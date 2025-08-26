@@ -48,16 +48,29 @@ extern "C" {
 
 /* User may override KISS_FFT_MALLOC and/or KISS_FFT_FREE. */
 #ifdef USE_SIMD
+#ifdef HAVE_LSX
+# include <lsxintrin.h>
+# define kiss_fft_scalar __m128
+# ifndef KISS_FFT_MALLOC
+#  define KISS_FFT_MALLOC(nbytes) aligned_alloc(16, KISS_FFT_ALIGN_SIZE_UP(nbytes))
+#  define KISS_FFT_ALIGN_CHECK(ptr)
+#  define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
+# endif
+# ifndef KISS_FFT_FREE
+#  define KISS_FFT_FREE free
+# endif
+#else
 # include <xmmintrin.h>
 # define kiss_fft_scalar __m128
 # ifndef KISS_FFT_MALLOC
 #  define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
-#  define KISS_FFT_ALIGN_CHECK(ptr) 
+#  define KISS_FFT_ALIGN_CHECK(ptr)
 #  define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
 # endif
 # ifndef KISS_FFT_FREE
 #  define KISS_FFT_FREE _mm_free
 # endif
+#endif
 #else
 # define KISS_FFT_ALIGN_CHECK(ptr)
 # define KISS_FFT_ALIGN_SIZE_UP(size) (size)

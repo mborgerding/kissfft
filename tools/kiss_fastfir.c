@@ -154,8 +154,14 @@ kiss_fastfir_cfg kiss_fastfir_alloc(
 
     for ( i=0; i < st->n_freq_bins; ++i ) {
 #ifdef USE_SIMD
+#ifdef HAVE_LSX
+        __m128 tmp = (__m128)__lsx_vldrepl_w(&scale, 0);
+        st->fir_freq_resp[i].r = __lsx_vfmul_s(tmp, st->fir_freq_resp[i].r);
+        st->fir_freq_resp[i].i = __lsx_vfmul_s(tmp, st->fir_freq_resp[i].i);
+#else
         st->fir_freq_resp[i].r *= _mm_set1_ps(scale);
         st->fir_freq_resp[i].i *= _mm_set1_ps(scale);
+#endif
 #else
         st->fir_freq_resp[i].r *= scale;
         st->fir_freq_resp[i].i *= scale;
@@ -286,7 +292,11 @@ void direct_file_filter(
             tmph = imp_resp+nlag;
 #ifdef REAL_FASTFIR
 # ifdef USE_SIMD
+# ifdef HAVE_LSX
+            outval = (__m128)(__lsx_vreplgr2vr_w(0));
+#else
             outval = _mm_set1_ps(0);
+#endif
 #else
             outval = 0;
 #endif
@@ -297,7 +307,12 @@ void direct_file_filter(
             outval += buf[k] * *tmph;
 #else
 # ifdef USE_SIMD
+# ifdef HAVE_LSX
+            outval.i = (__m128)(__lsx_vreplgr2vr_w(0));
+            outval.r = outval.i;
+#else
             outval.r = outval.i = _mm_set1_ps(0);
+#endif
 #else            
             outval.r = outval.i = 0;
 #endif            
