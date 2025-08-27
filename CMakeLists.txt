@@ -109,21 +109,6 @@ if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|kFreeBSD|GNU)$" AND NOT CMAKE_CROSSCOMPILI
     include(GNUInstallDirs)
 endif()
 
-include(CheckCXXSourceCompiles)
-
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "loongarch32|loongarch64")
-    set (CMAKE_REQUIRED_FLAGS -mlsx)
-    check_cxx_source_compiles(
-       "int main() {
-          #if !defined(__loongarch_sx)
-          static_assert(false, \"__loongarch_sx is not defined\");
-          #endif
-          return 0;
-        }"
-      COMPILER_SUPPORT_LSX_FLAG
-    )
-endif()
-
 #
 # Declare PKGINCLUDEDIR for kissfft include path
 #
@@ -182,7 +167,10 @@ else()
 
             if(KISSFFT_DATATYPE MATCHES "^simd$")
                 list(APPEND KISSFFT_COMPILE_DEFINITIONS USE_SIMD)
-                if(COMPILER_SUPPORT_LSX_FLAG)
+                if(HAVE_LASX)
+                    list(APPEND KISSFFT_COMPILE_DEFINITIONS HAVE_LASX)
+                    target_compile_options(kissfft PRIVATE -mlasx)
+                elseif(HAVE_LSX)
                     list(APPEND KISSFFT_COMPILE_DEFINITIONS HAVE_LSX)
                     target_compile_options(kissfft PRIVATE -mlsx)
                 elseif(NOT MSVC)
@@ -280,8 +268,11 @@ function(add_kissfft_executable NAME)
         target_link_libraries(${NAME} PRIVATE m)
     endif()
 
-    if(COMPILER_SUPPORT_LSX_FLAG)
-        target_compile_options(${NAME} PRIVATE -mlsx)
+    if(HAVE_LASX)
+      target_compile_options(${NAME} PRIVATE -mlasx)
+    endif()
+    if(HAVE_LSX)
+      target_compile_options(${NAME} PRIVATE -mlsx)
     endif()
 
     if (NOT KISSFFT_OPENMP)
@@ -351,8 +342,10 @@ if (KISSFFT_PKGCONFIG)
     join_paths(PKGCONFIG_KISSFFT_INCLUDEDIR "\${prefix}" "${CMAKE_INSTALL_INCLUDEDIR}")
     if(KISSFFT_DATATYPE MATCHES "^simd$")
        list(APPEND KISSFFT_COMPILE_DEFINITIONS USE_SIMD)
-       if(COMPILER_SUPPORT_LSX_FLAG)
-           set(PKG_KISSFFT_DEFS "${PKG_KISSFFT_DEFS} -mlsx")
+       if(HAVE_LASX)
+         set(PKG_KISSFFT_DEFS "${PKG_KISSFFT_DEFS} -mlasx")
+       elseif(HAVE_LSX)
+         set(PKG_KISSFFT_DEFS "${PKG_KISSFFT_DEFS} -mlsx")
        elseif(NOT MSVC)
            set(PKG_KISSFFT_DEFS "${PKG_KISSFFT_DEFS} -msse")
        else()

@@ -128,7 +128,18 @@ struct kiss_fft_state{
 #  define KISS_FFT_COS(phase)  floor(.5+SAMP_MAX * cos (phase))
 #  define KISS_FFT_SIN(phase)  floor(.5+SAMP_MAX * sin (phase))
 #  define HALF_OF(x) ((x)>>1)
-#elif defined(USE_SIMD) && defined(HAVE_LSX)
+#elif defined(USE_SIMD)
+#if defined(HAVE_LASX)
+#define KISS_FFT_COS(phase) ({ \
+    float __cos_val = cosf(phase); \
+    (__m256)(__lasx_xvldrepl_w(&__cos_val, 0)); \
+})
+#define KISS_FFT_SIN(phase) ({ \
+    float __sin_val = sinf(phase); \
+    (__m256)(__lasx_xvldrepl_w(&__sin_val, 0)); \
+})
+#define HALF_OF(x) ((x) * (__m256)(__lasx_xvreplgr2vr_w(0x3F000000))) // 0.5f
+#elif defined(HAVE_LSX)
 #define KISS_FFT_COS(phase) ({ \
     float __cos_val = cosf(phase); \
     (__m128)(__lsx_vldrepl_w(&__cos_val, 0)); \
@@ -138,10 +149,11 @@ struct kiss_fft_state{
     (__m128)(__lsx_vldrepl_w(&__sin_val, 0)); \
 })
 #define HALF_OF(x) ((x) * (__m128)(__lsx_vreplgr2vr_w(0x3F000000))) // 0.5f
-#elif defined(USE_SIMD)
+#else
 #  define KISS_FFT_COS(phase) _mm_set1_ps( cos(phase) )
 #  define KISS_FFT_SIN(phase) _mm_set1_ps( sin(phase) )
 #  define HALF_OF(x) ((x)*_mm_set1_ps(.5))
+#endif
 #else
 #  define KISS_FFT_COS(phase) (kiss_fft_scalar) cos(phase)
 #  define KISS_FFT_SIN(phase) (kiss_fft_scalar) sin(phase)

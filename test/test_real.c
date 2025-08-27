@@ -22,7 +22,10 @@ static
 kiss_fft_scalar rand_scalar(void) 
 {
 #ifdef USE_SIMD
-#ifdef HAVE_LSX
+#ifdef HAVE_LASX
+    float tmp = rand()-RAND_MAX/2;
+    return (__m256)(__lasx_xvldrepl_w(&tmp, 0));
+#elif defined(HAVE_LSX)
     float tmp = rand()-RAND_MAX/2;
     return (__m128)(__lsx_vldrepl_w(&tmp, 0));
 #else

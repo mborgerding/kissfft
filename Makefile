@@ -74,8 +74,6 @@ ifneq ($(MAKECMDGOALS),clean)
     endif
     ifeq ($(_UNAME_ARCH),loongarch64)
         CANDIDATE_LIBDIR_NAME = lib64
-        HAVE_LSX=lsx
-        export HAVE_LSX
     endif
   endif
 endif
@@ -118,6 +116,8 @@ else
 endif
 
 export KISSFFTLIB_SHORTNAME
+export HAVE_LSX
+export HAVE_LASX
 
 #
 # Compile-time definitions by datatype
@@ -132,7 +132,9 @@ ifeq "$(KISSFFT_DATATYPE)" "int32_t"
 else ifeq "$(KISSFFT_DATATYPE)" "int16_t"
 	TYPEFLAGS += -DFIXED_POINT=16
 else ifeq "$(KISSFFT_DATATYPE)" "simd"
-  ifeq "$(HAVE_LSX)" "lsx"
+  ifeq "$(HAVE_LASX)" "lasx"
+	TYPEFLAGS += -DUSE_SIMD=1 -DHAVE_LASX=1 -mlasx
+  else ifeq "$(HAVE_LSX)" "lsx"
 	TYPEFLAGS += -DUSE_SIMD=1 -DHAVE_LSX=1 -mlsx
   else
 	TYPEFLAGS += -DUSE_SIMD=1 -msse
@@ -282,7 +284,9 @@ testall:
 	$(MAKE) KISSFFT_DATATYPE=int16_t testsingle
 	# The simd and int32_t types may or may not work on your machine
 	$(MAKE) KISSFFT_DATATYPE=int32_t testsingle
-	@if [ "$(HAVE_LSX)" = "lsx" ]; then \
+	@if [ "$(HAVE_LASX)" = "lasx" ]; then \
+		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LASX=lasx testsingle; \
+	elif [ "$(HAVE_LSX)" = "lsx" ]; then \
 		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LSX=lsx testsingle; \
 	else \
 		$(MAKE) KISSFFT_DATATYPE=simd testsingle; \
@@ -293,7 +297,9 @@ testall:
 	$(MAKE) KISSFFT_DATATYPE=int16_t KISSFFT_STATIC=1 testsingle
 	# The simd and int32_t types may or may not work on your machine
 	$(MAKE) KISSFFT_DATATYPE=int32_t KISSFFT_STATIC=1 testsingle
-	@if [ "$(HAVE_LSX)" = "lsx" ]; then \
+	@if [ "$(HAVE_LASX)" = "lasx" ]; then \
+		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LASX=lasx testsingle; \
+	elif [ "$(HAVE_LSX)" = "lsx" ]; then \
 		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LSX=lsx KISSFFT_STATIC=1 testsingle; \
 	else \
 		$(MAKE) KISSFFT_DATATYPE=simd KISSFFT_STATIC=1 testsingle; \
@@ -304,7 +310,9 @@ testall:
 	$(MAKE) KISSFFT_DATATYPE=int16_t KISSFFT_OPENMP=1 testsingle
 	# The simd and int32_t types may or may not work on your machine
 	$(MAKE) KISSFFT_DATATYPE=int32_t KISSFFT_OPENMP=1 testsingle
-	@if [ "$(HAVE_LSX)" = "lsx" ]; then \
+	@if [ "$(HAVE_LASX)" = "lasx" ]; then \
+		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LASX=lasx testsingle; \
+	elif [ "$(HAVE_LSX)" = "lsx" ]; then \
 		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LSX=lsx KISSFFT_OPENMP=1 testsingle; \
 	else \
 		$(MAKE) KISSFFT_DATATYPE=simd KISSFFT_OPENMP=1 testsingle; \

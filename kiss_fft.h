@@ -48,7 +48,18 @@ extern "C" {
 
 /* User may override KISS_FFT_MALLOC and/or KISS_FFT_FREE. */
 #ifdef USE_SIMD
-#ifdef HAVE_LSX
+#ifdef HAVE_LASX
+# include <lasxintrin.h>
+# define kiss_fft_scalar __m256
+# ifndef KISS_FFT_MALLOC
+#  define KISS_FFT_MALLOC(nbytes) aligned_alloc(32, KISS_FFT_ALIGN_SIZE_UP(nbytes))
+#  define KISS_FFT_ALIGN_CHECK(ptr)
+#  define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 31UL) & ~0x1FUL)
+# endif
+# ifndef KISS_FFT_FREE
+#  define KISS_FFT_FREE free
+# endif
+#elif defined(HAVE_LSX)
 # include <lsxintrin.h>
 # define kiss_fft_scalar __m128
 # ifndef KISS_FFT_MALLOC
