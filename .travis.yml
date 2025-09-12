@@ -1,9 +1,9 @@
 language: python
 
 python:
-  - "3.7"
+  - "3.13"
 
-dist: focal
+dist: noble
 
 before_install:
   - sudo apt-get install -y libfftw3-dev
@@ -18,10 +18,10 @@ jobs:
   include:
     - name: "build (make)"
       script:
-      - make all
-      - make testall
+        - make all
+        - make testall
     - name: "build (cmake)"
       script:
-      - mkdir build && cd build
-      - cmake ..
-      - make
+        - mkdir build && cd build
+        - cmake ..
+        - make
