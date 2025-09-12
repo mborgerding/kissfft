@@ -53,7 +53,7 @@ if(KISSFFT_DATATYPE MATCHES "^simd$")
     endif()
 endif()
 
-find_package(Python3 REQUIRED)
+find_package(Python REQUIRED)
 add_test(NAME testkiss.py COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/testkiss.py")
 list(APPEND TESTKISS_PY_ENV "KISSFFT_DATATYPE=${KISSFFT_DATATYPE}")
 list(APPEND TESTKISS_PY_ENV "KISSFFT_OPENMP=${KISSFFT_OPENMP}")
