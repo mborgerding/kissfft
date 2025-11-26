@@ -84,8 +84,8 @@ void val2rgb(float x,rgb_t *p)
 {
     const double pi = 3.14159265358979;
     p->g = (int)(255*sin(x*pi));
-    p->r = (int)(255*abs(sin(x*pi*3/2)));
-    p->b = (int)(255*abs(sin(x*pi*5/2)));
+    p->r = (int)(255*fabs(sin(x*pi*3/2)));
+    p->b = (int)(255*fabs(sin(x*pi*5/2)));
     //fprintf(stderr,"%.2f : %d,%d,%d\n",x,(int)p->r,(int)p->g,(int)p->b);
 }
 
