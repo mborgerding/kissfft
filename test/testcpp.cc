@@ -45,7 +45,7 @@ void dotest(int nfft)
 
     // Create long double constant for pi because M_PIl is not defined by
     // all toolchains.
-    const long double pi = std::acosl(-1);
+    const long double pi = std::acos(static_cast<long double>(-1));
 
     for (int k0=0;k0<nfft;++k0) {
         complex<long double> acc = 0;
