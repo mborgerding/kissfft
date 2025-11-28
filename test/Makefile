@@ -138,7 +138,13 @@ endif
 
 $(TESTSIMD): test_simd.c
 ifeq "$(KISSFFT_DATATYPE)" "simd"
+ifeq "$(HAVE_LASX)" "lasx"
+	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -DHAVE_LASX=1 -mlasx $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+else ifeq "$(HAVE_LSX)" "lsx"
+	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -DHAVE_LSX=1 -mlsx $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+else
 	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -msse $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+endif
 else
 	$(error ERROR: This test makes sense only with KISSFFT_DATATYPE=simd)
 endif

@@ -93,7 +93,15 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
     freqdata[0].r = tdc.r + tdc.i;
     freqdata[ncfft].r = tdc.r - tdc.i;
 #ifdef USE_SIMD
+#ifdef HAVE_LASX
+    freqdata[0].i = (__m256)(__lasx_xvreplgr2vr_w(0));
+    freqdata[ncfft].i = freqdata[0].i;
+#elif defined(HAVE_LSX)
+    freqdata[0].i = (__m128)(__lsx_vreplgr2vr_w(0));
+    freqdata[ncfft].i = freqdata[0].i;
+#else
     freqdata[ncfft].i = freqdata[0].i = _mm_set1_ps(0);
+#endif
 #else
     freqdata[ncfft].i = freqdata[0].i = 0;
 #endif
@@ -146,7 +154,15 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
         C_ADD (st->tmpbuf[k],     fek, fok);
         C_SUB (st->tmpbuf[ncfft - k], fek, fok);
 #ifdef USE_SIMD
+#ifdef HAVE_LASX
+        __m256 neg_one = (__m256)__lasx_xvreplgr2vr_w(0xBF800000); // -1.0f
+        st->tmpbuf[ncfft - k].i = __lasx_xvfmul_s(st->tmpbuf[ncfft - k].i, neg_one);
+#elif defined(HAVE_LSX)
+        __m128 neg_one = (__m128)__lsx_vreplgr2vr_w(0xBF800000); // -1.0f
+        st->tmpbuf[ncfft - k].i = __lsx_vfmul_s(st->tmpbuf[ncfft - k].i, neg_one);
+#else
         st->tmpbuf[ncfft - k].i *= _mm_set1_ps(-1.0);
+#endif
 #else
         st->tmpbuf[ncfft - k].i *= -1;
 #endif

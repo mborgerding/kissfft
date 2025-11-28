@@ -38,8 +38,16 @@ double two_tone_test( int nfft, int bin1,int bin2)
     /* generate a signal with two tones*/
     for (i = 0; i < nfft; i++) {
 #ifdef USE_SIMD
+#ifdef HAVE_LASX
+        float tmp = (maxrange>>1)*cos(f1*i) + (maxrange>>1)*cos(f2*i);
+        tbuf[i] = (__m256)__lasx_xvldrepl_w(&tmp, 0);
+#elif defined(HAVE_LSX)
+        float tmp = (maxrange>>1)*cos(f1*i) + (maxrange>>1)*cos(f2*i);
+        tbuf[i] = (__m128)__lsx_vldrepl_w(&tmp, 0);
+#else
         tbuf[i] = _mm_set1_ps( (maxrange>>1)*cos(f1*i)
                              + (maxrange>>1)*cos(f2*i) );
+#endif
 #else        
         tbuf[i] =  (maxrange>>1)*cos(f1*i)
                  + (maxrange>>1)*cos(f2*i);
