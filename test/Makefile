@@ -2,7 +2,7 @@
 # Warnings
 #
 
-WARNINGS = -W -Wall -Wstrict-prototypes -Wmissing-prototypes  \
+WARNINGS = -W -Wall -Wstrict-prototypes -Wmissing-prototypes \
     -Wcast-align -Wcast-qual -Wnested-externs -Wshadow -Wbad-function-cast \
     -Wwrite-strings
 
@@ -26,10 +26,10 @@ CXXFLAGS = -O3 -ffast-math -fomit-frame-pointer  -I.. -W -Wall -march=native -mt
 #
 
 ifeq "$(NFFT)" ""
- NFFT = 1800
+	NFFT = 1800
 endif
 ifeq "$(NUMFFTS)" ""
- NUMFFTS = 10000
+	NUMFFTS = 10000
 endif
 
 #
@@ -39,32 +39,32 @@ endif
 SELFTESTSRC = twotonetest.c
 
 ifneq ($(KISSFFT_OPENMP),1)
-BENCHKISS = bm-kiss-$(KISSFFT_DATATYPE)
-BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)
-SELFTEST = st-$(KISSFFT_DATATYPE)
-TESTREAL = tr-$(KISSFFT_DATATYPE)
-TESTKFC = tkfc-$(KISSFFT_DATATYPE)
-TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)
-TESTCPP = testcpp-$(KISSFFT_DATATYPE)
-TESTSIMD = testsimd
+	BENCHKISS = bm-kiss-$(KISSFFT_DATATYPE)
+	BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)
+	SELFTEST = st-$(KISSFFT_DATATYPE)
+	TESTREAL = tr-$(KISSFFT_DATATYPE)
+	TESTKFC = tkfc-$(KISSFFT_DATATYPE)
+	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)
+	TESTCPP = testcpp-$(KISSFFT_DATATYPE)
+	TESTSIMD = testsimd
 else
-BENCHKISS = bm-kiss-$(KISSFFT_DATATYPE)-openmp
-BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)-openmp
-SELFTEST = st-$(KISSFFT_DATATYPE)-openmp
-TESTREAL = tr-$(KISSFFT_DATATYPE)-openmp
-TESTKFC = tkfc-$(KISSFFT_DATATYPE)-openmp
-TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)-openmp
-TESTCPP = testcpp-$(KISSFFT_DATATYPE)-openmp
-TESTSIMD = testsimd-openmp
-CFLAGS += -fopenmp
-CXXFLAGS += -fopenmp
+	BENCHKISS = bm-kiss-$(KISSFFT_DATATYPE)-openmp
+	BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)-openmp
+	SELFTEST = st-$(KISSFFT_DATATYPE)-openmp
+	TESTREAL = tr-$(KISSFFT_DATATYPE)-openmp
+	TESTKFC = tkfc-$(KISSFFT_DATATYPE)-openmp
+	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)-openmp
+	TESTCPP = testcpp-$(KISSFFT_DATATYPE)-openmp
+	TESTSIMD = testsimd-openmp
+	CFLAGS += -fopenmp
+	CXXFLAGS += -fopenmp
 endif
 
 ifeq "$(KISSFFT_DATATYPE)" "float"
- # fftw needs to be built with --enable-float to build this lib
- FFTWLIB = -lfftw3f
+	# fftw needs to be built with --enable-float to build this lib
+	FFTWLIB = -lfftw3f
 else
- FFTWLIB = -lfftw3
+	FFTWLIB = -lfftw3
 endif
 
 FFTWLIBDIR ?= $(ABS_LIBDIR)
@@ -86,22 +86,17 @@ endif
 #
 
 ifneq ($(MAKECMDGOALS),clean)
-  PYTHON_INTERPRETER = $(shell python --version)
-  ifeq ($(PYTHON_INTERPRETER), )
-	PYTHON_INTERPRETER = $(shell python2 --version)
-    ifeq ($(PYTHON_INTERPRETER), )
 	PYTHON_INTERPRETER = $(shell python3 --version)
-      ifeq ($(PYTHON_INTERPRETER), )
-	$(error ERROR: Can not find Python interpreter!)
-      else
-	PYTHON_INTERPRETER = "python3"
-      endif
-    else
-	PYTHON_INTERPRETER = "python2"
-    endif
-  else
-	PYTHON_INTERPRETER = "python"
-  endif
+	ifeq ($(PYTHON_INTERPRETER), )
+		PYTHON_INTERPRETER = $(shell python --version)
+		ifeq ($(PYTHON_INTERPRETER), )
+			$(error ERROR: Can not find Python interpreter!)
+		else
+			PYTHON_INTERPRETER = "python"
+		endif
+	else
+		PYTHON_INTERPRETER = "python3"
+	endif
 endif
 
 #
