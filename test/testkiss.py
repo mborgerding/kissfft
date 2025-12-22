@@ -4,12 +4,9 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #  See COPYING file for more information.
-from __future__ import absolute_import, division, print_function
 import math
 import sys
 import os
-import random
-import struct
 import getopt
 import numpy as np
 
@@ -125,7 +122,7 @@ def dofft(x, isreal):
     p.wait()
     return np.reshape(res, dims)
 
-def main():
+def main() -> None:
     opts, args = getopt.getopt(sys.argv[1:], 'r')
     opts = dict(opts)
     global do_real

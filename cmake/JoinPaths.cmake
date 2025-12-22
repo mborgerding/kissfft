@@ -6,7 +6,7 @@
 # https://github.com/jtojnar/cmake-snips
 #
 # Modelled after Python’s os.path.join
-# https://docs.python.org/3.7/library/os.path.html#os.path.join
+# https://docs.python.org/3.13/library/os.path.html#os.path.join
 # Windows not supported
 function(join_paths joined_path first_path_segment)
     set(temp_path "${first_path_segment}")

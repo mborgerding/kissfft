@@ -1,6 +1,6 @@
 /*
- *  This program is in the public domain 
- *  A program that helps the authors of the fine fftw library benchmark kiss 
+ *  This program is in the public domain
+ *  A program that helps the authors of the fine fftw library benchmark kiss
  *  This file is part of KISS FFT - https://github.com/mborgerding/kissfft
  *
  *  SPDX-License-Identifier: Unlicense
@@ -124,11 +124,11 @@ void doit(int iter, struct problem *p)
 
 void done(struct problem *p)
 {
-     free(cfg);
-     cfg=NULL;
-     free(cfgr);
-     cfgr=NULL;
-     free(cfgnd);
-     cfgnd=NULL;
-     UNUSED(p);
+    free(cfg);
+    cfg=NULL;
+    free(cfgr);
+    cfgr=NULL;
+    free(cfgnd);
+    cfgnd=NULL;
+    UNUSED(p);
 }
