@@ -38,7 +38,7 @@ double two_tone_test( int nfft, int bin1,int bin2)
     /* generate a signal with two tones*/
     for (i = 0; i < nfft; i++) {
 #ifdef USE_SIMD
-        tbuf[i] = _mm_set1_ps( (maxrange>>1)*cos(f1*i)
+        tbuf[i] = KISS_FFT_SET1_PS( (maxrange>>1)*cos(f1*i)
                              + (maxrange>>1)*cos(f2*i) );
 #else        
         tbuf[i] =  (maxrange>>1)*cos(f1*i)

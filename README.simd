@@ -9,6 +9,31 @@ This API is not easy to use, is not well documented, and breaks the KISS princip
 Still reading? Okay, you may get rewarded for your patience with a considerable speedup 
 (2-3x) on intel x86 machines with SSE if you are willing to jump through some hoops.
 
+Portable SIMD Support with SIMDE
+================================
+
+kissfft now supports SIMDE (SIMD Everywhere) for portable SIMD operations on non-x86 
+platforms such as ARM, RISC-V, LoongArch, WebAssembly, and others.
+
+To enable SIMDE support:
+
+With CMake:
+    cmake -DKISSFFT_DATATYPE=simd -DKISSFFT_USE_SIMDE=ON ..
+
+With Makefile:
+    make KISSFFT_DATATYPE=simd KISSFFT_USE_SIMDE=1
+
+Prerequisites:
+- SIMDE headers must be available in your include path
+- Install via package manager or include SIMDE as a submodule in your project
+
+When SIMDE is enabled, the library will use SIMDE's portable SSE implementation,
+which automatically maps to native SIMD instructions on the target platform or
+falls back to scalar operations if no SIMD is available.
+
+Native x86 SSE Support
+======================
+
 The basic idea is to use the packed 4 float __m128 data type as a scalar element.  
 This means that the format is pretty convoluted. It performs 4 FFTs per fft call on signals A,B,C,D.
 
@@ -19,8 +44,11 @@ where "rA0" is the real part of the zeroth sample for signal A
 Real-only data is laid out:
 rA0,rB0,rC0,rD0,     rA1,rB1,rC1,rD1,      ... 
 
-Compile with gcc flags something like
+Compile with gcc flags something like (for native x86 SSE):
 -O3 -mpreferred-stack-boundary=4  -DUSE_SIMD=1 -msse 
+
+Or for portable SIMD with SIMDE:
+-O3 -mpreferred-stack-boundary=4  -DUSE_SIMD=1 -DUSE_SIMD_SIMDE 
 
 Be aware of SIMD alignment.  This is the most likely cause of segfaults.  
 The code within kissfft uses scratch variables on the stack.  

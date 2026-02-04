@@ -35,6 +35,7 @@ export KISSFFT_OPENMP ?= 0
 export KISSFFT_STATIC ?= 0
 export KISSFFT_TOOLS ?= 1
 export KISSFFT_USE_ALLOCA ?= 0
+export KISSFFT_USE_SIMDE ?= 0
 
 #
 # Installation directories
@@ -114,6 +115,17 @@ endif
 
 export KISSFFTLIB_SHORTNAME
 
+# Detect x86 architecture for native SSE
+_KISSFFT_ARCH := $(shell uname -m)
+_KISSFFT_X86 := $(filter x86_64 i386 i486 i586 i686 amd64,$(_KISSFFT_ARCH))
+
+# Auto-enable SIMDE on non-x86 when using simd datatype
+ifeq "$(KISSFFT_DATATYPE)" "simd"
+  ifeq "$(_KISSFFT_X86)" ""
+    override KISSFFT_USE_SIMDE = 1
+  endif
+endif
+
 #
 # Compile-time definitions by datatype
 #
@@ -127,7 +139,12 @@ ifeq "$(KISSFFT_DATATYPE)" "int32_t"
 else ifeq "$(KISSFFT_DATATYPE)" "int16_t"
 	TYPEFLAGS += -DFIXED_POINT=16
 else ifeq "$(KISSFFT_DATATYPE)" "simd"
-	TYPEFLAGS += -DUSE_SIMD=1 -msse
+	TYPEFLAGS += -DUSE_SIMD=1
+  ifeq ($(KISSFFT_USE_SIMDE), 1)
+	TYPEFLAGS += -DUSE_SIMD_SIMDE
+  else
+	TYPEFLAGS += -msse
+  endif
 else ifeq "$(KISSFFT_DATATYPE)" "float"
 	TYPEFLAGS += -Dkiss_fft_scalar=$(KISSFFT_DATATYPE)
 else ifeq "$(KISSFFT_DATATYPE)" "double"
