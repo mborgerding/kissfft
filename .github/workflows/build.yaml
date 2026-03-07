@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          submodules: true
+          fetch-depth: 1
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
@@ -24,9 +24,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libfftw3-dev \
-            libpng-dev \
-            gcc-14 \
-            g++-14
+            libpng-dev
 
       - name: Use GCC 14 to avoid a bug in tests with old gcc - https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79700
         run: |
@@ -47,12 +45,12 @@ jobs:
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: true
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
