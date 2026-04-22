@@ -13,15 +13,15 @@
 struct kiss_fftndr_state
 {
     int dimReal;
-    int dimOther;
+    size_t dimOther;
     kiss_fftr_cfg cfg_r;
     kiss_fftnd_cfg cfg_nd;
     void * tmpbuf;
 };
 
-static int prod(const int *dims, int ndims)
+static size_t prod(const int *dims, int ndims)
 {
-    int x=1;
+    size_t x=1;
     while (ndims--) 
         x *= *dims++;
     return x;
@@ -34,17 +34,29 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
     kiss_fftndr_cfg st = NULL;
     size_t nr=0 , nd=0,ntmp=0;
     int dimReal = dims[ndims-1];
-    int dimOther = prod(dims,ndims-1);
+    size_t dimOther = prod(dims,ndims-1);
     size_t memneeded;
     char * ptr = NULL;
+    int k,check;
 
     (void)kiss_fftr_alloc(dimReal,inverse_fft,NULL,&nr);
     (void)kiss_fftnd_alloc(dims,ndims-1,inverse_fft,NULL,&nd);
     ntmp =
         MAX( 2*dimOther , dimReal+2) * sizeof(kiss_fft_scalar)  // freq buffer for one pass
-        + dimOther*(dimReal+2) * sizeof(kiss_fft_scalar);  // large enough to hold entire input in case of in-place
+        + dimOther*(size_t)(dimReal+2) * sizeof(kiss_fft_scalar);  // large enough to hold entire input in case of in-place
 
     memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof( struct kiss_fftndr_state )) + KISS_FFT_ALIGN_SIZE_UP(nr) + KISS_FFT_ALIGN_SIZE_UP(nd) + KISS_FFT_ALIGN_SIZE_UP(ntmp);
+
+    /* check for overflow */
+    check = memneeded;
+    for (k=0;k<ndims;++k) {
+        check /= dims[k];
+        if (check <= sizeof(kiss_fft_scalar)) {
+            if (lenmem!=NULL)
+                *lenmem = (size_t)(-1);
+            return NULL;
+        }
+    }
 
     if (lenmem==NULL) {
         ptr = (char*) malloc(memneeded);
@@ -73,9 +85,9 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
 
 void kiss_fftndr(kiss_fftndr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata)
 {
-    int k1,k2;
-    int dimReal = st->dimReal;
-    int dimOther = st->dimOther;
+    size_t k1,k2;
+    size_t dimReal = (size_t)st->dimReal;
+    size_t dimOther = st->dimOther;
     int nrbins = dimReal/2+1;
 
     kiss_fft_cpx * tmp1 = (kiss_fft_cpx*)st->tmpbuf; 
