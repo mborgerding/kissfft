@@ -22,7 +22,7 @@ static
 kiss_fft_scalar rand_scalar(void) 
 {
 #ifdef USE_SIMD
-    return _mm_set1_ps(rand()-RAND_MAX/2);
+    return KISS_FFT_SET1_PS(rand()-RAND_MAX/2);
 #else
     kiss_fft_scalar s = (kiss_fft_scalar)(rand() -RAND_MAX/2);
     return s/2;

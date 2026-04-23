@@ -138,7 +138,7 @@ endif
 
 $(TESTSIMD): test_simd.c
 ifeq "$(KISSFFT_DATATYPE)" "simd"
-	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -msse $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+	$(CC) -o $@ -g $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 else
 	$(error ERROR: This test makes sense only with KISSFFT_DATATYPE=simd)
 endif

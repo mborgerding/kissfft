@@ -154,8 +154,8 @@ kiss_fastfir_cfg kiss_fastfir_alloc(
 
     for ( i=0; i < st->n_freq_bins; ++i ) {
 #ifdef USE_SIMD
-        st->fir_freq_resp[i].r *= _mm_set1_ps(scale);
-        st->fir_freq_resp[i].i *= _mm_set1_ps(scale);
+        st->fir_freq_resp[i].r *= KISS_FFT_SET1_PS(scale);
+        st->fir_freq_resp[i].i *= KISS_FFT_SET1_PS(scale);
 #else
         st->fir_freq_resp[i].r *= scale;
         st->fir_freq_resp[i].i *= scale;
@@ -286,7 +286,7 @@ void direct_file_filter(
             tmph = imp_resp+nlag;
 #ifdef REAL_FASTFIR
 # ifdef USE_SIMD
-            outval = _mm_set1_ps(0);
+            outval = KISS_FFT_SET1_PS(0);
 #else
             outval = 0;
 #endif
@@ -297,7 +297,7 @@ void direct_file_filter(
             outval += buf[k] * *tmph;
 #else
 # ifdef USE_SIMD
-            outval.r = outval.i = _mm_set1_ps(0);
+            outval.r = outval.i = KISS_FFT_SET1_PS(0);
 #else            
             outval.r = outval.i = 0;
 #endif            

@@ -93,7 +93,7 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
     freqdata[0].r = tdc.r + tdc.i;
     freqdata[ncfft].r = tdc.r - tdc.i;
 #ifdef USE_SIMD
-    freqdata[ncfft].i = freqdata[0].i = _mm_set1_ps(0);
+    freqdata[ncfft].i = freqdata[0].i = KISS_FFT_SET1_PS(0);
 #else
     freqdata[ncfft].i = freqdata[0].i = 0;
 #endif
@@ -146,7 +146,7 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
         C_ADD (st->tmpbuf[k],     fek, fok);
         C_SUB (st->tmpbuf[ncfft - k], fek, fok);
 #ifdef USE_SIMD
-        st->tmpbuf[ncfft - k].i *= _mm_set1_ps(-1.0);
+        st->tmpbuf[ncfft - k].i *= KISS_FFT_SET1_PS(-1.0);
 #else
         st->tmpbuf[ncfft - k].i *= -1;
 #endif

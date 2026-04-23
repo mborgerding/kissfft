@@ -48,15 +48,45 @@ extern "C" {
 
 /* User may override KISS_FFT_MALLOC and/or KISS_FFT_FREE. */
 #ifdef USE_SIMD
-# include <xmmintrin.h>
-# define kiss_fft_scalar __m128
-# ifndef KISS_FFT_MALLOC
-#  define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
-#  define KISS_FFT_ALIGN_CHECK(ptr) 
+# ifdef USE_SIMD_SIMDE
+#  include <simde/x86/sse.h>
+#  define kiss_fft_scalar simde__m128
+#  define KISS_FFT_SET1_PS(x) simde_mm_set1_ps(x)
+#  ifndef KISS_FFT_MALLOC
+#   include <stdlib.h>
+#   if defined(_WIN32)
+#    define KISS_FFT_MALLOC(nbytes) _aligned_malloc(nbytes,16)
+#    define KISS_FFT_FREE _aligned_free
+#   elif (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || \
+         (defined(__cplusplus) && __cplusplus >= 201703L)
+     /* C11 aligned_alloc or C++17 */
+#    define KISS_FFT_MALLOC(nbytes) aligned_alloc(16, ((nbytes) + 15) & ~(size_t)15)
+#    define KISS_FFT_FREE free
+#   else
+     /* POSIX posix_memalign */
+     static inline void* kiss_fft_simde_malloc(size_t nbytes) {
+         void* ptr = NULL;
+         if (posix_memalign(&ptr, 16, nbytes) != 0) return NULL;
+         return ptr;
+     }
+#    define KISS_FFT_MALLOC(nbytes) kiss_fft_simde_malloc(nbytes)
+#    define KISS_FFT_FREE free
+#   endif
+#  endif
+#  define KISS_FFT_ALIGN_CHECK(ptr)
 #  define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
-# endif
-# ifndef KISS_FFT_FREE
-#  define KISS_FFT_FREE _mm_free
+# else
+#  include <xmmintrin.h>
+#  define kiss_fft_scalar __m128
+#  define KISS_FFT_SET1_PS(x) _mm_set1_ps(x)
+#  ifndef KISS_FFT_MALLOC
+#   define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
+#   define KISS_FFT_ALIGN_CHECK(ptr)
+#   define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
+#  endif
+#  ifndef KISS_FFT_FREE
+#   define KISS_FFT_FREE _mm_free
+#  endif
 # endif
 #else
 # define KISS_FFT_ALIGN_CHECK(ptr)
