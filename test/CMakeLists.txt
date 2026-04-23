@@ -8,6 +8,8 @@ endfunction()
 
 set(KISSFFT_TEST_NUMFFTS 10000)
 
+enable_language(CXX)
+
 #
 # Add tools-independent fastfilt_* (../tools/fft_*) executable without adding a test
 #
