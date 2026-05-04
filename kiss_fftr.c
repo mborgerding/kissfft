@@ -30,7 +30,7 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
         KISS_FFT_ERROR("Real FFT optimization must be even.");
         return NULL;
     }
-    nfft >>= 1;
+    nfft >>= 1; // Divide by 2. Note that this halved value is used below in kiss_fft_alloc.
 
     kiss_fft_alloc (nfft, inverse_fft, NULL, &subsize);
     memneeded = sizeof(struct kiss_fftr_state) + subsize + sizeof(kiss_fft_cpx) * ( nfft * 3 / 2);
@@ -58,6 +58,35 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
         kf_cexp (st->super_twiddles+i,phase);
     }
     return st;
+}
+
+void kiss_fftr_stride(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata,int tin_stride)
+{
+    if (tin_stride == 1) {
+        // No stride needed, call directly
+        kiss_fftr(st, timedata, freqdata);
+    } else {
+        // Allocate a temporary buffer for contiguous data. Note that the value
+        // of nfft in st is half of the value of nfft provided as an argument
+        // to kiss_fftr_alloc (because two kiss_fft_scalar elements can fit in
+        // one kiss_fft_cpx), so the factor of two below is simply undoing that
+        // division to get the desired number of kiss_fft_scalar elements
+        // (which should be the same as the number of elements in timedata
+        // divided by the stride).
+        int nfft = st->substate->nfft * 2;
+        kiss_fft_scalar *tmpbuf = (kiss_fft_scalar *)malloc(sizeof(kiss_fft_scalar) * nfft);
+        
+        // Copy strided input to contiguous buffer
+        for (int i = 0; i < nfft; i++) {
+            tmpbuf[i] = timedata[i * tin_stride];
+        }
+        
+        // Call existing kiss_fftr on contiguous data
+        kiss_fftr(st, tmpbuf, freqdata);
+        
+        // Clean up
+        free(tmpbuf);
+    }
 }
 
 void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata)
@@ -118,6 +147,11 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
 
 void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata)
 {
+    kiss_fftri_stride(st, freqdata, timedata, 1);
+}
+
+void kiss_fftri_stride(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata,int fin_stride)
+{
     /* input buffer timedata is stored row-wise */
     int k, ncfft;
 
@@ -128,15 +162,15 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
 
     ncfft = st->substate->nfft;
 
-    st->tmpbuf[0].r = freqdata[0].r + freqdata[ncfft].r;
-    st->tmpbuf[0].i = freqdata[0].r - freqdata[ncfft].r;
+    st->tmpbuf[0].r = freqdata[0].r + freqdata[fin_stride*ncfft].r;
+    st->tmpbuf[0].i = freqdata[0].r - freqdata[fin_stride*ncfft].r;
     C_FIXDIV(st->tmpbuf[0],2);
 
     for (k = 1; k <= ncfft / 2; ++k) {
         kiss_fft_cpx fk, fnkc, fek, fok, tmp;
-        fk = freqdata[k];
-        fnkc.r = freqdata[ncfft - k].r;
-        fnkc.i = -freqdata[ncfft - k].i;
+        fk = freqdata[fin_stride*k];
+        fnkc.r = freqdata[fin_stride*(ncfft - k)].r;
+        fnkc.i = -freqdata[fin_stride*(ncfft - k)].i;
         C_FIXDIV( fk , 2 );
         C_FIXDIV( fnkc , 2 );
 
