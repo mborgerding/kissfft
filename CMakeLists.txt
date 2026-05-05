@@ -180,7 +180,7 @@ endif()
 #
 
 if(KISSFFT_OPENMP)
-    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang|MSVC")
         if (NOT MSVC)
             target_compile_options(kissfft PRIVATE -fopenmp)
             if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
