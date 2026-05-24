@@ -46,6 +46,21 @@ void KISS_FFT_API kiss_fftri(kiss_fftr_cfg cfg,const kiss_fft_cpx *freqdata,kiss
  output timedata has nfft scalar points
 */
 
+/*
+ More generic versions of the above two functions. They read the input from every Nth sample.
+
+ Note that, unless tin_stride is 1, kiss_fftr_stride internally performs a copy of the strided
+ data into a temporary buffer, so there is some overhead to using the stided version of kiss_fftr.
+ However, the computational cost of the transform is lower because only the strided elements are
+ transformed.
+
+ The inverse strided transform (kiss_fftri_stride) does not have any extra overhead relative to
+ the non-strided version (kiss_fftr).
+*/
+void KISS_FFT_API kiss_fftr_stride(kiss_fftr_cfg cfg,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata,int tin_stride);
+void KISS_FFT_API kiss_fftri_stride(kiss_fftr_cfg cfg,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata,int fin_stride);
+
+
 #define kiss_fftr_free KISS_FFT_FREE
 
 #ifdef __cplusplus
