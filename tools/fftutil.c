@@ -26,9 +26,16 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
     bufout = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft );
     st = kiss_fft_alloc( nfft ,isinverse ,0,0);
 
-    while ( fread( buf , sizeof(kiss_fft_cpx) * nfft ,1, fin ) > 0 ) {
-        kiss_fft( st , buf ,bufout);
-        fwrite( bufout , sizeof(kiss_fft_cpx) , nfft , fout );
+    while (1) {
+        size_t nread = fread(buf, sizeof(kiss_fft_cpx), nfft, fin);
+        if (nread == (size_t)nfft) {
+            kiss_fft( st , buf ,bufout);
+            fwrite( bufout , sizeof(kiss_fft_cpx) , nfft , fout );
+            continue;
+        }
+        if (nread != 0)
+            fprintf(stderr,"short read on complex input\n");
+        break;
     }
     free(st);
     free(buf);
