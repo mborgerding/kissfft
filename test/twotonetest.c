@@ -75,6 +75,9 @@ double two_tone_test( int nfft, int bin1,int bin2)
             sigpow += mag2;
     }
     kiss_fft_cleanup();
+    free(cfg);
+    free(tbuf);
+    free(kout);
     /*printf("TEST %d,%d,%d noise @ %fdB\n",nfft,bin1,bin2,10*log10(noisepow/sigpow +1e-30) );*/
     return 10*log10(sigpow/(noisepow+1e-50) );
 }
