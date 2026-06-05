@@ -88,17 +88,24 @@ void fft_filend_real(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
 
     st = kiss_fftndr_alloc(dims, ndims, isinverse, 0, 0);
 
-    while ( fread (ibuf, sizeof(kiss_fft_scalar), insize,  fin) > 0) {
-        if (isinverse) {
-            kiss_fftndri(st,
-                    (kiss_fft_cpx*)ibuf,
-                    (kiss_fft_scalar*)obuf);
-        }else{
-            kiss_fftndr(st,
-                    (kiss_fft_scalar*)ibuf,
-                    (kiss_fft_cpx*)obuf);
+    while (1) {
+        size_t nread = fread(ibuf, sizeof(kiss_fft_scalar), insize, fin);
+        if (nread == (size_t)insize) {
+            if (isinverse) {
+                kiss_fftndri(st,
+                        (kiss_fft_cpx*)ibuf,
+                        (kiss_fft_scalar*)obuf);
+            } else {
+                kiss_fftndr(st,
+                        (kiss_fft_scalar*)ibuf,
+                        (kiss_fft_cpx*)obuf);
+            }
+            fwrite(obuf, sizeof(kiss_fft_scalar), outsize, fout);
+            continue;
         }
-        fwrite (obuf, sizeof(kiss_fft_scalar), outsize,fout);
+        if (nread != 0)
+            fprintf(stderr,"short read on nd real input\n");
+        break;
     }
     free(st);
     free(ibuf);
