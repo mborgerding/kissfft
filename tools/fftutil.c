@@ -110,14 +110,28 @@ void fft_file_real(FILE * fin,FILE * fout,int nfft,int isinverse)
     st = kiss_fftr_alloc( nfft ,isinverse ,0,0);
 
     if (isinverse==0) {
-        while ( fread( rbuf , sizeof(kiss_fft_scalar) * nfft ,1, fin ) > 0 ) {
-            kiss_fftr( st , rbuf ,cbuf);
-            fwrite( cbuf , sizeof(kiss_fft_cpx) , (nfft/2 + 1) , fout );
+        while (1) {
+            size_t nread = fread(rbuf, sizeof(kiss_fft_scalar), nfft, fin);
+            if (nread == nfft) {
+                kiss_fftr( st , rbuf ,cbuf);
+                fwrite( cbuf , sizeof(kiss_fft_cpx) , (nfft/2 + 1) , fout );
+                continue;
+            }
+            if (nread != 0)
+                fprintf(stderr,"short read on real input\n");
+            break;
         }
     }else{
-        while ( fread( cbuf , sizeof(kiss_fft_cpx) * (nfft/2+1) ,1, fin ) > 0 ) {
-            kiss_fftri( st , cbuf ,rbuf);
-            fwrite( rbuf , sizeof(kiss_fft_scalar) , nfft , fout );
+        while (1) {
+            size_t nread = fread(cbuf, sizeof(kiss_fft_cpx), (nfft/2+1), fin);
+            if (nread == (size_t)(nfft/2+1)) {
+                kiss_fftri( st , cbuf ,rbuf);
+                fwrite( rbuf , sizeof(kiss_fft_scalar) , nfft , fout );
+                continue;
+            }
+            if (nread != 0)
+                fprintf(stderr,"short read on complex input\n");
+            break;
         }
     }
     free(st);
