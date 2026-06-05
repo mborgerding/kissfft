@@ -377,7 +377,6 @@ void do_file_filter(
     cfg=kiss_fastfir_alloc(imp_resp,n_imp_resp,&nfft,0,0);
 
     /* use length to minimize buffer shift*/
-    n_samps_buf = 8*4096/sizeof(kffsamp_t); 
     n_samps_buf = nfft + 4*(nfft-n_imp_resp+1);
 
     if (verbose) fprintf(stderr,"bufsize=%d\n",(int)(sizeof(kffsamp_t)*n_samps_buf) );
