@@ -466,12 +466,31 @@ int main(int argc,char**argv)
         exit(1);
     }
     fseek(filtfile,0,SEEK_END);
-    nh = ftell(filtfile) / sizeof(kffsamp_t);
+    {
+        long filt_bytes = ftell(filtfile);
+        if (filt_bytes < 0) {
+            fprintf(stderr,"could not determine filter file size\n");
+            exit(1);
+        }
+        if ((size_t)filt_bytes < sizeof(kffsamp_t)) {
+            fprintf(stderr,"filter file too small\n");
+            exit(1);
+        }
+        nh = (size_t)filt_bytes / sizeof(kffsamp_t);
+    }
     if (verbose) fprintf(stderr,"%d samples in FIR filter\n",(int)nh);
     h = (kffsamp_t*)malloc(sizeof(kffsamp_t)*nh);
+    if (h == NULL) {
+        fprintf(stderr,"failed to allocate filter coefficients\n");
+        exit(1);
+    }
     fseek(filtfile,0,SEEK_SET);
     if (fread(h,sizeof(kffsamp_t),nh,filtfile) != nh)
-        fprintf(stderr,"short read on filter file\n");
+        {
+            fprintf(stderr,"short read on filter file\n");
+            free(h);
+            exit(1);
+        }
 
     fclose(filtfile);
  
