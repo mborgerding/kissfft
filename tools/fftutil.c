@@ -54,9 +54,16 @@ void fft_filend(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
     buf = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * dimprod);
     st = kiss_fftnd_alloc (dims, ndims, isinverse, 0, 0);
 
-    while (fread (buf, sizeof (kiss_fft_cpx) * dimprod, 1, fin) > 0) {
-        kiss_fftnd (st, buf, buf);
-        fwrite (buf, sizeof (kiss_fft_cpx), dimprod, fout);
+    while (1) {
+        size_t nread = fread(buf, sizeof(kiss_fft_cpx), dimprod, fin);
+        if (nread == (size_t)dimprod) {
+            kiss_fftnd(st, buf, buf);
+            fwrite(buf, sizeof(kiss_fft_cpx), dimprod, fout);
+            continue;
+        }
+        if (nread != 0)
+            fprintf(stderr,"short read on nd complex input\n");
+        break;
     }
     free (st);
     free (buf);
