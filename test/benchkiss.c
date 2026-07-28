@@ -70,8 +70,13 @@ int main(int argc,char ** argv)
         nbytes *= nfft[k];
 
 #ifdef USE_SIMD        
+#ifdef HAVE_LASX
+    numffts /= 8;
+    fprintf(stderr,"since SIMD implementation does 8 ffts at a time, numffts is being reduced to %d\n",numffts);
+#else
     numffts /= 4;
     fprintf(stderr,"since SIMD implementation does 4 ffts at a time, numffts is being reduced to %d\n",numffts);
+#endif
 #endif
 
     buf=(kiss_fft_cpx*)KISS_FFT_MALLOC(nbytes);
