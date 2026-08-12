@@ -25,6 +25,11 @@ using namespace std;
 template <class T>
 void dotest(int nfft)
 {
+    if (nfft <= 0) {
+        cerr << "invalid nfft:" << nfft << endl;
+        return;
+    }
+
     typedef kissfft<T> FFT;
     typedef std::complex<T> cpx_type;
 
@@ -59,7 +64,8 @@ void dotest(int nfft)
         complex<long double> dif = acc - x;
         difpower += norm(dif);
     }
-    cout << " RMSE:" << sqrt(difpower/totalpower) << "\t";
+    const long double denom = (totalpower > 0) ? totalpower : 1e-30L;
+    cout << " RMSE:" << sqrt(difpower/denom) << "\t";
 
     double t0 = curtime();
     int nits=20e6/nfft;

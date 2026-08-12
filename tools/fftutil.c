@@ -26,9 +26,16 @@ void fft_file(FILE * fin,FILE * fout,int nfft,int isinverse)
     bufout = (kiss_fft_cpx*)malloc(sizeof(kiss_fft_cpx) * nfft );
     st = kiss_fft_alloc( nfft ,isinverse ,0,0);
 
-    while ( fread( buf , sizeof(kiss_fft_cpx) * nfft ,1, fin ) > 0 ) {
-        kiss_fft( st , buf ,bufout);
-        fwrite( bufout , sizeof(kiss_fft_cpx) , nfft , fout );
+    while (1) {
+        size_t nread = fread(buf, sizeof(kiss_fft_cpx), nfft, fin);
+        if (nread == (size_t)nfft) {
+            kiss_fft( st , buf ,bufout);
+            fwrite( bufout , sizeof(kiss_fft_cpx) , nfft , fout );
+            continue;
+        }
+        if (nread != 0)
+            fprintf(stderr,"short read on complex input\n");
+        break;
     }
     free(st);
     free(buf);
@@ -47,9 +54,16 @@ void fft_filend(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
     buf = (kiss_fft_cpx *) malloc (sizeof (kiss_fft_cpx) * dimprod);
     st = kiss_fftnd_alloc (dims, ndims, isinverse, 0, 0);
 
-    while (fread (buf, sizeof (kiss_fft_cpx) * dimprod, 1, fin) > 0) {
-        kiss_fftnd (st, buf, buf);
-        fwrite (buf, sizeof (kiss_fft_cpx), dimprod, fout);
+    while (1) {
+        size_t nread = fread(buf, sizeof(kiss_fft_cpx), dimprod, fin);
+        if (nread == (size_t)dimprod) {
+            kiss_fftnd(st, buf, buf);
+            fwrite(buf, sizeof(kiss_fft_cpx), dimprod, fout);
+            continue;
+        }
+        if (nread != 0)
+            fprintf(stderr,"short read on nd complex input\n");
+        break;
     }
     free (st);
     free (buf);
@@ -81,17 +95,24 @@ void fft_filend_real(FILE * fin,FILE * fout,int *dims,int ndims,int isinverse)
 
     st = kiss_fftndr_alloc(dims, ndims, isinverse, 0, 0);
 
-    while ( fread (ibuf, sizeof(kiss_fft_scalar), insize,  fin) > 0) {
-        if (isinverse) {
-            kiss_fftndri(st,
-                    (kiss_fft_cpx*)ibuf,
-                    (kiss_fft_scalar*)obuf);
-        }else{
-            kiss_fftndr(st,
-                    (kiss_fft_scalar*)ibuf,
-                    (kiss_fft_cpx*)obuf);
+    while (1) {
+        size_t nread = fread(ibuf, sizeof(kiss_fft_scalar), insize, fin);
+        if (nread == (size_t)insize) {
+            if (isinverse) {
+                kiss_fftndri(st,
+                        (kiss_fft_cpx*)ibuf,
+                        (kiss_fft_scalar*)obuf);
+            } else {
+                kiss_fftndr(st,
+                        (kiss_fft_scalar*)ibuf,
+                        (kiss_fft_cpx*)obuf);
+            }
+            fwrite(obuf, sizeof(kiss_fft_scalar), outsize, fout);
+            continue;
         }
-        fwrite (obuf, sizeof(kiss_fft_scalar), outsize,fout);
+        if (nread != 0)
+            fprintf(stderr,"short read on nd real input\n");
+        break;
     }
     free(st);
     free(ibuf);
@@ -110,14 +131,28 @@ void fft_file_real(FILE * fin,FILE * fout,int nfft,int isinverse)
     st = kiss_fftr_alloc( nfft ,isinverse ,0,0);
 
     if (isinverse==0) {
-        while ( fread( rbuf , sizeof(kiss_fft_scalar) * nfft ,1, fin ) > 0 ) {
-            kiss_fftr( st , rbuf ,cbuf);
-            fwrite( cbuf , sizeof(kiss_fft_cpx) , (nfft/2 + 1) , fout );
+        while (1) {
+            size_t nread = fread(rbuf, sizeof(kiss_fft_scalar), nfft, fin);
+            if (nread == nfft) {
+                kiss_fftr( st , rbuf ,cbuf);
+                fwrite( cbuf , sizeof(kiss_fft_cpx) , (nfft/2 + 1) , fout );
+                continue;
+            }
+            if (nread != 0)
+                fprintf(stderr,"short read on real input\n");
+            break;
         }
     }else{
-        while ( fread( cbuf , sizeof(kiss_fft_cpx) * (nfft/2+1) ,1, fin ) > 0 ) {
-            kiss_fftri( st , cbuf ,rbuf);
-            fwrite( rbuf , sizeof(kiss_fft_scalar) , nfft , fout );
+        while (1) {
+            size_t nread = fread(cbuf, sizeof(kiss_fft_cpx), (nfft/2+1), fin);
+            if (nread == (size_t)(nfft/2+1)) {
+                kiss_fftri( st , cbuf ,rbuf);
+                fwrite( rbuf , sizeof(kiss_fft_scalar) , nfft , fout );
+                continue;
+            }
+            if (nread != 0)
+                fprintf(stderr,"short read on complex input\n");
+            break;
         }
     }
     free(st);

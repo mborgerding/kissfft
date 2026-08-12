@@ -85,8 +85,13 @@ int main(int argc,char ** argv)
     int nfft = 8*3*5;
     double ts,tfft,trfft;
     int i;
-    if (argc>1)
+    if (argc>1) {
         nfft = atoi(argv[1]);
+        if (nfft <= 0) {
+            fprintf(stderr,"Error: nfft must be a positive integer\n");
+            return 1;
+        }
+    }
     kiss_fft_cpx cin[nfft];
     kiss_fft_cpx cout[nfft];
     kiss_fft_cpx sout[nfft];

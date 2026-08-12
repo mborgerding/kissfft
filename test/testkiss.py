@@ -100,15 +100,14 @@ def dofft(x, isreal):
         x = 2147483647.0 * x
         scale = len(x) / 2147483647.0
 
-    cmd = util + ' -n '
-    cmd += ','.join([str(d) for d in dims])
+    cmd = [util, '-n', ','.join([str(d) for d in dims])]
     if do_real:
-        cmd += ' -R '
+        cmd.append('-R')
 
-    print(cmd)
+    print(' '.join(cmd))
 
     from subprocess import Popen, PIPE
-    p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE)
+    p = Popen(cmd, stdin=PIPE, stdout=PIPE)
 
     p.stdin.write(dopack(x))
     p.stdin.close()
