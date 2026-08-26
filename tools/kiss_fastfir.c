@@ -162,6 +162,10 @@ kiss_fastfir_cfg kiss_fastfir_alloc(
         __m128 tmp = (__m128)__lsx_vldrepl_w(&scale, 0);
         st->fir_freq_resp[i].r = __lsx_vfmul_s(tmp, st->fir_freq_resp[i].r);
         st->fir_freq_resp[i].i = __lsx_vfmul_s(tmp, st->fir_freq_resp[i].i);
+#elif defined(HAVE_RVV)
+        kiss_fft_scalar tmp = {(float)scale, (float)scale, (float)scale, (float)scale};
+        st->fir_freq_resp[i].r *= tmp;
+        st->fir_freq_resp[i].i *= tmp;
 #else
         st->fir_freq_resp[i].r *= _mm_set1_ps(scale);
         st->fir_freq_resp[i].i *= _mm_set1_ps(scale);
@@ -300,6 +304,8 @@ void direct_file_filter(
             outval = (__m256)(__lasx_xvreplgr2vr_w(0));
 #elif defined(HAVE_LSX)
             outval = (__m128)(__lsx_vreplgr2vr_w(0));
+#elif defined(HAVE_RVV)
+            outval = (kiss_fft_scalar){0.0f, 0.0f, 0.0f, 0.0f};
 #else
             outval = _mm_set1_ps(0);
 #endif
@@ -318,6 +324,9 @@ void direct_file_filter(
             outval.r = outval.i;
 #elif defined(HAVE_LSX)
             outval.i = (__m128)(__lsx_vreplgr2vr_w(0));
+            outval.r = outval.i;
+#elif defined(HAVE_RVV)
+            outval.i = (kiss_fft_scalar){0.0f, 0.0f, 0.0f, 0.0f};
             outval.r = outval.i;
 #else
             outval.r = outval.i = _mm_set1_ps(0);

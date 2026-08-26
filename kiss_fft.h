@@ -70,6 +70,17 @@ extern "C" {
 # ifndef KISS_FFT_FREE
 #  define KISS_FFT_FREE free
 # endif
+#elif defined(HAVE_RVV)
+typedef float kiss_fft_rvv_t __attribute__((__vector_size__(16), __may_alias__));
+# define kiss_fft_scalar kiss_fft_rvv_t
+# ifndef KISS_FFT_MALLOC
+#  define KISS_FFT_MALLOC(nbytes) aligned_alloc(16, KISS_FFT_ALIGN_SIZE_UP(nbytes))
+#  define KISS_FFT_ALIGN_CHECK(ptr)
+#  define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
+# endif
+# ifndef KISS_FFT_FREE
+#  define KISS_FFT_FREE free
+# endif
 #else
 # include <xmmintrin.h>
 # define kiss_fft_scalar __m128
