@@ -28,6 +28,9 @@ kiss_fft_scalar rand_scalar(void)
 #elif defined(HAVE_LSX)
     float tmp = rand()-RAND_MAX/2;
     return (__m128)(__lsx_vldrepl_w(&tmp, 0));
+#elif defined(HAVE_RVV)
+    float tmp = rand()-RAND_MAX/2;
+    return (kiss_fft_scalar){tmp, tmp, tmp, tmp};
 #else
     return _mm_set1_ps(rand()-RAND_MAX/2);
 #endif
