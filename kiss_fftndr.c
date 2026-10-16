@@ -19,44 +19,41 @@ struct kiss_fftndr_state
     void * tmpbuf;
 };
 
-static size_t prod(const int *dims, int ndims)
-{
-    size_t x=1;
-    while (ndims--) 
-        x *= *dims++;
-    return x;
-}
-
 kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void*mem,size_t*lenmem)
 {
     KISS_FFT_ALIGN_CHECK(mem)
 
     kiss_fftndr_cfg st = NULL;
-    size_t nr=0 , nd=0,ntmp=0;
-    int dimReal = dims[ndims-1];
-    size_t dimOther = prod(dims,ndims-1);
-    size_t memneeded;
+    size_t nr=0 , nd=0;
+    int dimReal;
+    size_t dimOther = 1, nrbins;
+    size_t memneeded = 0;
     char * ptr = NULL;
-    int k,check;
+    int k, dimprod = 1;
+
+    if (dims == NULL || ndims < 1)
+        goto fail;
+    for (k=0; k<ndims; ++k) {
+        /* The multidimensional transform uses int-sized indices. */
+        if (dims[k] <= 0 || dimprod > INT_MAX / dims[k])
+            goto fail;
+        dimprod *= dims[k];
+        if (k < ndims-1)
+            dimOther = (size_t)dimprod;
+    }
+    dimReal = dims[ndims-1];
+    nrbins = (size_t)dimReal / 2 + 1;
 
     (void)kiss_fftr_alloc(dimReal,inverse_fft,NULL,&nr);
     (void)kiss_fftnd_alloc(dims,ndims-1,inverse_fft,NULL,&nd);
-    ntmp =
-        MAX( 2*dimOther , dimReal+2) * sizeof(kiss_fft_scalar)  // freq buffer for one pass
-        + dimOther*(size_t)(dimReal+2) * sizeof(kiss_fft_scalar);  // large enough to hold entire input in case of in-place
-
-    memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof( struct kiss_fftndr_state )) + KISS_FFT_ALIGN_SIZE_UP(nr) + KISS_FFT_ALIGN_SIZE_UP(nd) + KISS_FFT_ALIGN_SIZE_UP(ntmp);
-
-    /* check for overflow */
-    check = memneeded;
-    for (k=0;k<ndims;++k) {
-        check /= dims[k];
-        if (check <= sizeof(kiss_fft_scalar)) {
-            if (lenmem!=NULL)
-                *lenmem = (size_t)(-1);
-            return NULL;
-        }
-    }
+    if (nr == 0 || nr == (size_t)-1 || nd == 0 || nd == (size_t)-1
+        || !kf_alloc_size_add(&memneeded, 1, sizeof(struct kiss_fftndr_state))
+        || !kf_alloc_size_add(&memneeded, 1, nr)
+        || !kf_alloc_size_add(&memneeded, 1, nd)
+        /* Frequency buffer for one pass, followed by the in-place input buffer. */
+        || !kf_alloc_size_add(&memneeded, MAX(nrbins, dimOther), sizeof(kiss_fft_cpx))
+        || !kf_alloc_size_add(&memneeded, dimOther * nrbins, sizeof(kiss_fft_cpx)))
+        goto fail;
 
     if (lenmem==NULL) {
         ptr = (char*) malloc(memneeded);
@@ -81,6 +78,11 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
     st->tmpbuf = ptr;
 
     return st;
+
+fail:
+    if (lenmem != NULL)
+        *lenmem = (size_t)-1;
+    return NULL;
 }
 
 void kiss_fftndr(kiss_fftndr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata)

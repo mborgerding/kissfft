@@ -24,18 +24,26 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
     kiss_fftnd_cfg st = NULL;
     int i;
     int dimprod=1;
-    size_t memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fftnd_state));
+    size_t memneeded = 0;
     char * ptr = NULL;
+
+    if (ndims < 0 || (ndims > 0 && dims == NULL)
+        || !kf_alloc_size_add(&memneeded, 1, sizeof(struct kiss_fftnd_state)))
+        goto fail;
 
     for (i=0;i<ndims;++i) {
         size_t sublen=0;
+        if (dims[i] <= 0 || dimprod > INT_MAX / dims[i])
+            goto fail;
         kiss_fft_alloc (dims[i], inverse_fft, NULL, &sublen);
-        memneeded += sublen;   /* st->states[i] */
+        if (sublen == 0 || !kf_alloc_size_add(&memneeded, 1, sublen))
+            goto fail;
         dimprod *= dims[i];
     }
-    memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(int) * ndims);/*  st->dims */
-    memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(void*) * ndims);/* st->states  */
-    memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(kiss_fft_cpx) * dimprod); /* st->tmpbuf */
+    if (!kf_alloc_size_add(&memneeded, (size_t)ndims, sizeof(int))
+        || !kf_alloc_size_add(&memneeded, (size_t)ndims, sizeof(void*))
+        || !kf_alloc_size_add(&memneeded, (size_t)dimprod, sizeof(kiss_fft_cpx)))
+        goto fail;
 
     if (lenmem == NULL) {/* allocate for the caller*/
         ptr = (char *) malloc (memneeded);
@@ -81,7 +89,7 @@ It doesn't.
 P.S.
 The below code might give you some warm fuzzies and help convince you.
        */
-    if ( ptr - (char*)st != (int)memneeded ) {
+    if ( (size_t)(ptr - (char*)st) != memneeded ) {
         fprintf(stderr,
                 "################################################################################\n"
                 "Internal error! Memory allocation miscalculation\n"
@@ -89,6 +97,11 @@ The below code might give you some warm fuzzies and help convince you.
                );
     }
     return st;
+
+fail:
+    if (lenmem != NULL)
+        *lenmem = (size_t)-1;
+    return NULL;
 }
 
 /*

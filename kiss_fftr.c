@@ -26,14 +26,19 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
     kiss_fftr_cfg st = NULL;
     size_t subsize = 0, memneeded;
 
-    if (nfft & 1) {
+    if (nfft < 2 || (nfft & 1)) {
         KISS_FFT_ERROR("Real FFT optimization must be even.");
-        return NULL;
+        goto fail;
     }
     nfft >>= 1;
 
     kiss_fft_alloc (nfft, inverse_fft, NULL, &subsize);
-    memneeded = sizeof(struct kiss_fftr_state) + subsize + sizeof(kiss_fft_cpx) * ( nfft * 3 / 2);
+    memneeded = 0;
+    if (subsize == 0
+        || !kf_alloc_size_add(&memneeded, 1, sizeof(struct kiss_fftr_state))
+        || !kf_alloc_size_add(&memneeded, 1, subsize)
+        || !kf_alloc_size_add(&memneeded, (size_t)nfft * 3 / 2, sizeof(kiss_fft_cpx)))
+        goto fail;
 
     if (lenmem == NULL) {
         st = (kiss_fftr_cfg) KISS_FFT_MALLOC (memneeded);
@@ -58,6 +63,11 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
         kf_cexp (st->super_twiddles+i,phase);
     }
     return st;
+
+fail:
+    if (lenmem != NULL)
+        *lenmem = (size_t)-1;
+    return NULL;
 }
 
 void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata)
