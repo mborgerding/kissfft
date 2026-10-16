@@ -142,6 +142,8 @@ ifeq "$(HAVE_LASX)" "lasx"
 	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -DHAVE_LASX=1 -mlasx $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 else ifeq "$(HAVE_LSX)" "lsx"
 	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -DHAVE_LSX=1 -mlsx $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+else ifeq "$(HAVE_RVV)" "rvv"
+	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -DHAVE_RVV=1 -march=rv64gcv $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 else
 	$(CC) -o $@ -g $(CFLAGS) -DUSE_SIMD=1 -msse $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 endif
