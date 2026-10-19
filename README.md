@@ -44,6 +44,29 @@ You can do other cool stuff with the extras you'll find in tools/
 The core fft and most tools/ code can be compiled to use float, double,
  Q15 short or Q31 samples. The default is float.
 
+### Forward and inverse scaling
+
+For floating-point builds (`float` or `double`), neither direction is
+normalized. A forward transform followed by an inverse transform returns
+`nfft` times the original input. Divide each inverse output sample by
+`nfft` to recover the input:
+
+```c
+    /* After kiss_fft(inverse_cfg, spectrum, recovered): */
+    for (int k = 0; k < nfft; ++k) {
+        recovered[k].r /= nfft;
+        recovered[k].i /= nfft;
+    }
+```
+
+The same convention applies to `kiss_fft_stride()` and the real transform
+pair `kiss_fftr()` / `kiss_fftri()`. For the real pair, divide the `nfft`
+real output samples by the original real transform length, not by the
+number of complex frequency bins (`nfft / 2 + 1`).
+
+Fixed-point builds scale internally in both directions to prevent overflow;
+do not apply the floating-point normalization recipe to them.
+
 ## BUILDING:
 
 There are two functionally-equivalent build systems supported by kissfft:
