@@ -44,6 +44,9 @@ void KISS_FFT_API kiss_fftri(kiss_fftr_cfg cfg,const kiss_fft_cpx *freqdata,kiss
 /*
  input freqdata has  nfft/2+1 complex points
  output timedata has nfft scalar points
+ For floating-point builds, a kiss_fftr / kiss_fftri round trip returns
+ nfft times the input; divide timedata by nfft to recover the input.
+ Fixed-point builds scale internally and use a different convention.
 */
 
 #define kiss_fftr_free KISS_FFT_FREE

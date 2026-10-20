@@ -147,6 +147,10 @@ kiss_fft_cfg KISS_FFT_API kiss_fft_alloc(int nfft,int inverse_fft,void * mem,siz
  * for a forward FFT,
  * fin should be  f[0] , f[1] , ... ,f[nfft-1]
  * fout will be   F[0] , F[1] , ... ,F[nfft-1]
+ * Floating-point transforms are unnormalized in both directions: a forward
+ * transform followed by an inverse yields nfft times the original input.
+ * Divide the inverse output by nfft to recover the input. Fixed-point builds
+ * instead scale internally in both directions to prevent overflow.
  * Note that each element is complex and can be accessed like
     f[k].r and f[k].i
  * */
