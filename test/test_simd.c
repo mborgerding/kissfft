@@ -6,7 +6,7 @@ static void test1(void)
     int n[2] = {256,256};
     size_t nbytes = sizeof(kiss_fft_cpx)*n[0]*n[1];
 
-#if defined(HAVE_LSX) || defined(HAVE_LASX)
+#if defined(HAVE_LSX) || defined(HAVE_LASX) || defined(HAVE_RVV)
     kiss_fft_cpx * inbuf = NULL;
     kiss_fft_cpx * outbuf = NULL;
     if (posix_memalign((void**)&inbuf, 16, nbytes) ||
@@ -23,7 +23,7 @@ static void test1(void)
     kiss_fftnd(cfg,inbuf,outbuf);
     kiss_fft_free(cfg);
 
-#if defined(HAVE_LSX) || defined(HAVE_LASX)
+#if defined(HAVE_LSX) || defined(HAVE_LASX) || defined(HAVE_RVV)
     free(inbuf);
     free(outbuf);
 #else

@@ -118,6 +118,7 @@ endif
 export KISSFFTLIB_SHORTNAME
 export HAVE_LSX
 export HAVE_LASX
+export HAVE_RVV
 
 #
 # Compile-time definitions by datatype
@@ -136,6 +137,8 @@ else ifeq "$(KISSFFT_DATATYPE)" "simd"
 	TYPEFLAGS += -DUSE_SIMD=1 -DHAVE_LASX=1 -mlasx
   else ifeq "$(HAVE_LSX)" "lsx"
 	TYPEFLAGS += -DUSE_SIMD=1 -DHAVE_LSX=1 -mlsx
+  else ifeq "$(HAVE_RVV)" "rvv"
+	TYPEFLAGS += -DUSE_SIMD=1 -DHAVE_RVV=1 -march=rv64gcv
   else
 	TYPEFLAGS += -DUSE_SIMD=1 -msse
   endif
@@ -288,6 +291,8 @@ testall:
 		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LASX=lasx testsingle; \
 	elif [ "$(HAVE_LSX)" = "lsx" ]; then \
 		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LSX=lsx testsingle; \
+	elif [ "$(HAVE_RVV)" = "rvv" ]; then \
+		$(MAKE) KISSFFT_DATATYPE=simd HAVE_RVV=rvv testsingle; \
 	else \
 		$(MAKE) KISSFFT_DATATYPE=simd testsingle; \
 	fi
@@ -301,6 +306,8 @@ testall:
 		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LASX=lasx testsingle; \
 	elif [ "$(HAVE_LSX)" = "lsx" ]; then \
 		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LSX=lsx KISSFFT_STATIC=1 testsingle; \
+	elif [ "$(HAVE_RVV)" = "rvv" ]; then \
+		$(MAKE) KISSFFT_DATATYPE=simd HAVE_RVV=rvv KISSFFT_STATIC=1 testsingle; \
 	else \
 		$(MAKE) KISSFFT_DATATYPE=simd KISSFFT_STATIC=1 testsingle; \
 	fi
@@ -314,6 +321,8 @@ testall:
 		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LASX=lasx testsingle; \
 	elif [ "$(HAVE_LSX)" = "lsx" ]; then \
 		$(MAKE) KISSFFT_DATATYPE=simd HAVE_LSX=lsx KISSFFT_OPENMP=1 testsingle; \
+	elif [ "$(HAVE_RVV)" = "rvv" ]; then \
+		$(MAKE) KISSFFT_DATATYPE=simd HAVE_RVV=rvv KISSFFT_OPENMP=1 testsingle; \
 	else \
 		$(MAKE) KISSFFT_DATATYPE=simd KISSFFT_OPENMP=1 testsingle; \
 	fi
