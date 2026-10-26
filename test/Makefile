@@ -43,6 +43,7 @@ ifneq ($(KISSFFT_OPENMP),1)
 	BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)
 	SELFTEST = st-$(KISSFFT_DATATYPE)
 	TESTREAL = tr-$(KISSFFT_DATATYPE)
+	TESTNDR = kf-ndr-$(KISSFFT_DATATYPE)
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)
@@ -52,6 +53,7 @@ else
 	BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)-openmp
 	SELFTEST = st-$(KISSFFT_DATATYPE)-openmp
 	TESTREAL = tr-$(KISSFFT_DATATYPE)-openmp
+	TESTNDR = kf-ndr-$(KISSFFT_DATATYPE)-openmp
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)-openmp
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)-openmp
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)-openmp
@@ -103,7 +105,7 @@ endif
 # Target: "make all"
 #
 
-all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTKFC) $(TESTFASTFILT)
+all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTNDR) $(TESTKFC) $(TESTFASTFILT)
 
 #
 # Individual test make rules
@@ -116,6 +118,9 @@ $(TESTKFC): ../kfc.c
 	$(CC) -o $@ $(CFLAGS)  -DKFC_TEST $(TYPEFLAGS) $^ -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 
 $(TESTREAL): test_real.c
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+
+$(TESTNDR): test_ndr_alloc.c
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 
 $(BENCHKISS): benchkiss.c pstats.c
@@ -167,6 +172,7 @@ testcpp: $(TESTCPP)
 #
 
 test: all
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTNDR)
 ifeq "$(KISSFFT_DATATYPE)" "simd"
 	$(MAKE) testsse
 endif

@@ -31,6 +31,20 @@ struct kiss_fft_state{
     kiss_fft_cpx twiddles[1];
 };
 
+/* Add one aligned allocation block without wrapping its size. */
+static inline int kf_alloc_size_add(size_t *total, size_t count, size_t width)
+{
+    size_t bytes, aligned;
+    if (count > SIZE_MAX / width)
+        return 0;
+    bytes = count * width;
+    aligned = KISS_FFT_ALIGN_SIZE_UP(bytes);
+    if (aligned < bytes || aligned > SIZE_MAX - *total)
+        return 0;
+    *total += aligned;
+    return 1;
+}
+
 /*
   Explanation of macros dealing with complex math:
 
