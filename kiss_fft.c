@@ -411,6 +411,8 @@ void kiss_fft_cleanup(void)
 
 int kiss_fft_next_fast_size(int n)
 {
+    if (n <= 0) /* nothing to factor; avoid infinite loop for n<=0 */
+        return 1;
     while(1) {
         int m=n;
         while ( (m%2) == 0 ) m/=2;
