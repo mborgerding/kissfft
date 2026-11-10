@@ -28,6 +28,10 @@ struct kiss_fft_state{
     int nfft;
     int inverse;
     int factors[2*MAXFACTORS];
+    /* per radix-4 stage: offset (in kiss_fft_cpx, from twiddles) of three contiguous
+       twiddle runs W^k, W^2k, W^3k (k < m) used by the vectorized butterfly; 0 = none.
+       Offsets rather than pointers keep the state relocatable. */
+    unsigned stage_tw[MAXFACTORS];  /* unsigned (not size_t): keeps the struct 4-byte aligned for embedders */
     kiss_fft_cpx twiddles[1];
 };
 

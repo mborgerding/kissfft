@@ -8,6 +8,22 @@
 
 #include <stdint.h>
 #include "_kiss_fft_guts.h"
+#include <string.h>
+
+/* Runtime CPU dispatch (x86-64 GCC >= 12 / Clang >= 18 on ELF + glibc, where ifunc is available):
+ * the hot routines get an extra AVX2/FMA clone that is selected at load time, and float
+ * radix-4 stages use a hand-vectorized AVX2 butterfly when the CPU supports it.
+ * Results stay within floating-point rounding of the portable code, but are not bit-identical
+ * to it (FMA). Define KISS_FFT_NO_DISPATCH to build the portable code only. */
+#if !defined(KISS_FFT_NO_DISPATCH) && !defined(USE_SIMD) && !defined(FIXED_POINT) \
+    && defined(__x86_64__) && defined(__ELF__) && defined(__GLIBC__) && !defined(__UCLIBC__) \
+    && !defined(__INTEL_COMPILER) \
+    && ((defined(__clang__) && __clang_major__ >= 18) || (!defined(__clang__) && defined(__GNUC__) && __GNUC__ >= 12))
+#  define KISS_FFT_DISPATCH 1
+#  define KF_TARGET_CLONES __attribute__((target_clones("arch=x86-64-v3","default")))
+#else
+#  define KF_TARGET_CLONES
+#endif
 /* The guts header contains all the multiplication and addition macros that are defined for
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
@@ -23,23 +39,31 @@ static void kf_bfly2(
     kiss_fft_cpx * tw1 = st->twiddles;
     kiss_fft_cpx t;
     Fout2 = Fout + m;
-    do{
+
+    /* first iteration peeled: its twiddle is 1 (kept out of the loop so the loop stays branch-free) */
+    C_FIXDIV(*Fout,2); C_FIXDIV(*Fout2,2);
+    t = *Fout2;
+    C_SUB( *Fout2 ,  *Fout , t );
+    C_ADDTO( *Fout ,  t );
+
+    while (--m) {
+        ++Fout2;
+        ++Fout;
+        tw1 += fstride;
         C_FIXDIV(*Fout,2); C_FIXDIV(*Fout2,2);
 
         C_MUL (t,  *Fout2 , *tw1);
-        tw1 += fstride;
         C_SUB( *Fout2 ,  *Fout , t );
         C_ADDTO( *Fout ,  t );
-        ++Fout2;
-        ++Fout;
-    }while (--m);
+    }
 }
 
-static void kf_bfly4(
+static inline void kf_bfly4_dir(
         kiss_fft_cpx * Fout,
         const size_t fstride,
         const kiss_fft_cfg st,
-        const size_t m
+        const size_t m,
+        const int inverse
         )
 {
     kiss_fft_cpx *tw1,*tw2,*tw3;
@@ -54,9 +78,13 @@ static void kf_bfly4(
     do {
         C_FIXDIV(*Fout,4); C_FIXDIV(Fout[m],4); C_FIXDIV(Fout[m2],4); C_FIXDIV(Fout[m3],4);
 
-        C_MUL(scratch[0],Fout[m] , *tw1 );
-        C_MUL(scratch[1],Fout[m2] , *tw2 );
-        C_MUL(scratch[2],Fout[m3] , *tw3 );
+        if (k != m) {
+            C_MUL(scratch[0],Fout[m] , *tw1 );
+            C_MUL(scratch[1],Fout[m2] , *tw2 );
+            C_MUL(scratch[2],Fout[m3] , *tw3 );
+        } else { /* first twiddles are 1 */
+            scratch[0] = Fout[m]; scratch[1] = Fout[m2]; scratch[2] = Fout[m3];
+        }
 
         C_SUB( scratch[5] , *Fout, scratch[1] );
         C_ADDTO(*Fout, scratch[1]);
@@ -68,7 +96,7 @@ static void kf_bfly4(
         tw3 += fstride*3;
         C_ADDTO( *Fout , scratch[3] );
 
-        if(st->inverse) {
+        if(inverse) {
             Fout[m].r = scratch[5].r - scratch[4].i;
             Fout[m].i = scratch[5].i + scratch[4].r;
             Fout[m3].r = scratch[5].r + scratch[4].i;
@@ -83,6 +111,91 @@ static void kf_bfly4(
     }while(--k);
 }
 
+#ifdef KISS_FFT_DISPATCH
+#include <immintrin.h>
+#define KISS_FFT_AVX2 1
+/* only for kiss_fft_scalar == float: 4 interleaved complex values per __m256 */
+#define KF_AVX2_OK (sizeof(kiss_fft_scalar) == sizeof(float))
+
+__attribute__((target("avx2,fma")))
+static inline __m256 kf_cmul_avx2(__m256 a, __m256 w)
+{
+    __m256 wr = _mm256_moveldup_ps(w);          /* wr wr ... */
+    __m256 wi = _mm256_movehdup_ps(w);          /* wi wi ... */
+    __m256 as = _mm256_permute_ps(a, 0xB1);     /* ai ar ... */
+    return _mm256_fmaddsub_ps(a, wr, _mm256_mul_ps(as, wi)); /* (ar*wr-ai*wi, ai*wr+ar*wi) */
+}
+
+/* radix-4 butterfly over k = 0..m-1 using the stage's contiguous twiddles tw = [W^k | W^2k | W^3k] */
+__attribute__((target("avx2,fma")))
+static void kf_bfly4_avx2(kiss_fft_cpx * Fout, const kiss_fft_cpx * tw, const size_t m, const int inverse)
+{
+    float *F0 = (float*)Fout, *F1 = (float*)(Fout + m), *F2 = (float*)(Fout + 2*m), *F3 = (float*)(Fout + 3*m);
+    const float *T1 = (const float*)tw, *T2 = (const float*)(tw + m), *T3 = (const float*)(tw + 2*m);
+    /* multiplying by -i (forward) / +i (inverse) = swap re/im, then flip the sign bit of the imag / real lanes.
+       The flip is an integer xor on purpose: as a float constant (+-0.0) it gets folded away under
+       -ffast-math (-fno-signed-zeros), which the default build uses. */
+    const __m256i flip = inverse ? _mm256_set_epi32(0, INT_MIN, 0, INT_MIN, 0, INT_MIN, 0, INT_MIN)
+                                 : _mm256_set_epi32(INT_MIN, 0, INT_MIN, 0, INT_MIN, 0, INT_MIN, 0);
+    const size_t mv = m & ~(size_t)3;
+    size_t k;
+    for (k = 0; k < mv; k += 4) {
+        const size_t o = 2*k;
+        __m256 a0 = _mm256_loadu_ps(F0 + o);
+        __m256 s0 = kf_cmul_avx2(_mm256_loadu_ps(F1 + o), _mm256_loadu_ps(T1 + o));
+        __m256 s1 = kf_cmul_avx2(_mm256_loadu_ps(F2 + o), _mm256_loadu_ps(T2 + o));
+        __m256 s2 = kf_cmul_avx2(_mm256_loadu_ps(F3 + o), _mm256_loadu_ps(T3 + o));
+        __m256 s5 = _mm256_sub_ps(a0, s1);
+        __m256 a  = _mm256_add_ps(a0, s1);
+        __m256 s3 = _mm256_add_ps(s0, s2);
+        __m256 t  = _mm256_castsi256_ps(_mm256_xor_si256(_mm256_castps_si256(
+                        _mm256_permute_ps(_mm256_sub_ps(s0, s2), 0xB1)), flip));
+        _mm256_storeu_ps(F2 + o, _mm256_sub_ps(a, s3));
+        _mm256_storeu_ps(F0 + o, _mm256_add_ps(a, s3));
+        _mm256_storeu_ps(F1 + o, _mm256_add_ps(s5, t));
+        _mm256_storeu_ps(F3 + o, _mm256_sub_ps(s5, t));
+    }
+    for (; k < m; ++k) {   /* scalar tail, same math */
+        kiss_fft_cpx s[6];
+        C_MUL(s[0], Fout[k+m],   tw[k]);
+        C_MUL(s[1], Fout[k+2*m], tw[m+k]);
+        C_MUL(s[2], Fout[k+3*m], tw[2*m+k]);
+        C_SUB(s[5], Fout[k], s[1]);
+        C_ADDTO(Fout[k], s[1]);
+        C_ADD(s[3], s[0], s[2]);
+        C_SUB(s[4], s[0], s[2]);
+        C_SUB(Fout[k+2*m], Fout[k], s[3]);
+        C_ADDTO(Fout[k], s[3]);
+        if (inverse) {
+            Fout[k+m].r = s[5].r - s[4].i;   Fout[k+m].i = s[5].i + s[4].r;
+            Fout[k+3*m].r = s[5].r + s[4].i; Fout[k+3*m].i = s[5].i - s[4].r;
+        } else {
+            Fout[k+m].r = s[5].r + s[4].i;   Fout[k+m].i = s[5].i - s[4].r;
+            Fout[k+3*m].r = s[5].r - s[4].i; Fout[k+3*m].i = s[5].i + s[4].r;
+        }
+    }
+}
+
+static int kf_have_avx2(void)
+{
+    return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma");
+}
+#endif
+
+static void kf_bfly4(kiss_fft_cpx * Fout, const size_t fstride, const kiss_fft_cfg st, const size_t m, const int stage)
+{
+    (void)stage;
+#ifdef KISS_FFT_AVX2
+    if (KF_AVX2_OK && st->stage_tw[stage] && kf_have_avx2()) {
+        kf_bfly4_avx2(Fout, st->twiddles + st->stage_tw[stage], m, st->inverse);
+        return;
+    }
+#endif
+    if (st->inverse) kf_bfly4_dir(Fout,fstride,st,m,1);
+    else             kf_bfly4_dir(Fout,fstride,st,m,0);
+}
+
+KF_TARGET_CLONES
 static void kf_bfly3(
          kiss_fft_cpx * Fout,
          const size_t fstride,
@@ -127,6 +240,7 @@ static void kf_bfly3(
      }while(--k);
 }
 
+KF_TARGET_CLONES
 static void kf_bfly5(
         kiss_fft_cpx * Fout,
         const size_t fstride,
@@ -189,6 +303,7 @@ static void kf_bfly5(
 }
 
 /* perform the butterfly for one stage of a mixed radix FFT */
+KF_TARGET_CLONES
 static void kf_bfly_generic(
         kiss_fft_cpx * Fout,
         const size_t fstride,
@@ -232,6 +347,7 @@ static void kf_bfly_generic(
     KISS_FFT_TMP_FREE(scratch);
 }
 
+KF_TARGET_CLONES
 static
 void kf_work(
         kiss_fft_cpx * Fout,
@@ -245,6 +361,7 @@ void kf_work(
     kiss_fft_cpx * Fout_beg=Fout;
     const int p=*factors++; /* the radix  */
     const int m=*factors++; /* stage's fft length/p */
+    const int stage = (int)((factors - st->factors) / 2) - 1;
     const kiss_fft_cpx * Fout_end = Fout + p*m;
 
 #ifdef _OPENMP
@@ -263,7 +380,7 @@ void kf_work(
         switch (p) {
             case 2: kf_bfly2(Fout,fstride,st,m); break;
             case 3: kf_bfly3(Fout,fstride,st,m); break;
-            case 4: kf_bfly4(Fout,fstride,st,m); break;
+            case 4: kf_bfly4(Fout,fstride,st,m,stage); break;
             case 5: kf_bfly5(Fout,fstride,st,m); break;
             default: kf_bfly_generic(Fout,fstride,st,m,p); break;
         }
@@ -272,6 +389,28 @@ void kf_work(
 #endif
 
     if (m==1) {
+        /* leaf stage: gather and butterfly fused for radix 2 and 4, whose twiddles are all 1 */
+        const size_t s = fstride*in_stride;
+        switch (p) {
+            case 2: {
+                kiss_fft_cpx a=f[0], b=f[s];
+                C_FIXDIV(a,2); C_FIXDIV(b,2);
+                C_ADD(Fout[0],a,b); C_SUB(Fout[1],a,b);
+                return;
+            }
+            case 4: {
+                kiss_fft_cpx a=f[0], b=f[s], c=f[2*s], d=f[3*s], s0,s1,s2,s3;
+                C_FIXDIV(a,4); C_FIXDIV(b,4); C_FIXDIV(c,4); C_FIXDIV(d,4);
+                C_ADD(s0,a,c); C_SUB(s1,a,c); C_ADD(s2,b,d); C_SUB(s3,b,d);
+                C_ADD(Fout[0],s0,s2); C_SUB(Fout[2],s0,s2);
+                if (st->inverse) {
+                    Fout[1].r=s1.r-s3.i; Fout[1].i=s1.i+s3.r; Fout[3].r=s1.r+s3.i; Fout[3].i=s1.i-s3.r;
+                } else {
+                    Fout[1].r=s1.r+s3.i; Fout[1].i=s1.i-s3.r; Fout[3].r=s1.r-s3.i; Fout[3].i=s1.i+s3.r;
+                }
+                return;
+            }
+        }
         do{
             *Fout = *f;
             f += fstride*in_stride;
@@ -293,7 +432,7 @@ void kf_work(
     switch (p) {
         case 2: kf_bfly2(Fout,fstride,st,m); break;
         case 3: kf_bfly3(Fout,fstride,st,m); break;
-        case 4: kf_bfly4(Fout,fstride,st,m); break;
+        case 4: kf_bfly4(Fout,fstride,st,m,stage); break;
         case 5: kf_bfly5(Fout,fstride,st,m); break;
         default: kf_bfly_generic(Fout,fstride,st,m,p); break;
     }
@@ -343,8 +482,20 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
     if (nfft >= (SIZE_MAX - 2*sizeof(struct kiss_fft_state))/sizeof(kiss_fft_cpx))
         return NULL;
 
+    size_t extra = 0; /* per-stage contiguous radix-4 twiddles for the AVX2 butterfly */
+#ifdef KISS_FFT_AVX2
+    if (KF_AVX2_OK && nfft > 0 && kf_have_avx2()) {   /* tables are only used by the AVX2 butterfly */
+        int fac[2*MAXFACTORS];
+        int i = 0;
+        kf_factor(nfft, fac);
+        do {
+            if (fac[2*i] == 4 && fac[2*i+1] >= 4)
+                extra += 3 * (size_t)fac[2*i+1];
+        } while (fac[2*i++ + 1] > 1);
+    }
+#endif
     size_t memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fft_state)
-        + sizeof(kiss_fft_cpx)*(nfft-1)); /* twiddle factors*/
+        + sizeof(kiss_fft_cpx)*(nfft-1+extra)); /* twiddle factors*/
 
     if ( lenmem==NULL ) {
         st = ( kiss_fft_cfg)KISS_FFT_MALLOC( memneeded );
@@ -367,6 +518,27 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
         }
 
         kf_factor(nfft,st->factors);
+        memset(st->stage_tw, 0, sizeof(st->stage_tw));
+#ifdef KISS_FFT_AVX2
+        if (extra) {
+            size_t off = (size_t)nfft, fstride = 1, k;
+            int s = 0;
+            do {
+                const int p = st->factors[2*s], m = st->factors[2*s+1];
+                if (p == 4 && m >= 4) {
+                    kiss_fft_cpx *t = st->twiddles + off;
+                    st->stage_tw[s] = (unsigned)off;
+                    for (k = 0; k < (size_t)m; ++k) {
+                        t[k]       = st->twiddles[k*fstride];
+                        t[m+k]     = st->twiddles[2*k*fstride];
+                        t[2*m+k]   = st->twiddles[3*k*fstride];
+                    }
+                    off += 3 * (size_t)m;
+                }
+                fstride *= (size_t)p;
+            } while (st->factors[2*s++ + 1] > 1);
+        }
+#endif
     }
     return st;
 }
