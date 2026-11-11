@@ -45,6 +45,7 @@ ifneq ($(KISSFFT_OPENMP),1)
 	TESTREAL = tr-$(KISSFFT_DATATYPE)
 	TESTSIZEVAL = tsizeval-$(KISSFFT_DATATYPE)
 	TESTNDRALLOC = tndralloc-$(KISSFFT_DATATYPE)
+	TESTNDALIGN = tndalign-$(KISSFFT_DATATYPE)
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)
@@ -56,6 +57,7 @@ else
 	TESTREAL = tr-$(KISSFFT_DATATYPE)-openmp
 	TESTSIZEVAL = tsizeval-$(KISSFFT_DATATYPE)-openmp
 	TESTNDRALLOC = tndralloc-$(KISSFFT_DATATYPE)-openmp
+	TESTNDALIGN = tndalign-$(KISSFFT_DATATYPE)-openmp
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)-openmp
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)-openmp
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)-openmp
@@ -107,7 +109,7 @@ endif
 # Target: "make all"
 #
 
-all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTSIZEVAL) $(TESTNDRALLOC) $(TESTKFC) $(TESTFASTFILT)
+all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTSIZEVAL) $(TESTNDRALLOC) $(TESTNDALIGN) $(TESTKFC) $(TESTFASTFILT)
 
 #
 # Individual test make rules
@@ -126,6 +128,10 @@ $(TESTSIZEVAL): test_size_validation.c
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 
 $(TESTNDRALLOC): test_fftndr_alloc.c
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+
+# includes ../kiss_fftr.c, ../kiss_fftnd.c and ../kiss_fftndr.c to reach their private structs
+$(TESTNDALIGN): test_nd_alignment.c ../kiss_fftr.c ../kiss_fftnd.c ../kiss_fftndr.c
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 
 $(BENCHKISS): benchkiss.c pstats.c
@@ -189,6 +195,8 @@ endif
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTSIZEVAL)
 	$(warning ======kiss_fftndr allocation regression test (type= $(KISSFFT_DATATYPE) ))
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTNDRALLOC)
+	$(warning ======multi-dimensional FFT state alignment regression test (type= $(KISSFFT_DATATYPE) ))
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTNDALIGN)
 	$(warning ======timing test (type=$(KISSFFT_DATATYPE)))
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT)
 	@[ -x ./$(BENCHFFTW) ] && LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT) || true
@@ -200,4 +208,4 @@ endif
 #
 
 clean:
-	rm -f *~ bm-* st-* tr-* tsizeval-* tndralloc-* kf-* tkfc-* ff-* fastfilt-* *.pyc *.pyo *.dat testcpp-* testsimd testsimd-* _test_library_dummy _test_library_dummy.c
+	rm -f *~ bm-* st-* tr-* tsizeval-* tndralloc-* tndalign-* kf-* tkfc-* ff-* fastfilt-* *.pyc *.pyo *.dat testcpp-* testsimd testsimd-* _test_library_dummy _test_library_dummy.c

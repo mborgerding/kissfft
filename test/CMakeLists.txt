@@ -50,6 +50,8 @@ add_kissfft_test_executable(ffr twotonetest.c)
 add_kissfft_test_executable(tr test_real.c)
 add_kissfft_test_executable(tsizeval test_size_validation.c)
 add_kissfft_test_executable(tndralloc test_fftndr_alloc.c)
+# includes ../kiss_fftr.c, ../kiss_fftnd.c and ../kiss_fftndr.c to reach their private structs
+add_kissfft_test_executable(tndalign test_nd_alignment.c)
 
 add_kissfft_test_executable(next_fast_size next_fast_size.c)
 
