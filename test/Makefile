@@ -43,6 +43,7 @@ ifneq ($(KISSFFT_OPENMP),1)
 	BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)
 	SELFTEST = st-$(KISSFFT_DATATYPE)
 	TESTREAL = tr-$(KISSFFT_DATATYPE)
+	TESTNDALIGN = tndalign-$(KISSFFT_DATATYPE)
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)
@@ -52,6 +53,7 @@ else
 	BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)-openmp
 	SELFTEST = st-$(KISSFFT_DATATYPE)-openmp
 	TESTREAL = tr-$(KISSFFT_DATATYPE)-openmp
+	TESTNDALIGN = tndalign-$(KISSFFT_DATATYPE)-openmp
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)-openmp
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)-openmp
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)-openmp
@@ -103,7 +105,7 @@ endif
 # Target: "make all"
 #
 
-all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTKFC) $(TESTFASTFILT)
+all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTNDALIGN) $(TESTKFC) $(TESTFASTFILT)
 
 #
 # Individual test make rules
@@ -116,6 +118,10 @@ $(TESTKFC): ../kfc.c
 	$(CC) -o $@ $(CFLAGS)  -DKFC_TEST $(TYPEFLAGS) $^ -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 
 $(TESTREAL): test_real.c
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+
+# includes ../kiss_fftr.c, ../kiss_fftnd.c and ../kiss_fftndr.c to reach their private structs
+$(TESTNDALIGN): test_nd_alignment.c ../kiss_fftr.c ../kiss_fftnd.c ../kiss_fftndr.c
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
 
 $(BENCHKISS): benchkiss.c pstats.c
@@ -175,6 +181,8 @@ endif
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(SELFTEST)
 	$(warning ======real FFT (type= $(KISSFFT_DATATYPE) ))
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTREAL)
+	$(warning ======multi-dimensional FFT state alignment regression test (type= $(KISSFFT_DATATYPE) ))
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTNDALIGN)
 	$(warning ======timing test (type=$(KISSFFT_DATATYPE)))
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT)
 	@[ -x ./$(BENCHFFTW) ] && LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT) || true
@@ -186,4 +194,4 @@ endif
 #
 
 clean:
-	rm -f *~ bm-* st-* tr-* kf-* tkfc-* ff-* fastfilt-* *.pyc *.pyo *.dat testcpp-* testsimd testsimd-* _test_library_dummy _test_library_dummy.c
+	rm -f *~ bm-* st-* tr-* tndalign-* kf-* tkfc-* ff-* fastfilt-* *.pyc *.pyo *.dat testcpp-* testsimd testsimd-* _test_library_dummy _test_library_dummy.c
