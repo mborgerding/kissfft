@@ -7,6 +7,7 @@
  */
 
 #include <stdint.h>
+#include <limits.h>
 #include "_kiss_fft_guts.h"
 /* The guts header contains all the multiplication and addition macros that are defined for
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
@@ -327,6 +328,90 @@ void kf_factor(int n,int * facbuf)
     } while (n > 1);
 }
 
+#if !defined(FIXED_POINT) && !defined(USE_SIMD)
+/* Bluestein's algorithm, for sizes with a large prime factor p, where kf_bfly_generic costs O(p)
+ * per point. With c[n] = e^(-+i*pi*n^2/N) and nk = (n^2 + k^2 - (k-n)^2)/2:
+ *     X[k] = c[k] * sum_n (x[n] c[n]) conj(c[k-n])
+ * which is a circular convolution, done with FFTs of a fast size M >= 2N-1.
+ * The filter conj(c[n]) is even (b[-n] = b[n]), so its spectrum is even too: only half is stored.
+ * Layout: twiddles[0..N) = c, twiddles[N..N+M/2] = FFT(conj(c))/M, then the size-M sub-FFT state. */
+#define KF_BLUESTEIN 1
+#define KF_BLUESTEIN_MIN_P 20   /* below this, the fixed overhead of Bluestein dominates */
+
+/* Scratch buffers are 2N..4N long, too big for alloca, hence plain malloc.
+ * Returns 0 if out of memory: the caller then sets up the ordinary twiddles instead,
+ * which fit in the same block (callers that embed the state do not expect alloc to fail). */
+static int kf_bluestein_init(kiss_fft_cfg st, int nsub, size_t subofs, size_t sublen)
+{
+    const int n = st->nfft;
+    kiss_fft_cpx *chirp = st->twiddles, *filt = st->twiddles + n, *b, *tmp;
+    kiss_fft_cfg sub = kiss_fft_alloc(nsub, 0, (char*)st + subofs, &sublen);
+    int i;
+
+    if (sub == NULL)
+        return 0;
+    b = (kiss_fft_cpx*)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx)*2*nsub);
+    if (b == NULL)
+        return 0;
+    tmp = b + nsub;
+    for (i=0;i<n;++i) {
+        const double pi=3.141592653589793238462643383279502884197169399375105820974944;
+        /* n^2 mod 2N keeps the phase small and exact */
+        double phase = -pi * (double)(((long long)i*i) % (2*(long long)n)) / n;
+        if (st->inverse)
+            phase *= -1;
+        kf_cexp(chirp+i, phase);
+    }
+    memset(b, 0, sizeof(kiss_fft_cpx)*nsub);
+    for (i=0;i<n;++i) {
+        b[i].r = chirp[i].r;
+        b[i].i = -chirp[i].i;
+        if (i)
+            b[nsub-i] = b[i];
+    }
+    kf_work(tmp, b, 1, 1, sub->factors, sub);
+    for (i=0;i<=nsub/2;++i) {
+        filt[i].r = tmp[i].r / nsub;
+        filt[i].i = tmp[i].i / nsub;
+    }
+    KISS_FFT_FREE(b);
+    st->bluestein = (unsigned)subofs;
+    return 1;
+}
+
+static void kf_bluestein(kiss_fft_cfg st, const kiss_fft_cpx *fin, kiss_fft_cpx *fout, int in_stride)
+{
+    const kiss_fft_cfg sub = (kiss_fft_cfg)((char*)st + st->bluestein);
+    const int n = st->nfft, m = sub->nfft;
+    const kiss_fft_cpx *chirp = st->twiddles, *filt = st->twiddles + n;
+    kiss_fft_cpx *a, *b, t;
+    int k;
+
+    a = (kiss_fft_cpx*)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx)*2*m);
+    if (a == NULL) {
+        KISS_FFT_ERROR("Memory allocation error.");
+        return;
+    }
+    b = a + m;
+    memset(a + n, 0, sizeof(kiss_fft_cpx)*(m-n));
+    for (k=0;k<n;++k)       /* reads all of fin before fout is written, so in place is fine */
+        C_MUL(a[k], fin[(size_t)k*in_stride], chirp[k]);
+    kf_work(b, a, 1, 1, sub->factors, sub);
+    for (k=0;k<m;++k) {     /* inverse FFT as conj(FFT(conj(.))); filter spectrum is even */
+        C_MUL(t, b[k], filt[k <= m/2 ? k : m-k]);
+        a[k].r = t.r;
+        a[k].i = -t.i;
+    }
+    kf_work(b, a, 1, 1, sub->factors, sub);
+    for (k=0;k<n;++k) {
+        t.r = b[k].r;
+        t.i = -b[k].i;
+        C_MUL(fout[k], t, chirp[k]);
+    }
+    KISS_FFT_FREE(a);
+}
+#endif
+
 /*
  *
  * User-callable function to allocate all necessary storage space for the fft.
@@ -343,8 +428,34 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
     if (nfft >= (SIZE_MAX - 2*sizeof(struct kiss_fft_state))/sizeof(kiss_fft_cpx))
         return NULL;
 
-    size_t memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fft_state)
-        + sizeof(kiss_fft_cpx)*(nfft-1)); /* twiddle factors*/
+    size_t memneeded = sizeof(struct kiss_fft_state)
+        + sizeof(kiss_fft_cpx)*(nfft-1); /* twiddle factors*/
+#ifdef KF_BLUESTEIN
+    int nsub = 0;            /* Bluestein sub-FFT size, 0 if not used */
+    size_t subofs = 0, sublen = 0;
+    if (nfft > KF_BLUESTEIN_MIN_P && nfft < INT_MAX/4
+        && (size_t)nfft <= SIZE_MAX / (16*sizeof(kiss_fft_cpx))) {
+        int fac[2*MAXFACTORS], i = 0;
+        kf_factor(nfft, fac);
+        while (fac[2*i+1] > 1)
+            ++i;
+        if (fac[2*i] > KF_BLUESTEIN_MIN_P) {      /* the last factor is the largest */
+            int lg = 0;
+            nsub = kiss_fft_next_fast_size(2*nfft-1);
+            while (nsub >> (lg+1))
+                ++lg;
+            subofs = KISS_FFT_ALIGN_SIZE_UP(memneeded + sizeof(kiss_fft_cpx)*(nsub/2+1)); /* + filter */
+            /* cost: generic stage ~ N*p, Bluestein ~ M*log2(M), with similar constants */
+            if ((double)fac[2*i]*nfft <= (double)nsub*lg || subofs > UINT_MAX) {
+                nsub = 0;
+            } else {
+                kiss_fft_alloc(nsub, 0, NULL, &sublen);
+                memneeded = subofs + sublen;
+            }
+        }
+    }
+#endif
+    memneeded = KISS_FFT_ALIGN_SIZE_UP(memneeded);
 
     if ( lenmem==NULL ) {
         st = ( kiss_fft_cfg)KISS_FFT_MALLOC( memneeded );
@@ -358,6 +469,13 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
         st->nfft=nfft;
         st->inverse = inverse_fft;
 
+        st->bluestein = 0;
+
+        kf_factor(nfft,st->factors);
+#ifdef KF_BLUESTEIN
+        if (nsub && kf_bluestein_init(st, nsub, subofs, sublen))
+            return st;
+#endif
         for (i=0;i<nfft;++i) {
             const double pi=3.141592653589793238462643383279502884197169399375105820974944;
             double phase = -2*pi*i / nfft;
@@ -365,8 +483,6 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
                 phase *= -1;
             kf_cexp(st->twiddles+i, phase );
         }
-
-        kf_factor(nfft,st->factors);
     }
     return st;
 }
@@ -374,6 +490,12 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
 
 void kiss_fft_stride(kiss_fft_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,int in_stride)
 {
+#ifdef KF_BLUESTEIN
+    if (st->bluestein) {
+        kf_bluestein(st, fin, fout, in_stride);
+        return;
+    }
+#endif
     if (fin == fout) {
         //NOTE: this is not really an in-place FFT algorithm.
         //It just performs an out-of-place FFT into a temp buffer

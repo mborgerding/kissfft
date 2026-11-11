@@ -28,6 +28,7 @@ struct kiss_fft_state{
     int nfft;
     int inverse;
     int factors[2*MAXFACTORS];
+    unsigned bluestein; /* byte offset of the Bluestein sub-FFT from the state, 0 if not used */
     kiss_fft_cpx twiddles[1];
 };
 
