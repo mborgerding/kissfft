@@ -188,6 +188,67 @@ static void kf_bfly5(
     }
 }
 
+/* Radix 7. Pairing x[n] with x[7-n] (n = 1..3): with W = e^(-+2*pi*i/7),
+ *   X[k]   = x0 + sum_n (x[n]+x[7-n]) Re(W^nk) + i * sum_n (x[n]-x[7-n]) Im(W^nk)
+ *   X[7-k] = the same with -i,  for k = 1..3,
+ * and W^4, W^5, W^6 are the conjugates of W^3, W^2, W^1. */
+static void kf_bfly7(
+        kiss_fft_cpx * Fout,
+        const size_t fstride,
+        const kiss_fft_cfg st,
+        int m
+        )
+{
+    const kiss_fft_cpx * twiddles = st->twiddles;
+    const kiss_fft_cpx y1 = twiddles[fstride*m], y2 = twiddles[2*fstride*m], y3 = twiddles[3*fstride*m];
+    int u, q;
+
+    for ( u=0; u<m; ++u ) {
+        kiss_fft_cpx x[7], a1, a2, a3, b1, b2, b3, T, U;
+
+        for (q=0; q<7; ++q) {
+            kiss_fft_cpx t = Fout[q*m];
+            C_FIXDIV(t,7);
+            if (q && u)
+                C_MUL(x[q], t, twiddles[q*u*fstride]);
+            else    /* twiddle 1 */
+                x[q] = t;
+        }
+        C_ADD(a1, x[1], x[6]); C_SUB(b1, x[1], x[6]);
+        C_ADD(a2, x[2], x[5]); C_SUB(b2, x[2], x[5]);
+        C_ADD(a3, x[3], x[4]); C_SUB(b3, x[3], x[4]);
+
+        Fout[0].r = x[0].r + a1.r + a2.r + a3.r;
+        Fout[0].i = x[0].i + a1.i + a2.i + a3.i;
+
+        /* k = 1: W^1, W^2, W^3 */
+        T.r = x[0].r + S_MUL(a1.r,y1.r) + S_MUL(a2.r,y2.r) + S_MUL(a3.r,y3.r);
+        T.i = x[0].i + S_MUL(a1.i,y1.r) + S_MUL(a2.i,y2.r) + S_MUL(a3.i,y3.r);
+        U.r = S_MUL(b1.r,y1.i) + S_MUL(b2.r,y2.i) + S_MUL(b3.r,y3.i);
+        U.i = S_MUL(b1.i,y1.i) + S_MUL(b2.i,y2.i) + S_MUL(b3.i,y3.i);
+        Fout[m].r   = T.r - U.i;  Fout[m].i   = T.i + U.r;
+        Fout[6*m].r = T.r + U.i;  Fout[6*m].i = T.i - U.r;
+
+        /* k = 2: W^2, W^4 = conj(W^3), W^6 = conj(W^1) */
+        T.r = x[0].r + S_MUL(a1.r,y2.r) + S_MUL(a2.r,y3.r) + S_MUL(a3.r,y1.r);
+        T.i = x[0].i + S_MUL(a1.i,y2.r) + S_MUL(a2.i,y3.r) + S_MUL(a3.i,y1.r);
+        U.r = S_MUL(b1.r,y2.i) - S_MUL(b2.r,y3.i) - S_MUL(b3.r,y1.i);
+        U.i = S_MUL(b1.i,y2.i) - S_MUL(b2.i,y3.i) - S_MUL(b3.i,y1.i);
+        Fout[2*m].r = T.r - U.i;  Fout[2*m].i = T.i + U.r;
+        Fout[5*m].r = T.r + U.i;  Fout[5*m].i = T.i - U.r;
+
+        /* k = 3: W^3, W^6 = conj(W^1), W^9 = W^2 */
+        T.r = x[0].r + S_MUL(a1.r,y3.r) + S_MUL(a2.r,y1.r) + S_MUL(a3.r,y2.r);
+        T.i = x[0].i + S_MUL(a1.i,y3.r) + S_MUL(a2.i,y1.r) + S_MUL(a3.i,y2.r);
+        U.r = S_MUL(b1.r,y3.i) - S_MUL(b2.r,y1.i) + S_MUL(b3.r,y2.i);
+        U.i = S_MUL(b1.i,y3.i) - S_MUL(b2.i,y1.i) + S_MUL(b3.i,y2.i);
+        Fout[3*m].r = T.r - U.i;  Fout[3*m].i = T.i + U.r;
+        Fout[4*m].r = T.r + U.i;  Fout[4*m].i = T.i - U.r;
+
+        ++Fout;
+    }
+}
+
 /* perform the butterfly for one stage of a mixed radix FFT */
 static void kf_bfly_generic(
         kiss_fft_cpx * Fout,
@@ -265,6 +326,7 @@ void kf_work(
             case 3: kf_bfly3(Fout,fstride,st,m); break;
             case 4: kf_bfly4(Fout,fstride,st,m); break;
             case 5: kf_bfly5(Fout,fstride,st,m); break;
+            case 7: kf_bfly7(Fout,fstride,st,m); break;
             default: kf_bfly_generic(Fout,fstride,st,m,p); break;
         }
         return;
@@ -295,6 +357,7 @@ void kf_work(
         case 3: kf_bfly3(Fout,fstride,st,m); break;
         case 4: kf_bfly4(Fout,fstride,st,m); break;
         case 5: kf_bfly5(Fout,fstride,st,m); break;
+        case 7: kf_bfly7(Fout,fstride,st,m); break;
         default: kf_bfly_generic(Fout,fstride,st,m,p); break;
     }
 }
