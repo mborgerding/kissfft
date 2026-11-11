@@ -52,6 +52,7 @@ add_kissfft_test_executable(tr test_real.c)
 add_kissfft_test_executable(next_fast_size next_fast_size.c)
 
 add_kissfft_test_executable(testcpp testcpp.cc)
+add_kissfft_test_executable(tcppi32 test_kissfft_i32.cc)
 
 if(KISSFFT_DATATYPE MATCHES "^simd$")
     add_kissfft_test_executable(tsimd test_simd.c)

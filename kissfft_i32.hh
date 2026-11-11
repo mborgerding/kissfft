@@ -1,12 +1,14 @@
 #ifndef KISSFFT_I32_CLASS_HH
 #define KISSFFT_I32_CLASS_HH
 
+#include <cmath>
 #include <complex>
+#include <cstddef>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
 // TODO1: substitute complex<type> (behaviour not defined for nonfloats), should be faster
-// TODO2: use std:: namespace
 // TODO3: make unittests for all ffts (c, cpp, i32)
 
 template <typename DType>
@@ -20,8 +22,8 @@ class kissfft_i32
 {
 private:
 
-    using scalar_type = int32_t;
-    using cpx_type    = complex<int32_t>;
+    using scalar_type = std::int32_t;
+    using cpx_type    = std::complex<std::int32_t>;
 
     scalar_type _scale_factor;
     std::size_t _nfft;
@@ -38,10 +40,11 @@ public:
     {
         // fill twiddle factors
         _twiddles.resize(_nfft);
-        const double phinc = (_inverse ? 2 : -2) * acos(-1.0) / _nfft;
+        const double phinc = (_inverse ? 2 : -2) * std::acos(-1.0) / _nfft;
         for (std::size_t i = 0; i < _nfft; ++i)
         {
-            _twiddles[i] = scale_factor * exp(complex<double>(0, i * phinc));
+            const std::complex<double> tw = scale_factor * std::exp(std::complex<double>(0, i * phinc));
+            _twiddles[i] = cpx_type(scalar_type(std::lround(tw.real())), scalar_type(std::lround(tw.imag())));
         }
         //factorize
         //start factoring out 4's, then 2's, then 3,5,7,9,...
@@ -140,11 +143,25 @@ public:
 
 private:
 
-    void kf_bfly2(cpx_type *const Fout, const size_t fstride, const std::size_t m) const
+    // (a*b + c*d) / _scale_factor, computed in 64 bits: the product of a sample
+    // and an upscaled twiddle factor easily overflows int32_t
+    scalar_type mac(const scalar_type a, const scalar_type b, const scalar_type c, const scalar_type d) const
+    {
+        return scalar_type((std::int64_t(a) * b + std::int64_t(c) * d) / _scale_factor);
+    }
+
+    // (x * tw) / _scale_factor
+    cpx_type mul_tw(const cpx_type &x, const cpx_type &tw) const
+    {
+        return cpx_type(mac(x.real(), tw.real(), x.imag(), -tw.imag()),
+                        mac(x.real(), tw.imag(), x.imag(), tw.real()));
+    }
+
+    void kf_bfly2(cpx_type *const Fout, const std::size_t fstride, const std::size_t m) const
     {
         for (std::size_t k = 0; k < m; ++k)
         {
-            const cpx_type t = (Fout[m + k] * _twiddles[k * fstride]) / _scale_factor;
+            const cpx_type t = mul_tw(Fout[m + k], _twiddles[k * fstride]);
             Fout[m + k] = Fout[k] - t;
             Fout[k] += t;
         }
@@ -162,8 +179,8 @@ private:
 
         do
         {
-            scratch[1] = (Fout[m] * *tw1) / _scale_factor;
-            scratch[2] = (Fout[m2] * *tw2) / _scale_factor;
+            scratch[1] = mul_tw(Fout[m], *tw1);
+            scratch[2] = mul_tw(Fout[m2], *tw2);
 
             scratch[3] = scratch[1] + scratch[2];
             scratch[0] = scratch[1] - scratch[2];
@@ -171,8 +188,7 @@ private:
             tw2 += fstride * 2;
 
             Fout[m] = Fout[0] - (scratch[3] / 2);
-            scratch[0] *= epi3.imag();
-            scratch[0] /= _scale_factor;
+            scratch[0] = mul_tw(scratch[0], cpx_type(epi3.imag(), 0));
 
             Fout[0] += scratch[3];
 
@@ -190,9 +206,9 @@ private:
 
         for (std::size_t k = 0; k < m; ++k)
         {
-            scratch[0] = (Fout[k + m] * _twiddles[k * fstride]) / _scale_factor;
-            scratch[1] = (Fout[k + 2 * m] * _twiddles[k * fstride * 2]) / _scale_factor;
-            scratch[2] = (Fout[k + 3 * m] * _twiddles[k * fstride * 3]) / _scale_factor;
+            scratch[0] = mul_tw(Fout[k + m], _twiddles[k * fstride]);
+            scratch[1] = mul_tw(Fout[k + 2 * m], _twiddles[k * fstride * 2]);
+            scratch[2] = mul_tw(Fout[k + 3 * m], _twiddles[k * fstride * 3]);
             scratch[5] = Fout[k] - scratch[1];
 
             Fout[k] += scratch[1];
@@ -225,10 +241,10 @@ private:
         {
             scratch[0] = *Fout0;
 
-            scratch[1] = (*Fout1 * _twiddles[u * fstride]) / _scale_factor;
-            scratch[2] = (*Fout2 * _twiddles[2 * u * fstride]) / _scale_factor;
-            scratch[3] = (*Fout3 * _twiddles[3 * u * fstride]) / _scale_factor;
-            scratch[4] = (*Fout4 * _twiddles[4 * u * fstride]) / _scale_factor;
+            scratch[1] = mul_tw(*Fout1, _twiddles[u * fstride]);
+            scratch[2] = mul_tw(*Fout2, _twiddles[2 * u * fstride]);
+            scratch[3] = mul_tw(*Fout3, _twiddles[3 * u * fstride]);
+            scratch[4] = mul_tw(*Fout4, _twiddles[4 * u * fstride]);
 
             scratch[7] = scratch[1] + scratch[4];
             scratch[10] = scratch[1] - scratch[4];
@@ -238,24 +254,24 @@ private:
             *Fout0 += scratch[7];
             *Fout0 += scratch[8];
 
-            scratch[5] = scratch[0] + (cpx_type(
-                    scratch[7].real() * ya.real() + scratch[8].real() * yb.real(),
-                    scratch[7].imag() * ya.real() + scratch[8].imag() * yb.real() ) / _scale_factor);
+            scratch[5] = scratch[0] + cpx_type(
+                    mac(scratch[7].real(), ya.real(), scratch[8].real(), yb.real()),
+                    mac(scratch[7].imag(), ya.real(), scratch[8].imag(), yb.real()));
 
             scratch[6] = cpx_type(
-                    scratch[10].imag() * ya.imag() + scratch[9].imag() * yb.imag(),
-                    -scratch[10].real() * ya.imag() - scratch[9].real() * yb.imag() ) / _scale_factor;
+                    mac(scratch[10].imag(), ya.imag(), scratch[9].imag(), yb.imag()),
+                    -mac(scratch[10].real(), ya.imag(), scratch[9].real(), yb.imag()));
 
             *Fout1 = scratch[5] - scratch[6];
             *Fout4 = scratch[5] + scratch[6];
 
-            scratch[11] = scratch[0] + (cpx_type(
-                    scratch[7].real() * yb.real() + scratch[8].real() * ya.real(),
-                    scratch[7].imag() * yb.real() + scratch[8].imag() * ya.real() ) / _scale_factor);
+            scratch[11] = scratch[0] + cpx_type(
+                    mac(scratch[7].real(), yb.real(), scratch[8].real(), ya.real()),
+                    mac(scratch[7].imag(), yb.real(), scratch[8].imag(), ya.real()));
 
             scratch[12] = cpx_type(
-                    -scratch[10].imag() * yb.imag() + scratch[9].imag() * ya.imag(),
-                    scratch[10].real() * yb.imag() - scratch[9].real() * ya.imag() ) / _scale_factor;
+                    mac(scratch[9].imag(), ya.imag(), scratch[10].imag(), -yb.imag()),
+                    mac(scratch[10].real(), yb.imag(), scratch[9].real(), -ya.imag()));
 
             *Fout2 = scratch[11] + scratch[12];
             *Fout3 = scratch[11] - scratch[12];
@@ -269,7 +285,7 @@ private:
     }
 
     /* perform the butterfly for one stage of a mixed radix FFT */
-    void kf_bfly_generic(cpx_type * const Fout, const size_t fstride, const std::size_t m, const std::size_t p) const
+    void kf_bfly_generic(cpx_type * const Fout, const std::size_t fstride, const std::size_t m, const std::size_t p) const
     {
         const cpx_type *twiddles = &_twiddles[0];
         cpx_type scratchbuf[p];
@@ -293,7 +309,7 @@ private:
                     twidx += fstride * k;
                     if (twidx >= _nfft)
                         twidx -= _nfft;
-                    Fout[k] += (scratchbuf[q] * twiddles[twidx]) / _scale_factor;
+                    Fout[k] += mul_tw(scratchbuf[q], twiddles[twidx]);
                 }
                 k += m;
             }
