@@ -48,6 +48,8 @@ target_compile_definitions(tkfc PRIVATE KFC_TEST)
 
 add_kissfft_test_executable(ffr twotonetest.c)
 add_kissfft_test_executable(tr test_real.c)
+# unity build: compiles the library sources itself with KISS_FFT_MALLOC/FREE overridden
+add_kissfft_test_executable(tcustalloc test_custom_alloc.c)
 
 add_kissfft_test_executable(next_fast_size next_fast_size.c)
 

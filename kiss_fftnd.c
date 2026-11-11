@@ -38,7 +38,7 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
     memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(kiss_fft_cpx) * dimprod); /* st->tmpbuf */
 
     if (lenmem == NULL) {/* allocate for the caller*/
-        ptr = (char *) malloc (memneeded);
+        ptr = (char *) KISS_FFT_MALLOC (memneeded);
     } else { /* initialize supplied buffer if big enough */
         if (*lenmem >= memneeded)
             ptr = (char *) mem;

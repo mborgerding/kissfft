@@ -51,10 +51,10 @@ extern "C" {
 #ifdef HAVE_LASX
 # include <lasxintrin.h>
 # define kiss_fft_scalar __m256
+# define KISS_FFT_ALIGN_CHECK(ptr)
+# define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 31UL) & ~0x1FUL)
 # ifndef KISS_FFT_MALLOC
 #  define KISS_FFT_MALLOC(nbytes) aligned_alloc(32, KISS_FFT_ALIGN_SIZE_UP(nbytes))
-#  define KISS_FFT_ALIGN_CHECK(ptr)
-#  define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 31UL) & ~0x1FUL)
 # endif
 # ifndef KISS_FFT_FREE
 #  define KISS_FFT_FREE free
@@ -62,10 +62,10 @@ extern "C" {
 #elif defined(HAVE_LSX)
 # include <lsxintrin.h>
 # define kiss_fft_scalar __m128
+# define KISS_FFT_ALIGN_CHECK(ptr)
+# define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
 # ifndef KISS_FFT_MALLOC
 #  define KISS_FFT_MALLOC(nbytes) aligned_alloc(16, KISS_FFT_ALIGN_SIZE_UP(nbytes))
-#  define KISS_FFT_ALIGN_CHECK(ptr)
-#  define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
 # endif
 # ifndef KISS_FFT_FREE
 #  define KISS_FFT_FREE free
@@ -73,10 +73,10 @@ extern "C" {
 #else
 # include <xmmintrin.h>
 # define kiss_fft_scalar __m128
+# define KISS_FFT_ALIGN_CHECK(ptr)
+# define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
 # ifndef KISS_FFT_MALLOC
 #  define KISS_FFT_MALLOC(nbytes) _mm_malloc(nbytes,16)
-#  define KISS_FFT_ALIGN_CHECK(ptr)
-#  define KISS_FFT_ALIGN_SIZE_UP(size) ((size + 15UL) & ~0xFUL)
 # endif
 # ifndef KISS_FFT_FREE
 #  define KISS_FFT_FREE _mm_free
