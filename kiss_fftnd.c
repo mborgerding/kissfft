@@ -159,6 +159,12 @@ void kiss_fftnd(kiss_fftnd_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
     const kiss_fft_cpx * bufin=fin;
     kiss_fft_cpx * bufout;
 
+    if (st->ndims == 0) { /* a zero-dimensional transform is the identity */
+        if (fin != fout)
+            *fout = *fin;
+        return;
+    }
+
     /*arrange it so the last bufout == fout*/
     if ( st->ndims & 1 ) {
         bufout = fout;

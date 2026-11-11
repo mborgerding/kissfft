@@ -22,8 +22,11 @@ struct kiss_fftndr_state
 static size_t prod(const int *dims, int ndims)
 {
     size_t x=1;
-    while (ndims--) 
+    while (ndims--) {
+        if (*dims > 0 && x > (size_t)-1 / (size_t)*dims)
+            return (size_t)-1; /* overflow: saturate so the size check below fails */
         x *= *dims++;
+    }
     return x;
 }
 
@@ -37,26 +40,24 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
     size_t dimOther = prod(dims,ndims-1);
     size_t memneeded;
     char * ptr = NULL;
-    int k,check;
 
     (void)kiss_fftr_alloc(dimReal,inverse_fft,NULL,&nr);
+    if (nr == 0)
+        return NULL; /* dimReal not supported by kiss_fftr (e.g. odd) */
+
+    /* check for overflow: the buffers below need about 2*dimOther*(dimReal+2) scalars; keep a 2x margin */
+    /* kiss_fftnd counts the other dimensions in an int */
+    if (dimOther > INT_MAX || dimOther > (size_t)-1 / 4 / sizeof(kiss_fft_scalar) / ((size_t)dimReal + 2)) {
+        if (lenmem!=NULL)
+            *lenmem = (size_t)(-1);
+        return NULL;
+    }
     (void)kiss_fftnd_alloc(dims,ndims-1,inverse_fft,NULL,&nd);
     ntmp =
         MAX( 2*dimOther , dimReal+2) * sizeof(kiss_fft_scalar)  // freq buffer for one pass
         + dimOther*(size_t)(dimReal+2) * sizeof(kiss_fft_scalar);  // large enough to hold entire input in case of in-place
 
     memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof( struct kiss_fftndr_state )) + KISS_FFT_ALIGN_SIZE_UP(nr) + KISS_FFT_ALIGN_SIZE_UP(nd) + KISS_FFT_ALIGN_SIZE_UP(ntmp);
-
-    /* check for overflow */
-    check = memneeded;
-    for (k=0;k<ndims;++k) {
-        check /= dims[k];
-        if (check <= sizeof(kiss_fft_scalar)) {
-            if (lenmem!=NULL)
-                *lenmem = (size_t)(-1);
-            return NULL;
-        }
-    }
 
     if (lenmem==NULL) {
         ptr = (char*) malloc(memneeded);
