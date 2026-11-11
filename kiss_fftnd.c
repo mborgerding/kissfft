@@ -29,6 +29,13 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
 
     for (i=0;i<ndims;++i) {
         size_t sublen=0;
+        /* reject invalid dims and products that overflow int (st->dimprod) or the tmpbuf size */
+        if (dims[i] <= 0 || dimprod > INT_MAX / dims[i]
+            || (size_t)(dimprod * dims[i]) > (size_t)(-1) / 2 / sizeof(kiss_fft_cpx)) {
+            if (lenmem != NULL)
+                *lenmem = (size_t)(-1);
+            return NULL;
+        }
         kiss_fft_alloc (dims[i], inverse_fft, NULL, &sublen);
         memneeded += sublen;   /* st->states[i] */
         dimprod *= dims[i];
