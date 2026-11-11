@@ -37,6 +37,13 @@ export KISSFFT_TOOLS ?= 1
 export KISSFFT_USE_ALLOCA ?= 0
 
 #
+# Compiler flags for the library (same as the CMake Release build).
+# Set CFLAGS in the environment to override them.
+#
+
+CFLAGS ?= -O3 -DNDEBUG -ffast-math -fomit-frame-pointer
+
+#
 # Installation directories
 #
 
