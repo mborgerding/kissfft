@@ -66,7 +66,7 @@ void kfc_cleanup(void)
     kfc_cfg  next=NULL;
     while (cur){
         next = cur->next;
-        free(cur);
+        KISS_FFT_FREE(cur);
         cur=next;
     }
     ncached=0;

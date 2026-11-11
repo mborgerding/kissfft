@@ -59,7 +59,7 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
     }
 
     if (lenmem==NULL) {
-        ptr = (char*) malloc(memneeded);
+        ptr = (char*) KISS_FFT_MALLOC(memneeded);
     }else{
         if (*lenmem >= memneeded)
             ptr = (char *)mem;

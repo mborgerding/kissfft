@@ -43,6 +43,7 @@ ifneq ($(KISSFFT_OPENMP),1)
 	BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)
 	SELFTEST = st-$(KISSFFT_DATATYPE)
 	TESTREAL = tr-$(KISSFFT_DATATYPE)
+	TESTCUSTOMALLOC = tcustalloc-$(KISSFFT_DATATYPE)
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)
@@ -52,6 +53,7 @@ else
 	BENCHFFTW = bm-fftw-$(KISSFFT_DATATYPE)-openmp
 	SELFTEST = st-$(KISSFFT_DATATYPE)-openmp
 	TESTREAL = tr-$(KISSFFT_DATATYPE)-openmp
+	TESTCUSTOMALLOC = tcustalloc-$(KISSFFT_DATATYPE)-openmp
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)-openmp
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)-openmp
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)-openmp
@@ -103,7 +105,7 @@ endif
 # Target: "make all"
 #
 
-all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTKFC) $(TESTFASTFILT)
+all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTCUSTOMALLOC) $(TESTKFC) $(TESTFASTFILT)
 
 #
 # Individual test make rules
@@ -117,6 +119,10 @@ $(TESTKFC): ../kfc.c
 
 $(TESTREAL): test_real.c
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
+
+# unity build: compiles the library sources itself with KISS_FFT_MALLOC/FREE overridden, so it must not link the library
+$(TESTCUSTOMALLOC): test_custom_alloc.c ../kiss_fft.c ../kiss_fftr.c ../kiss_fftnd.c ../kiss_fftndr.c ../kfc.c
+	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS) $< -lm
 
 $(BENCHKISS): benchkiss.c pstats.c
 	$(CC) -o $@ $(CFLAGS) $(TYPEFLAGS)  $^ -L.. -l$(KISSFFTLIB_SHORTNAME) -lm
@@ -175,6 +181,8 @@ endif
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(SELFTEST)
 	$(warning ======real FFT (type= $(KISSFFT_DATATYPE) ))
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTREAL)
+	$(warning ======custom KISS_FFT_MALLOC/KISS_FFT_FREE regression test (type= $(KISSFFT_DATATYPE) ))
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTCUSTOMALLOC)
 	$(warning ======timing test (type=$(KISSFFT_DATATYPE)))
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT)
 	@[ -x ./$(BENCHFFTW) ] && LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT) || true
@@ -186,4 +194,4 @@ endif
 #
 
 clean:
-	rm -f *~ bm-* st-* tr-* kf-* tkfc-* ff-* fastfilt-* *.pyc *.pyo *.dat testcpp-* testsimd testsimd-* _test_library_dummy _test_library_dummy.c
+	rm -f *~ bm-* st-* tr-* tcustalloc-* kf-* tkfc-* ff-* fastfilt-* *.pyc *.pyo *.dat testcpp-* testsimd testsimd-* _test_library_dummy _test_library_dummy.c
