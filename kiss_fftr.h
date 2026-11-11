@@ -38,6 +38,8 @@ void KISS_FFT_API kiss_fftr(kiss_fftr_cfg cfg,const kiss_fft_scalar *timedata,ki
 /*
  input timedata has nfft scalar points
  output freqdata has nfft/2+1 complex points
+ freqdata may equal timedata; like an in-place kiss_fft, that call then
+ allocates nfft/2 complex points of scratch. Partial overlap is not allowed.
 */
 
 void KISS_FFT_API kiss_fftri(kiss_fftr_cfg cfg,const kiss_fft_cpx *freqdata,kiss_fft_scalar *timedata);
