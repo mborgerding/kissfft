@@ -60,6 +60,16 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
     return st;
 }
 
+/* (a+b)/2 and (a-b)/2: in fixed point the sum can exceed the integer range,
+ * so form it in the wider product type before halving */
+#ifdef FIXED_POINT
+# define HALF_ADD(a,b) ((kiss_fft_scalar)(((SAMPPROD)(a) + (b)) >> 1))
+# define HALF_SUB(a,b) ((kiss_fft_scalar)(((SAMPPROD)(a) - (b)) >> 1))
+#else
+# define HALF_ADD(a,b) HALF_OF((a) + (b))
+# define HALF_SUB(a,b) HALF_OF((a) - (b))
+#endif
+
 void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *freqdata)
 {
     /* input buffer timedata is stored row-wise */
@@ -74,7 +84,19 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
     ncfft = st->substate->nfft;
 
     /*perform the parallel fft of two real signals packed in real,imag*/
+#ifdef FIXED_POINT
+    /* Packed (real,imag) samples can reach sqrt(2)*full-scale, which overflows
+     * inside kiss_fft, so halve the input first (the post-pass below would
+     * otherwise do this /2). freqdata (ncfft+1 complex) serves as scratch,
+     * which also keeps in-place use working. */
+    for (k = 0; k < ncfft; ++k) {
+        freqdata[k] = ((const kiss_fft_cpx*)timedata)[k];
+        C_FIXDIV(freqdata[k],2);
+    }
+    kiss_fft( st->substate , freqdata, st->tmpbuf );
+#else
     kiss_fft( st->substate , (const kiss_fft_cpx*)timedata, st->tmpbuf );
+#endif
     /* The real part of the DC element of the frequency spectrum in st->tmpbuf
      * contains the sum of the even-numbered elements of the input time sequence
      * The imag part is the sum of the odd-numbered elements
@@ -87,7 +109,6 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
 
     tdc.r = st->tmpbuf[0].r;
     tdc.i = st->tmpbuf[0].i;
-    C_FIXDIV(tdc,2);
     CHECK_OVERFLOW_OP(tdc.r ,+, tdc.i);
     CHECK_OVERFLOW_OP(tdc.r ,-, tdc.i);
     freqdata[0].r = tdc.r + tdc.i;
@@ -110,17 +131,15 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
         fpk    = st->tmpbuf[k];
         fpnk.r =   st->tmpbuf[ncfft-k].r;
         fpnk.i = - st->tmpbuf[ncfft-k].i;
-        C_FIXDIV(fpk,2);
-        C_FIXDIV(fpnk,2);
 
         C_ADD( f1k, fpk , fpnk );
         C_SUB( f2k, fpk , fpnk );
         C_MUL( tw , f2k , st->super_twiddles[k-1]);
 
-        freqdata[k].r = HALF_OF(f1k.r + tw.r);
-        freqdata[k].i = HALF_OF(f1k.i + tw.i);
-        freqdata[ncfft-k].r = HALF_OF(f1k.r - tw.r);
-        freqdata[ncfft-k].i = HALF_OF(tw.i - f1k.i);
+        freqdata[k].r = HALF_ADD(f1k.r, tw.r);
+        freqdata[k].i = HALF_ADD(f1k.i, tw.i);
+        freqdata[ncfft-k].r = HALF_SUB(f1k.r, tw.r);
+        freqdata[ncfft-k].i = HALF_SUB(tw.i, f1k.i);
     }
 }
 
@@ -128,6 +147,7 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
 {
     /* input buffer timedata is stored row-wise */
     int k, ncfft;
+    kiss_fft_cpx tdc;
 
     if (st->substate->inverse == 0) {
         KISS_FFT_ERROR("kiss fft usage error: improper alloc");
@@ -136,9 +156,12 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
 
     ncfft = st->substate->nfft;
 
-    st->tmpbuf[0].r = freqdata[0].r + freqdata[ncfft].r;
-    st->tmpbuf[0].i = freqdata[0].r - freqdata[ncfft].r;
-    C_FIXDIV(st->tmpbuf[0],2);
+    /* halve DC and Nyquist before combining them: their sum can exceed full-scale */
+    tdc.r = freqdata[0].r;
+    tdc.i = freqdata[ncfft].r;
+    C_FIXDIV(tdc,2);
+    st->tmpbuf[0].r = tdc.r + tdc.i;
+    st->tmpbuf[0].i = tdc.r - tdc.i;
 
     for (k = 1; k <= ncfft / 2; ++k) {
         kiss_fft_cpx fk, fnkc, fek, fok, tmp;
