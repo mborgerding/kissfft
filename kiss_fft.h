@@ -173,7 +173,8 @@ void KISS_FFT_API kiss_fft_cleanup(void);
 	
 
 /*
- * Returns the smallest integer k, such that k>=n and k has only "fast" factors (2,3,5)
+ * Returns the smallest integer k, such that k>=n and k has only "fast" factors (2,3,5).
+ * Returns 1 for n<=0, and n itself if no such k fits in an int (n > 2125764000).
  */
 int KISS_FFT_API kiss_fft_next_fast_size(int n);
 
