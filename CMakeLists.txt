@@ -36,6 +36,15 @@ cmake_minimum_required(VERSION 3.10)
 project(kissfft VERSION "${MAKEFILE_EXTRACTED_VERSION}")
 
 #
+# Build optimized code unless a build type is given explicitly
+# (multi-config generators such as Visual Studio choose it at build time)
+#
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug, Release, RelWithDebInfo, MinSizeRel" FORCE)
+endif()
+
+#
 # CMake configuration options
 #
 
