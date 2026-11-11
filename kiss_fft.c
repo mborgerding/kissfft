@@ -11,8 +11,8 @@
 #include <string.h>
 
 /* Runtime CPU dispatch (x86-64 GCC >= 12 / Clang >= 18 on ELF + glibc, where ifunc is available):
- * the hot routines get an extra AVX2/FMA clone that is selected at load time, and float
- * radix-4 stages use a hand-vectorized AVX2 butterfly when the CPU supports it.
+ * the hot routines get an extra AVX2/FMA clone that is selected at load time, and float/double
+ * radix-2/3/4/5 stages use hand-vectorized AVX2 butterflies when the CPU supports it.
  * Results stay within floating-point rounding of the portable code, but are not bit-identical
  * to it (FMA). Define KISS_FFT_NO_DISPATCH to build the portable code only. */
 #if !defined(KISS_FFT_NO_DISPATCH) && !defined(USE_SIMD) && !defined(FIXED_POINT) \
@@ -114,103 +114,48 @@ static inline void kf_bfly4_dir(
 #ifdef KISS_FFT_DISPATCH
 #include <immintrin.h>
 #define KISS_FFT_AVX2 1
-/* only for kiss_fft_scalar == float: 4 interleaved complex values per __m256 */
-#define KF_AVX2_OK (sizeof(kiss_fft_scalar) == sizeof(float))
-
-__attribute__((target("avx2,fma")))
-static inline __m256 kf_cmul_avx2(__m256 a, __m256 w)
-{
-    __m256 wr = _mm256_moveldup_ps(w);          /* wr wr ... */
-    __m256 wi = _mm256_movehdup_ps(w);          /* wi wi ... */
-    __m256 as = _mm256_permute_ps(a, 0xB1);     /* ai ar ... */
-    return _mm256_fmaddsub_ps(a, wr, _mm256_mul_ps(as, wi)); /* (ar*wr-ai*wi, ai*wr+ar*wi) */
-}
-
-/* radix-4 butterfly over k = 0..m-1 using contiguous twiddles tw1 = [W^k] and tw23 = [W^2k | W^3k] */
-__attribute__((target("avx2,fma")))
-static void kf_bfly4_avx2(kiss_fft_cpx * Fout, const kiss_fft_cpx * tw1, const kiss_fft_cpx * tw23,
-                          const size_t m, const int inverse)
-{
-    float *F0 = (float*)Fout, *F1 = (float*)(Fout + m), *F2 = (float*)(Fout + 2*m), *F3 = (float*)(Fout + 3*m);
-    const float *T1 = (const float*)tw1, *T2 = (const float*)tw23, *T3 = (const float*)(tw23 + m);
-    /* multiplying by -i (forward) / +i (inverse) = swap re/im, then flip the sign bit of the imag / real lanes.
-       The flip is an integer xor on purpose: as a float constant (+-0.0) it gets folded away under
-       -ffast-math (-fno-signed-zeros), which the default build uses. */
-    const __m256i flip = inverse ? _mm256_set_epi32(0, INT_MIN, 0, INT_MIN, 0, INT_MIN, 0, INT_MIN)
-                                 : _mm256_set_epi32(INT_MIN, 0, INT_MIN, 0, INT_MIN, 0, INT_MIN, 0);
-    const size_t mv = m & ~(size_t)3;
-    size_t k;
-    for (k = 0; k < mv; k += 4) {
-        const size_t o = 2*k;
-        __m256 a0 = _mm256_loadu_ps(F0 + o);
-        __m256 s0 = kf_cmul_avx2(_mm256_loadu_ps(F1 + o), _mm256_loadu_ps(T1 + o));
-        __m256 s1 = kf_cmul_avx2(_mm256_loadu_ps(F2 + o), _mm256_loadu_ps(T2 + o));
-        __m256 s2 = kf_cmul_avx2(_mm256_loadu_ps(F3 + o), _mm256_loadu_ps(T3 + o));
-        __m256 s5 = _mm256_sub_ps(a0, s1);
-        __m256 a  = _mm256_add_ps(a0, s1);
-        __m256 s3 = _mm256_add_ps(s0, s2);
-        __m256 t  = _mm256_castsi256_ps(_mm256_xor_si256(_mm256_castps_si256(
-                        _mm256_permute_ps(_mm256_sub_ps(s0, s2), 0xB1)), flip));
-        _mm256_storeu_ps(F2 + o, _mm256_sub_ps(a, s3));
-        _mm256_storeu_ps(F0 + o, _mm256_add_ps(a, s3));
-        _mm256_storeu_ps(F1 + o, _mm256_add_ps(s5, t));
-        _mm256_storeu_ps(F3 + o, _mm256_sub_ps(s5, t));
-    }
-    for (; k < m; ++k) {   /* scalar tail, same math */
-        kiss_fft_cpx s[6];
-        C_MUL(s[0], Fout[k+m],   tw1[k]);
-        C_MUL(s[1], Fout[k+2*m], tw23[k]);
-        C_MUL(s[2], Fout[k+3*m], tw23[m+k]);
-        C_SUB(s[5], Fout[k], s[1]);
-        C_ADDTO(Fout[k], s[1]);
-        C_ADD(s[3], s[0], s[2]);
-        C_SUB(s[4], s[0], s[2]);
-        C_SUB(Fout[k+2*m], Fout[k], s[3]);
-        C_ADDTO(Fout[k], s[3]);
-        if (inverse) {
-            Fout[k+m].r = s[5].r - s[4].i;   Fout[k+m].i = s[5].i + s[4].r;
-            Fout[k+3*m].r = s[5].r + s[4].i; Fout[k+3*m].i = s[5].i - s[4].r;
-        } else {
-            Fout[k+m].r = s[5].r + s[4].i;   Fout[k+m].i = s[5].i - s[4].r;
-            Fout[k+3*m].r = s[5].r - s[4].i; Fout[k+3*m].i = s[5].i + s[4].r;
-        }
-    }
-}
-
-/* radix-2 butterfly for the outermost stage, whose twiddles W^k (fstride 1) are contiguous */
-__attribute__((target("avx2,fma")))
-static void kf_bfly2_avx2(kiss_fft_cpx * Fout, const kiss_fft_cpx * tw, const size_t m)
-{
-    float *F0 = (float*)Fout, *F1 = (float*)(Fout + m);
-    const float *T = (const float*)tw;
-    const size_t mv = m & ~(size_t)3;
-    size_t k;
-    for (k = 0; k < mv; k += 4) {
-        const size_t o = 2*k;
-        __m256 a = _mm256_loadu_ps(F0 + o);
-        __m256 t = kf_cmul_avx2(_mm256_loadu_ps(F1 + o), _mm256_loadu_ps(T + o));
-        _mm256_storeu_ps(F1 + o, _mm256_sub_ps(a, t));
-        _mm256_storeu_ps(F0 + o, _mm256_add_ps(a, t));
-    }
-    for (; k < m; ++k) {   /* scalar tail, same math */
-        kiss_fft_cpx t;
-        C_MUL(t, Fout[k+m], tw[k]);
-        C_SUB(Fout[k+m], Fout[k], t);
-        C_ADDTO(Fout[k], t);
-    }
-}
+/* hand-vectorized butterflies for float and double, see _kiss_fft_avx2.h */
+#define KF_AVX2_PS_OK (sizeof(kiss_fft_scalar) == sizeof(float))
+#define KF_AVX2_OK (KF_AVX2_PS_OK || sizeof(kiss_fft_scalar) == sizeof(double))
+#define KF_AVX2_CALL(fn, ...) do { if (KF_AVX2_PS_OK) fn##_ps(__VA_ARGS__); else fn##_pd(__VA_ARGS__); } while (0)
+#define KF_AVX2_FN __attribute__((target("avx2,fma")))
+#define KF_AVX2_PS
+#include "_kiss_fft_avx2.h"
+#undef KF_AVX2_PS
+#include "_kiss_fft_avx2.h"
 
 static int kf_have_avx2(void)
 {
     return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma");
+}
+
+/* radix 3, 4, 5 stages with m >= 4 get contiguous twiddle runs W^qk (q = 1..p-1, k < m) */
+static int kf_avx2_stage(int p, int m)
+{
+    return (p == 3 || p == 4 || p == 5) && m >= 4;
+}
+
+/* the AVX2 twiddle runs of a stage, or NULL: *tw1 = W^k, result = W^2k | W^3k | ... */
+static const kiss_fft_cpx * kf_avx2_tables(const kiss_fft_cfg st, int stage, size_t m, const kiss_fft_cpx ** tw1)
+{
+    const kiss_fft_cpx *t;
+    if (!KF_AVX2_OK || !st->stage_tw[stage] || !kf_have_avx2())
+        return NULL;
+    t = st->twiddles + st->stage_tw[stage];
+    if (stage == 0) {   /* fstride 1: W^k is the start of the twiddles */
+        *tw1 = st->twiddles;
+        return t;
+    }
+    *tw1 = t;
+    return t + m;
 }
 #endif
 
 static void kf_bfly2(kiss_fft_cpx * Fout, const size_t fstride, const kiss_fft_cfg st, int m)
 {
 #ifdef KISS_FFT_AVX2
-    if (KF_AVX2_OK && fstride == 1 && kf_have_avx2()) {
-        kf_bfly2_avx2(Fout, st->twiddles, (size_t)m);
+    if (KF_AVX2_OK && fstride == 1 && kf_have_avx2()) {   /* outermost stage: W^k are contiguous */
+        KF_AVX2_CALL(kf_bfly2_avx2, Fout, st->twiddles, (size_t)m);
         return;
     }
 #endif
@@ -219,16 +164,14 @@ static void kf_bfly2(kiss_fft_cpx * Fout, const size_t fstride, const kiss_fft_c
 
 static void kf_bfly4(kiss_fft_cpx * Fout, const size_t fstride, const kiss_fft_cfg st, const size_t m, const int stage)
 {
-    (void)stage;
 #ifdef KISS_FFT_AVX2
-    if (KF_AVX2_OK && st->stage_tw[stage] && kf_have_avx2()) {
-        const kiss_fft_cpx *t = st->twiddles + st->stage_tw[stage];
-        if (stage == 0)   /* fstride 1: W^k is the start of the twiddles, the table has W^2k, W^3k */
-            kf_bfly4_avx2(Fout, st->twiddles, t, m, st->inverse);
-        else
-            kf_bfly4_avx2(Fout, t, t + m, m, st->inverse);
+    const kiss_fft_cpx *tw1, *twr = kf_avx2_tables(st, stage, m, &tw1);
+    if (twr) {
+        KF_AVX2_CALL(kf_bfly4_avx2, Fout, tw1, twr, m, st->inverse);
         return;
     }
+#else
+    (void)stage;
 #endif
     if (st->inverse) kf_bfly4_dir(Fout,fstride,st,m,1);
     else             kf_bfly4_dir(Fout,fstride,st,m,0);
@@ -239,7 +182,8 @@ static void kf_bfly3(
          kiss_fft_cpx * Fout,
          const size_t fstride,
          const kiss_fft_cfg st,
-         size_t m
+         size_t m,
+         const int stage
          )
 {
      size_t k=m;
@@ -248,6 +192,17 @@ static void kf_bfly3(
      kiss_fft_cpx scratch[5];
      kiss_fft_cpx epi3;
      epi3 = st->twiddles[fstride*m];
+#ifdef KISS_FFT_AVX2
+     {
+         const kiss_fft_cpx *t1, *tr = kf_avx2_tables(st, stage, m, &t1);
+         if (tr) {
+             KF_AVX2_CALL(kf_bfly3_avx2, Fout, t1, tr, m, epi3);
+             return;
+         }
+     }
+#else
+     (void)stage;
+#endif
 
      tw1=tw2=st->twiddles;
 
@@ -284,7 +239,8 @@ static void kf_bfly5(
         kiss_fft_cpx * Fout,
         const size_t fstride,
         const kiss_fft_cfg st,
-        int m
+        int m,
+        const int stage
         )
 {
     kiss_fft_cpx *Fout0,*Fout1,*Fout2,*Fout3,*Fout4;
@@ -295,6 +251,17 @@ static void kf_bfly5(
     kiss_fft_cpx ya,yb;
     ya = twiddles[fstride*m];
     yb = twiddles[fstride*2*m];
+#ifdef KISS_FFT_AVX2
+    {
+        const kiss_fft_cpx *t1, *tr = kf_avx2_tables(st, stage, (size_t)m, &t1);
+        if (tr) {
+            KF_AVX2_CALL(kf_bfly5_avx2, Fout, t1, tr, (size_t)m, ya, yb);
+            return;
+        }
+    }
+#else
+    (void)stage;
+#endif
 
     Fout0=Fout;
     Fout1=Fout0+m;
@@ -418,9 +385,9 @@ void kf_work(
 
         switch (p) {
             case 2: kf_bfly2(Fout,fstride,st,m); break;
-            case 3: kf_bfly3(Fout,fstride,st,m); break;
+            case 3: kf_bfly3(Fout,fstride,st,m,stage); break;
             case 4: kf_bfly4(Fout,fstride,st,m,stage); break;
-            case 5: kf_bfly5(Fout,fstride,st,m); break;
+            case 5: kf_bfly5(Fout,fstride,st,m,stage); break;
             default: kf_bfly_generic(Fout,fstride,st,m,p); break;
         }
         return;
@@ -470,9 +437,9 @@ void kf_work(
     // recombine the p smaller DFTs
     switch (p) {
         case 2: kf_bfly2(Fout,fstride,st,m); break;
-        case 3: kf_bfly3(Fout,fstride,st,m); break;
+        case 3: kf_bfly3(Fout,fstride,st,m,stage); break;
         case 4: kf_bfly4(Fout,fstride,st,m,stage); break;
-        case 5: kf_bfly5(Fout,fstride,st,m); break;
+        case 5: kf_bfly5(Fout,fstride,st,m,stage); break;
         default: kf_bfly_generic(Fout,fstride,st,m,p); break;
     }
 }
@@ -544,7 +511,7 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
     if (nfft >= (SIZE_MAX - 2*sizeof(struct kiss_fft_state))/sizeof(kiss_fft_cpx))
         return NULL;
 
-    size_t extra = 0; /* per-stage contiguous radix-4 twiddles for the AVX2 butterfly */
+    size_t extra = 0; /* per-stage contiguous twiddles for the AVX2 butterflies */
     int ntw = nfft;   /* twiddles stored before the tables */
 #ifdef KISS_FFT_AVX2
     if (KF_AVX2_OK && nfft > 0 && kf_have_avx2()) {   /* tables are only used by the AVX2 butterfly */
@@ -553,10 +520,11 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
         kf_factor(nfft, fac);
         do {
             const int p = fac[2*i], m = fac[2*i+1];
-            if (p == 4 && m >= 4)
-                extra += (i ? 3 : 2) * (size_t)m;   /* stage 0 takes W^k from the twiddles */
-            else if (!(m == 1 && (p == 2 || p == 4)) && !(i == 0 && p == 2))
-                tables_only = 0;   /* a stage that indexes the full twiddle array */
+            if (kf_avx2_stage(p, m))
+                extra += (size_t)(i ? p-1 : p-2) * m;   /* stage 0 takes W^k from the twiddles */
+            /* any other stage indexes the full twiddle array (radix 3 and 5 also read W^(N/p)) */
+            if (!(p == 4 && m >= 4) && !(m == 1 && (p == 2 || p == 4)) && !(i == 0 && p == 2))
+                tables_only = 0;
         } while (fac[2*i++ + 1] > 1);
         /* otherwise the only twiddles read directly are W^k, k < m, of the outermost stage */
         if (extra && tables_only)
@@ -589,11 +557,11 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
             int s = 0;
             do {
                 const int p = st->factors[2*s], m = st->factors[2*s+1];
-                if (p == 4 && m >= 4) {
+                if (kf_avx2_stage(p, m)) {
                     kiss_fft_cpx *t = st->twiddles + off;
                     int q;
                     st->stage_tw[s] = (unsigned)off;
-                    for (q = s ? 1 : 2; q <= 3; ++q, t += m, off += (size_t)m)  /* W^qk */
+                    for (q = s ? 1 : 2; q < p; ++q, t += m, off += (size_t)m)  /* W^qk */
                         for (k = 0; k < (size_t)m; ++k)
                             kf_twiddle(t + k, q*k*fstride, nfft, st->inverse);
                 }
