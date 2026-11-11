@@ -60,7 +60,7 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
     memneeded = KISS_FFT_PACK_SIZE_UP(sizeof( struct kiss_fftndr_state )) + KISS_FFT_PACK_SIZE_UP(nr) + KISS_FFT_PACK_SIZE_UP(nd) + KISS_FFT_PACK_SIZE_UP(ntmp);
 
     if (lenmem==NULL) {
-        ptr = (char*) malloc(memneeded);
+        ptr = (char*) KISS_FFT_MALLOC(memneeded);
     }else{
         if (*lenmem >= memneeded)
             ptr = (char *)mem;
