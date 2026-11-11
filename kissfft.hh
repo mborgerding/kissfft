@@ -72,6 +72,7 @@ class kissfft
                 for ( typename std::vector<cpx_t>::iterator it = _twiddles.begin();
                       it != _twiddles.end(); ++it )
                     it->imag( -it->imag() );
+                _inverse = inverse;
             }
         }
 
