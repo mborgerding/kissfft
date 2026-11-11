@@ -333,7 +333,8 @@ void kf_factor(int n,int * facbuf)
  * per point. With c[n] = e^(-+i*pi*n^2/N) and nk = (n^2 + k^2 - (k-n)^2)/2:
  *     X[k] = c[k] * sum_n (x[n] c[n]) conj(c[k-n])
  * which is a circular convolution, done with FFTs of a fast size M >= 2N-1.
- * Layout: twiddles[0..N) = c, twiddles[N..N+M) = FFT(conj(c))/M, then the size-M sub-FFT state. */
+ * The filter conj(c[n]) is even (b[-n] = b[n]), so its spectrum is even too: only half is stored.
+ * Layout: twiddles[0..N) = c, twiddles[N..N+M/2] = FFT(conj(c))/M, then the size-M sub-FFT state. */
 #define KF_BLUESTEIN 1
 #define KF_BLUESTEIN_MIN_P 20   /* below this, the fixed overhead of Bluestein dominates */
 
@@ -343,15 +344,16 @@ void kf_factor(int n,int * facbuf)
 static int kf_bluestein_init(kiss_fft_cfg st, int nsub, size_t subofs, size_t sublen)
 {
     const int n = st->nfft;
-    kiss_fft_cpx *chirp = st->twiddles, *filt = st->twiddles + n, *tmp;
+    kiss_fft_cpx *chirp = st->twiddles, *filt = st->twiddles + n, *b, *tmp;
     kiss_fft_cfg sub = kiss_fft_alloc(nsub, 0, (char*)st + subofs, &sublen);
     int i;
 
     if (sub == NULL)
         return 0;
-    tmp = (kiss_fft_cpx*)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx)*nsub);
-    if (tmp == NULL)
+    b = (kiss_fft_cpx*)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx)*2*nsub);
+    if (b == NULL)
         return 0;
+    tmp = b + nsub;
     for (i=0;i<n;++i) {
         const double pi=3.141592653589793238462643383279502884197169399375105820974944;
         /* n^2 mod 2N keeps the phase small and exact */
@@ -360,20 +362,19 @@ static int kf_bluestein_init(kiss_fft_cfg st, int nsub, size_t subofs, size_t su
             phase *= -1;
         kf_cexp(chirp+i, phase);
     }
-    for (i=0;i<nsub;++i)
-        filt[i].r = filt[i].i = 0;
+    memset(b, 0, sizeof(kiss_fft_cpx)*nsub);
     for (i=0;i<n;++i) {
-        filt[i].r = chirp[i].r;
-        filt[i].i = -chirp[i].i;
+        b[i].r = chirp[i].r;
+        b[i].i = -chirp[i].i;
         if (i)
-            filt[nsub-i] = filt[i];
+            b[nsub-i] = b[i];
     }
-    kf_work(tmp, filt, 1, 1, sub->factors, sub);
-    for (i=0;i<nsub;++i) {
+    kf_work(tmp, b, 1, 1, sub->factors, sub);
+    for (i=0;i<=nsub/2;++i) {
         filt[i].r = tmp[i].r / nsub;
         filt[i].i = tmp[i].i / nsub;
     }
-    KISS_FFT_FREE(tmp);
+    KISS_FFT_FREE(b);
     st->bluestein = (unsigned)subofs;
     return 1;
 }
@@ -396,8 +397,8 @@ static void kf_bluestein(kiss_fft_cfg st, const kiss_fft_cpx *fin, kiss_fft_cpx 
     for (k=0;k<n;++k)       /* reads all of fin before fout is written, so in place is fine */
         C_MUL(a[k], fin[(size_t)k*in_stride], chirp[k]);
     kf_work(b, a, 1, 1, sub->factors, sub);
-    for (k=0;k<m;++k) {     /* inverse FFT as conj(FFT(conj(.))) */
-        C_MUL(t, b[k], filt[k]);
+    for (k=0;k<m;++k) {     /* inverse FFT as conj(FFT(conj(.))); filter spectrum is even */
+        C_MUL(t, b[k], filt[k <= m/2 ? k : m-k]);
         a[k].r = t.r;
         a[k].i = -t.i;
     }
@@ -443,7 +444,7 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
             nsub = kiss_fft_next_fast_size(2*nfft-1);
             while (nsub >> (lg+1))
                 ++lg;
-            subofs = KISS_FFT_ALIGN_SIZE_UP(memneeded + sizeof(kiss_fft_cpx)*nsub); /* + filter */
+            subofs = KISS_FFT_ALIGN_SIZE_UP(memneeded + sizeof(kiss_fft_cpx)*(nsub/2+1)); /* + filter */
             /* cost: generic stage ~ N*p, Bluestein ~ M*log2(M), with similar constants */
             if ((double)fac[2*i]*nfft <= (double)nsub*lg || subofs > UINT_MAX) {
                 nsub = 0;
