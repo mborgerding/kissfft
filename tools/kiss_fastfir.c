@@ -220,6 +220,8 @@ size_t kff_flush(kiss_fastfir_cfg st,const kffsamp_t * inbuf,kffsamp_t * outbuf,
     outbuf += ntmp;
 
     zpad = st->nfft - n;
+    if (zpad >= st->ngood) /* n <= n_imp_resp-1: not enough samples for any output */
+        return ntmp;
     memset(st->tmpbuf,0,sizeof(kffsamp_t)*st->nfft );
     memcpy(st->tmpbuf,inbuf,sizeof(kffsamp_t)*n );
     
@@ -242,8 +244,8 @@ size_t kiss_fastfir(
     }else{
         size_t nwritten = kff_nocopy(vst,inbuf,outbuf,ntot);
         *offset = ntot - nwritten;
-        /*save the unused or underused samples at the front of the input buffer */
-        memcpy( inbuf , inbuf+nwritten , *offset * sizeof(kffsamp_t) );
+        /*save the unused or underused samples at the front of the input buffer (the ranges may overlap) */
+        memmove( inbuf , inbuf+nwritten , *offset * sizeof(kffsamp_t) );
         return nwritten;
     }
 }
