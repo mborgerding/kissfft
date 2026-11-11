@@ -46,6 +46,7 @@ ifneq ($(KISSFFT_OPENMP),1)
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)
+	TESTCPPASSIGN = tcppassign-$(KISSFFT_DATATYPE)
 	TESTSIMD = testsimd
 else
 	BENCHKISS = bm-kiss-$(KISSFFT_DATATYPE)-openmp
@@ -55,6 +56,7 @@ else
 	TESTKFC = tkfc-$(KISSFFT_DATATYPE)-openmp
 	TESTFASTFILT = fastfilt-$(KISSFFT_DATATYPE)-openmp
 	TESTCPP = testcpp-$(KISSFFT_DATATYPE)-openmp
+	TESTCPPASSIGN = tcppassign-$(KISSFFT_DATATYPE)-openmp
 	TESTSIMD = testsimd-openmp
 	CFLAGS += -fopenmp
 	CXXFLAGS += -fopenmp
@@ -103,7 +105,7 @@ endif
 # Target: "make all"
 #
 
-all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTKFC) $(TESTFASTFILT)
+all: $(BENCHKISS) $(SELFTEST) $(BENCHFFTW) $(TESTREAL) $(TESTCPPASSIGN) $(TESTKFC) $(TESTFASTFILT)
 
 #
 # Individual test make rules
@@ -162,6 +164,9 @@ $(TESTCPP): testcpp.cc ../kissfft.hh
 testcpp: $(TESTCPP)
 	LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTCPP)
 
+$(TESTCPPASSIGN): test_cpp_assign.cc ../kissfft.hh
+	$(CXX) -o $@ $(CXXFLAGS) test_cpp_assign.cc -lm
+
 #
 # Target: "make test"
 #
@@ -175,6 +180,8 @@ endif
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(SELFTEST)
 	$(warning ======real FFT (type= $(KISSFFT_DATATYPE) ))
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTREAL)
+	$(warning ======C++ kissfft::assign regression test (type= $(KISSFFT_DATATYPE) ))
+	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(TESTCPPASSIGN)
 	$(warning ======timing test (type=$(KISSFFT_DATATYPE)))
 	@LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHKISS) -x $(NUMFFTS) -n $(NFFT)
 	@[ -x ./$(BENCHFFTW) ] && LD_LIBRARY_PATH="$(LD_LIBRARY_PATH):.." ./$(BENCHFFTW) -x $(NUMFFTS) -n $(NFFT) || true
@@ -186,4 +193,4 @@ endif
 #
 
 clean:
-	rm -f *~ bm-* st-* tr-* kf-* tkfc-* ff-* fastfilt-* *.pyc *.pyo *.dat testcpp-* testsimd testsimd-* _test_library_dummy _test_library_dummy.c
+	rm -f *~ bm-* st-* tr-* tcppassign-* kf-* tkfc-* ff-* fastfilt-* *.pyc *.pyo *.dat testcpp-* testsimd testsimd-* _test_library_dummy _test_library_dummy.c
