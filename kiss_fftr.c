@@ -11,7 +11,7 @@
 
 struct kiss_fftr_state{
     kiss_fft_cfg substate;
-    kiss_fft_cpx * tmpbuf;
+    kiss_fft_cpx * tmpbuf;  /* inverse only: the forward transform works in freqdata */
     kiss_fft_cpx * super_twiddles;
 #ifdef USE_SIMD
     void * pad;
@@ -33,7 +33,8 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
     nfft >>= 1;
 
     kiss_fft_alloc (nfft, inverse_fft, NULL, &subsize);
-    memneeded = sizeof(struct kiss_fftr_state) + subsize + sizeof(kiss_fft_cpx) * ( nfft * 3 / 2);
+    memneeded = sizeof(struct kiss_fftr_state) + subsize
+        + sizeof(kiss_fft_cpx) * ((inverse_fft ? nfft : 0) + nfft / 2);
 
     if (lenmem == NULL) {
         st = (kiss_fftr_cfg) KISS_FFT_MALLOC (memneeded);
@@ -46,8 +47,8 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
         return NULL;
 
     st->substate = (kiss_fft_cfg) (st + 1); /*just beyond kiss_fftr_state struct */
-    st->tmpbuf = (kiss_fft_cpx *) (((char *) st->substate) + subsize);
-    st->super_twiddles = st->tmpbuf + nfft;
+    st->super_twiddles = (kiss_fft_cpx *) (((char *) st->substate) + subsize);
+    st->tmpbuf = inverse_fft ? st->super_twiddles + nfft / 2 : NULL;
     kiss_fft_alloc(nfft, inverse_fft, st->substate, &subsize);
 
     for (i = 0; i < nfft/2; ++i) {
@@ -73,9 +74,11 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
 
     ncfft = st->substate->nfft;
 
-    /*perform the parallel fft of two real signals packed in real,imag*/
-    kiss_fft( st->substate , (const kiss_fft_cpx*)timedata, st->tmpbuf );
-    /* The real part of the DC element of the frequency spectrum in st->tmpbuf
+    /*perform the parallel fft of two real signals packed in real,imag.
+      The result goes straight into freqdata (ncfft+1 bins): the loop below reads
+      bins k and ncfft-k before it overwrites them, so it can work in place. */
+    kiss_fft( st->substate , (const kiss_fft_cpx*)timedata, freqdata );
+    /* The real part of the DC element of the frequency spectrum in freqdata
      * contains the sum of the even-numbered elements of the input time sequence
      * The imag part is the sum of the odd-numbered elements
      *
@@ -85,8 +88,8 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
      *      yielding Nyquist bin of input time sequence
      */
 
-    tdc.r = st->tmpbuf[0].r;
-    tdc.i = st->tmpbuf[0].i;
+    tdc.r = freqdata[0].r;
+    tdc.i = freqdata[0].i;
     C_FIXDIV(tdc,2);
     CHECK_OVERFLOW_OP(tdc.r ,+, tdc.i);
     CHECK_OVERFLOW_OP(tdc.r ,-, tdc.i);
@@ -107,9 +110,9 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
 #endif
 
     for ( k=1;k <= ncfft/2 ; ++k ) {
-        fpk    = st->tmpbuf[k];
-        fpnk.r =   st->tmpbuf[ncfft-k].r;
-        fpnk.i = - st->tmpbuf[ncfft-k].i;
+        fpk    = freqdata[k];
+        fpnk.r =   freqdata[ncfft-k].r;
+        fpnk.i = - freqdata[ncfft-k].i;
         C_FIXDIV(fpk,2);
         C_FIXDIV(fpnk,2);
 
