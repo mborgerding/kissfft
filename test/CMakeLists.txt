@@ -48,6 +48,8 @@ target_compile_definitions(tkfc PRIVATE KFC_TEST)
 
 add_kissfft_test_executable(ffr twotonetest.c)
 add_kissfft_test_executable(tr test_real.c)
+# includes ../tools/kiss_fastfir.c directly, so it does not depend on KISSFFT_TOOLS
+add_kissfft_test_executable(tfastfir test_fastfir.c)
 
 add_kissfft_test_executable(next_fast_size next_fast_size.c)
 
