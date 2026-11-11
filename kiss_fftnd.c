@@ -24,18 +24,18 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
     kiss_fftnd_cfg st = NULL;
     int i;
     int dimprod=1;
-    size_t memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fftnd_state));
+    size_t memneeded = KISS_FFT_PACK_SIZE_UP(sizeof(struct kiss_fftnd_state));
     char * ptr = NULL;
 
     for (i=0;i<ndims;++i) {
         size_t sublen=0;
         kiss_fft_alloc (dims[i], inverse_fft, NULL, &sublen);
-        memneeded += sublen;   /* st->states[i] */
+        memneeded += KISS_FFT_PACK_SIZE_UP(sublen);   /* st->states[i] */
         dimprod *= dims[i];
     }
-    memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(int) * ndims);/*  st->dims */
-    memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(void*) * ndims);/* st->states  */
-    memneeded += KISS_FFT_ALIGN_SIZE_UP(sizeof(kiss_fft_cpx) * dimprod); /* st->tmpbuf */
+    memneeded += KISS_FFT_PACK_SIZE_UP(sizeof(int) * ndims);/*  st->dims */
+    memneeded += KISS_FFT_PACK_SIZE_UP(sizeof(void*) * ndims);/* st->states  */
+    memneeded += KISS_FFT_PACK_SIZE_UP(sizeof(kiss_fft_cpx) * dimprod); /* st->tmpbuf */
 
     if (lenmem == NULL) {/* allocate for the caller*/
         ptr = (char *) malloc (memneeded);
@@ -50,23 +50,23 @@ kiss_fftnd_cfg kiss_fftnd_alloc(const int *dims,int ndims,int inverse_fft,void*m
     st = (kiss_fftnd_cfg) ptr;
     st->dimprod = dimprod;
     st->ndims = ndims;
-    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fftnd_state));
+    ptr += KISS_FFT_PACK_SIZE_UP(sizeof(struct kiss_fftnd_state));
 
     st->states = (kiss_fft_cfg *)ptr;
-    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(void*) * ndims);
+    ptr += KISS_FFT_PACK_SIZE_UP(sizeof(void*) * ndims);
 
     st->dims = (int*)ptr;
-    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(int) * ndims);
+    ptr += KISS_FFT_PACK_SIZE_UP(sizeof(int) * ndims);
 
     st->tmpbuf = (kiss_fft_cpx*)ptr;
-    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(kiss_fft_cpx) * dimprod);
+    ptr += KISS_FFT_PACK_SIZE_UP(sizeof(kiss_fft_cpx) * dimprod);
 
     for (i=0;i<ndims;++i) {
         size_t len;
         st->dims[i] = dims[i];
         kiss_fft_alloc (st->dims[i], inverse_fft, NULL, &len);
         st->states[i] = kiss_fft_alloc (st->dims[i], inverse_fft, ptr,&len);
-        ptr += len;
+        ptr += KISS_FFT_PACK_SIZE_UP(len);
     }
     /*
 Hi there!

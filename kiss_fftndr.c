@@ -45,7 +45,7 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
         MAX( 2*dimOther , dimReal+2) * sizeof(kiss_fft_scalar)  // freq buffer for one pass
         + dimOther*(size_t)(dimReal+2) * sizeof(kiss_fft_scalar);  // large enough to hold entire input in case of in-place
 
-    memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof( struct kiss_fftndr_state )) + KISS_FFT_ALIGN_SIZE_UP(nr) + KISS_FFT_ALIGN_SIZE_UP(nd) + KISS_FFT_ALIGN_SIZE_UP(ntmp);
+    memneeded = KISS_FFT_PACK_SIZE_UP(sizeof( struct kiss_fftndr_state )) + KISS_FFT_PACK_SIZE_UP(nr) + KISS_FFT_PACK_SIZE_UP(nd) + KISS_FFT_PACK_SIZE_UP(ntmp);
 
     /* check for overflow */
     check = memneeded;
@@ -70,14 +70,14 @@ kiss_fftndr_cfg kiss_fftndr_alloc(const int *dims,int ndims,int inverse_fft,void
     
     st = (kiss_fftndr_cfg) ptr;
     memset( st , 0 , memneeded);
-    ptr += KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fftndr_state));
+    ptr += KISS_FFT_PACK_SIZE_UP(sizeof(struct kiss_fftndr_state));
     
     st->dimReal = dimReal;
     st->dimOther = dimOther;
     st->cfg_r = kiss_fftr_alloc( dimReal,inverse_fft,ptr,&nr);
-    ptr += KISS_FFT_ALIGN_SIZE_UP(nr);
+    ptr += KISS_FFT_PACK_SIZE_UP(nr);
     st->cfg_nd = kiss_fftnd_alloc(dims,ndims-1,inverse_fft, ptr,&nd);
-    ptr += KISS_FFT_ALIGN_SIZE_UP(nd);
+    ptr += KISS_FFT_PACK_SIZE_UP(nd);
     st->tmpbuf = ptr;
 
     return st;
