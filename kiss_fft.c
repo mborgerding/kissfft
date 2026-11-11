@@ -8,11 +8,27 @@
 
 #include <stdint.h>
 #include "_kiss_fft_guts.h"
+#include <string.h>
+
+/* Runtime CPU dispatch (x86-64 GCC >= 12 / Clang >= 18 on ELF + glibc, where ifunc is available):
+ * the hot routines get an extra AVX2/FMA clone that is selected at load time, and float/double
+ * radix-2/3/4/5 stages use hand-vectorized AVX2 butterflies when the CPU supports it.
+ * Results stay within floating-point rounding of the portable code, but are not bit-identical
+ * to it (FMA). Define KISS_FFT_NO_DISPATCH to build the portable code only. */
+#if !defined(KISS_FFT_NO_DISPATCH) && !defined(USE_SIMD) && !defined(FIXED_POINT) \
+    && defined(__x86_64__) && defined(__ELF__) && defined(__GLIBC__) && !defined(__UCLIBC__) \
+    && !defined(__INTEL_COMPILER) \
+    && ((defined(__clang__) && __clang_major__ >= 18) || (!defined(__clang__) && defined(__GNUC__) && __GNUC__ >= 12))
+#  define KISS_FFT_DISPATCH 1
+#  define KF_TARGET_CLONES __attribute__((target_clones("arch=x86-64-v3","default")))
+#else
+#  define KF_TARGET_CLONES
+#endif
 /* The guts header contains all the multiplication and addition macros that are defined for
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
 
-static void kf_bfly2(
+static void kf_bfly2_scalar(
         kiss_fft_cpx * Fout,
         const size_t fstride,
         const kiss_fft_cfg st,
@@ -23,23 +39,31 @@ static void kf_bfly2(
     kiss_fft_cpx * tw1 = st->twiddles;
     kiss_fft_cpx t;
     Fout2 = Fout + m;
-    do{
+
+    /* first iteration peeled: its twiddle is 1 (kept out of the loop so the loop stays branch-free) */
+    C_FIXDIV(*Fout,2); C_FIXDIV(*Fout2,2);
+    t = *Fout2;
+    C_SUB( *Fout2 ,  *Fout , t );
+    C_ADDTO( *Fout ,  t );
+
+    while (--m) {
+        ++Fout2;
+        ++Fout;
+        tw1 += fstride;
         C_FIXDIV(*Fout,2); C_FIXDIV(*Fout2,2);
 
         C_MUL (t,  *Fout2 , *tw1);
-        tw1 += fstride;
         C_SUB( *Fout2 ,  *Fout , t );
         C_ADDTO( *Fout ,  t );
-        ++Fout2;
-        ++Fout;
-    }while (--m);
+    }
 }
 
-static void kf_bfly4(
+static inline void kf_bfly4_dir(
         kiss_fft_cpx * Fout,
         const size_t fstride,
         const kiss_fft_cfg st,
-        const size_t m
+        const size_t m,
+        const int inverse
         )
 {
     kiss_fft_cpx *tw1,*tw2,*tw3;
@@ -54,9 +78,13 @@ static void kf_bfly4(
     do {
         C_FIXDIV(*Fout,4); C_FIXDIV(Fout[m],4); C_FIXDIV(Fout[m2],4); C_FIXDIV(Fout[m3],4);
 
-        C_MUL(scratch[0],Fout[m] , *tw1 );
-        C_MUL(scratch[1],Fout[m2] , *tw2 );
-        C_MUL(scratch[2],Fout[m3] , *tw3 );
+        if (k != m) {
+            C_MUL(scratch[0],Fout[m] , *tw1 );
+            C_MUL(scratch[1],Fout[m2] , *tw2 );
+            C_MUL(scratch[2],Fout[m3] , *tw3 );
+        } else { /* first twiddles are 1 */
+            scratch[0] = Fout[m]; scratch[1] = Fout[m2]; scratch[2] = Fout[m3];
+        }
 
         C_SUB( scratch[5] , *Fout, scratch[1] );
         C_ADDTO(*Fout, scratch[1]);
@@ -68,7 +96,7 @@ static void kf_bfly4(
         tw3 += fstride*3;
         C_ADDTO( *Fout , scratch[3] );
 
-        if(st->inverse) {
+        if(inverse) {
             Fout[m].r = scratch[5].r - scratch[4].i;
             Fout[m].i = scratch[5].i + scratch[4].r;
             Fout[m3].r = scratch[5].r + scratch[4].i;
@@ -83,11 +111,79 @@ static void kf_bfly4(
     }while(--k);
 }
 
+#ifdef KISS_FFT_DISPATCH
+#include <immintrin.h>
+#define KISS_FFT_AVX2 1
+/* hand-vectorized butterflies for float and double, see _kiss_fft_avx2.h */
+#define KF_AVX2_PS_OK (sizeof(kiss_fft_scalar) == sizeof(float))
+#define KF_AVX2_OK (KF_AVX2_PS_OK || sizeof(kiss_fft_scalar) == sizeof(double))
+#define KF_AVX2_CALL(fn, ...) do { if (KF_AVX2_PS_OK) fn##_ps(__VA_ARGS__); else fn##_pd(__VA_ARGS__); } while (0)
+#define KF_AVX2_FN __attribute__((target("avx2,fma")))
+#define KF_AVX2_PS
+#include "_kiss_fft_avx2.h"
+#undef KF_AVX2_PS
+#include "_kiss_fft_avx2.h"
+
+static int kf_have_avx2(void)
+{
+    return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma");
+}
+
+/* radix 3, 4, 5 stages with m >= 4 get contiguous twiddle runs W^qk (q = 1..p-1, k < m) */
+static int kf_avx2_stage(int p, int m)
+{
+    return (p == 3 || p == 4 || p == 5) && m >= 4;
+}
+
+/* the AVX2 twiddle runs of a stage, or NULL: *tw1 = W^k, result = W^2k | W^3k | ... */
+static const kiss_fft_cpx * kf_avx2_tables(const kiss_fft_cfg st, int stage, size_t m, const kiss_fft_cpx ** tw1)
+{
+    const kiss_fft_cpx *t;
+    if (!KF_AVX2_OK || !st->stage_tw[stage] || !kf_have_avx2())
+        return NULL;
+    t = st->twiddles + st->stage_tw[stage];
+    if (stage == 0) {   /* fstride 1: W^k is the start of the twiddles */
+        *tw1 = st->twiddles;
+        return t;
+    }
+    *tw1 = t;
+    return t + m;
+}
+#endif
+
+static void kf_bfly2(kiss_fft_cpx * Fout, const size_t fstride, const kiss_fft_cfg st, int m)
+{
+#ifdef KISS_FFT_AVX2
+    if (KF_AVX2_OK && fstride == 1 && kf_have_avx2()) {   /* outermost stage: W^k are contiguous */
+        KF_AVX2_CALL(kf_bfly2_avx2, Fout, st->twiddles, (size_t)m);
+        return;
+    }
+#endif
+    kf_bfly2_scalar(Fout, fstride, st, m);
+}
+
+static void kf_bfly4(kiss_fft_cpx * Fout, const size_t fstride, const kiss_fft_cfg st, const size_t m, const int stage)
+{
+#ifdef KISS_FFT_AVX2
+    const kiss_fft_cpx *tw1, *twr = kf_avx2_tables(st, stage, m, &tw1);
+    if (twr) {
+        KF_AVX2_CALL(kf_bfly4_avx2, Fout, tw1, twr, m, st->inverse);
+        return;
+    }
+#else
+    (void)stage;
+#endif
+    if (st->inverse) kf_bfly4_dir(Fout,fstride,st,m,1);
+    else             kf_bfly4_dir(Fout,fstride,st,m,0);
+}
+
+KF_TARGET_CLONES
 static void kf_bfly3(
          kiss_fft_cpx * Fout,
          const size_t fstride,
          const kiss_fft_cfg st,
-         size_t m
+         size_t m,
+         const int stage
          )
 {
      size_t k=m;
@@ -96,6 +192,17 @@ static void kf_bfly3(
      kiss_fft_cpx scratch[5];
      kiss_fft_cpx epi3;
      epi3 = st->twiddles[fstride*m];
+#ifdef KISS_FFT_AVX2
+     {
+         const kiss_fft_cpx *t1, *tr = kf_avx2_tables(st, stage, m, &t1);
+         if (tr) {
+             KF_AVX2_CALL(kf_bfly3_avx2, Fout, t1, tr, m, epi3);
+             return;
+         }
+     }
+#else
+     (void)stage;
+#endif
 
      tw1=tw2=st->twiddles;
 
@@ -127,11 +234,13 @@ static void kf_bfly3(
      }while(--k);
 }
 
+KF_TARGET_CLONES
 static void kf_bfly5(
         kiss_fft_cpx * Fout,
         const size_t fstride,
         const kiss_fft_cfg st,
-        int m
+        int m,
+        const int stage
         )
 {
     kiss_fft_cpx *Fout0,*Fout1,*Fout2,*Fout3,*Fout4;
@@ -142,6 +251,17 @@ static void kf_bfly5(
     kiss_fft_cpx ya,yb;
     ya = twiddles[fstride*m];
     yb = twiddles[fstride*2*m];
+#ifdef KISS_FFT_AVX2
+    {
+        const kiss_fft_cpx *t1, *tr = kf_avx2_tables(st, stage, (size_t)m, &t1);
+        if (tr) {
+            KF_AVX2_CALL(kf_bfly5_avx2, Fout, t1, tr, (size_t)m, ya, yb);
+            return;
+        }
+    }
+#else
+    (void)stage;
+#endif
 
     Fout0=Fout;
     Fout1=Fout0+m;
@@ -189,6 +309,7 @@ static void kf_bfly5(
 }
 
 /* perform the butterfly for one stage of a mixed radix FFT */
+KF_TARGET_CLONES
 static void kf_bfly_generic(
         kiss_fft_cpx * Fout,
         const size_t fstride,
@@ -232,6 +353,7 @@ static void kf_bfly_generic(
     KISS_FFT_TMP_FREE(scratch);
 }
 
+KF_TARGET_CLONES
 static
 void kf_work(
         kiss_fft_cpx * Fout,
@@ -245,6 +367,7 @@ void kf_work(
     kiss_fft_cpx * Fout_beg=Fout;
     const int p=*factors++; /* the radix  */
     const int m=*factors++; /* stage's fft length/p */
+    const int stage = (int)((factors - st->factors) / 2) - 1;
     const kiss_fft_cpx * Fout_end = Fout + p*m;
 
 #ifdef _OPENMP
@@ -262,9 +385,9 @@ void kf_work(
 
         switch (p) {
             case 2: kf_bfly2(Fout,fstride,st,m); break;
-            case 3: kf_bfly3(Fout,fstride,st,m); break;
-            case 4: kf_bfly4(Fout,fstride,st,m); break;
-            case 5: kf_bfly5(Fout,fstride,st,m); break;
+            case 3: kf_bfly3(Fout,fstride,st,m,stage); break;
+            case 4: kf_bfly4(Fout,fstride,st,m,stage); break;
+            case 5: kf_bfly5(Fout,fstride,st,m,stage); break;
             default: kf_bfly_generic(Fout,fstride,st,m,p); break;
         }
         return;
@@ -272,6 +395,28 @@ void kf_work(
 #endif
 
     if (m==1) {
+        /* leaf stage: gather and butterfly fused for radix 2 and 4, whose twiddles are all 1 */
+        const size_t s = fstride*in_stride;
+        switch (p) {
+            case 2: {
+                kiss_fft_cpx a=f[0], b=f[s];
+                C_FIXDIV(a,2); C_FIXDIV(b,2);
+                C_ADD(Fout[0],a,b); C_SUB(Fout[1],a,b);
+                return;
+            }
+            case 4: {
+                kiss_fft_cpx a=f[0], b=f[s], c=f[2*s], d=f[3*s], s0,s1,s2,s3;
+                C_FIXDIV(a,4); C_FIXDIV(b,4); C_FIXDIV(c,4); C_FIXDIV(d,4);
+                C_ADD(s0,a,c); C_SUB(s1,a,c); C_ADD(s2,b,d); C_SUB(s3,b,d);
+                C_ADD(Fout[0],s0,s2); C_SUB(Fout[2],s0,s2);
+                if (st->inverse) {
+                    Fout[1].r=s1.r-s3.i; Fout[1].i=s1.i+s3.r; Fout[3].r=s1.r+s3.i; Fout[3].i=s1.i-s3.r;
+                } else {
+                    Fout[1].r=s1.r+s3.i; Fout[1].i=s1.i-s3.r; Fout[3].r=s1.r-s3.i; Fout[3].i=s1.i+s3.r;
+                }
+                return;
+            }
+        }
         do{
             *Fout = *f;
             f += fstride*in_stride;
@@ -292,11 +437,21 @@ void kf_work(
     // recombine the p smaller DFTs
     switch (p) {
         case 2: kf_bfly2(Fout,fstride,st,m); break;
-        case 3: kf_bfly3(Fout,fstride,st,m); break;
-        case 4: kf_bfly4(Fout,fstride,st,m); break;
-        case 5: kf_bfly5(Fout,fstride,st,m); break;
+        case 3: kf_bfly3(Fout,fstride,st,m,stage); break;
+        case 4: kf_bfly4(Fout,fstride,st,m,stage); break;
+        case 5: kf_bfly5(Fout,fstride,st,m,stage); break;
         default: kf_bfly_generic(Fout,fstride,st,m,p); break;
     }
+}
+
+/* twiddle W^i = e^(-+2*pi*i*I/nfft) */
+static void kf_twiddle(kiss_fft_cpx * x, size_t i, int nfft, int inverse)
+{
+    const double pi=3.141592653589793238462643383279502884197169399375105820974944;
+    double phase = -2*pi*(double)i / nfft;
+    if (inverse)
+        phase *= -1;
+    kf_cexp(x, phase );
 }
 
 /*  facbuf is populated by p1,m1,p2,m2, ...
@@ -309,6 +464,19 @@ void kf_factor(int n,int * facbuf)
     int p=4;
     double floor_sqrt;
     floor_sqrt = floor( sqrt((double)n) );
+
+    /* an odd power of 2 leaves one radix-2 stage: make it the outermost one (fstride 1, long and
+       contiguous) rather than the leaf, so that no radix-4 stage gets stuck with a tiny m */
+    if (n > 0 && (n & 1) == 0) {
+        int v = 0;
+        while (((n >> v) & 1) == 0) ++v;
+        if (v & 1) {
+            n /= 2;
+            *facbuf++ = 2;
+            *facbuf++ = n;
+            if (n == 1) return;
+        }
+    }
 
     /*factor out powers of 4, powers of 2, then any remaining primes */
     do {
@@ -343,8 +511,28 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
     if (nfft >= (SIZE_MAX - 2*sizeof(struct kiss_fft_state))/sizeof(kiss_fft_cpx))
         return NULL;
 
+    size_t extra = 0; /* per-stage contiguous twiddles for the AVX2 butterflies */
+    int ntw = nfft;   /* twiddles stored before the tables */
+#ifdef KISS_FFT_AVX2
+    if (KF_AVX2_OK && nfft > 0 && kf_have_avx2()) {   /* tables are only used by the AVX2 butterfly */
+        int fac[2*MAXFACTORS];
+        int i = 0, tables_only = 1;
+        kf_factor(nfft, fac);
+        do {
+            const int p = fac[2*i], m = fac[2*i+1];
+            if (kf_avx2_stage(p, m))
+                extra += (size_t)(i ? p-1 : p-2) * m;   /* stage 0 takes W^k from the twiddles */
+            /* any other stage indexes the full twiddle array (radix 3 and 5 also read W^(N/p)) */
+            if (!(p == 4 && m >= 4) && !(m == 1 && (p == 2 || p == 4)) && !(i == 0 && p == 2))
+                tables_only = 0;
+        } while (fac[2*i++ + 1] > 1);
+        /* otherwise the only twiddles read directly are W^k, k < m, of the outermost stage */
+        if (extra && tables_only)
+            ntw = fac[1];
+    }
+#endif
     size_t memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fft_state)
-        + sizeof(kiss_fft_cpx)*(nfft-1)); /* twiddle factors*/
+        + sizeof(kiss_fft_cpx)*(ntw-1+extra)); /* twiddle factors*/
 
     if ( lenmem==NULL ) {
         st = ( kiss_fft_cfg)KISS_FFT_MALLOC( memneeded );
@@ -358,15 +546,29 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
         st->nfft=nfft;
         st->inverse = inverse_fft;
 
-        for (i=0;i<nfft;++i) {
-            const double pi=3.141592653589793238462643383279502884197169399375105820974944;
-            double phase = -2*pi*i / nfft;
-            if (st->inverse)
-                phase *= -1;
-            kf_cexp(st->twiddles+i, phase );
-        }
+        for (i=0;i<ntw;++i)
+            kf_twiddle(st->twiddles+i, (size_t)i, nfft, st->inverse);
 
         kf_factor(nfft,st->factors);
+        memset(st->stage_tw, 0, sizeof(st->stage_tw));
+#ifdef KISS_FFT_AVX2
+        if (extra) {
+            size_t off = (size_t)ntw, fstride = 1, k;
+            int s = 0;
+            do {
+                const int p = st->factors[2*s], m = st->factors[2*s+1];
+                if (kf_avx2_stage(p, m)) {
+                    kiss_fft_cpx *t = st->twiddles + off;
+                    int q;
+                    st->stage_tw[s] = (unsigned)off;
+                    for (q = s ? 1 : 2; q < p; ++q, t += m, off += (size_t)m)  /* W^qk */
+                        for (k = 0; k < (size_t)m; ++k)
+                            kf_twiddle(t + k, q*k*fstride, nfft, st->inverse);
+                }
+                fstride *= (size_t)p;
+            } while (st->factors[2*s++ + 1] > 1);
+        }
+#endif
     }
     return st;
 }

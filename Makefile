@@ -345,7 +345,7 @@ asm: kiss_fft.s
 
 # TODO: Sort out if we should add kfc / other C headers
 
-kiss_fft.s: kiss_fft.c kiss_fft.h _kiss_fft_guts.h
+kiss_fft.s: kiss_fft.c kiss_fft.h _kiss_fft_guts.h _kiss_fft_avx2.h
 	[ -e kiss_fft.s ] && mv kiss_fft.s kiss_fft.s~ || true
 	$(CC) -S kiss_fft.c -O3 -mtune=native -ffast-math -fomit-frame-pointer -unroll-loops -dA -fverbose-asm
 	$(CC) -o kiss_fft_short.s -S kiss_fft.c -O3 -mtune=native -ffast-math -fomit-frame-pointer -dA -fverbose-asm -DFIXED_POINT
