@@ -126,12 +126,13 @@ static inline __m256 kf_cmul_avx2(__m256 a, __m256 w)
     return _mm256_fmaddsub_ps(a, wr, _mm256_mul_ps(as, wi)); /* (ar*wr-ai*wi, ai*wr+ar*wi) */
 }
 
-/* radix-4 butterfly over k = 0..m-1 using the stage's contiguous twiddles tw = [W^k | W^2k | W^3k] */
+/* radix-4 butterfly over k = 0..m-1 using contiguous twiddles tw1 = [W^k] and tw23 = [W^2k | W^3k] */
 __attribute__((target("avx2,fma")))
-static void kf_bfly4_avx2(kiss_fft_cpx * Fout, const kiss_fft_cpx * tw, const size_t m, const int inverse)
+static void kf_bfly4_avx2(kiss_fft_cpx * Fout, const kiss_fft_cpx * tw1, const kiss_fft_cpx * tw23,
+                          const size_t m, const int inverse)
 {
     float *F0 = (float*)Fout, *F1 = (float*)(Fout + m), *F2 = (float*)(Fout + 2*m), *F3 = (float*)(Fout + 3*m);
-    const float *T1 = (const float*)tw, *T2 = (const float*)(tw + m), *T3 = (const float*)(tw + 2*m);
+    const float *T1 = (const float*)tw1, *T2 = (const float*)tw23, *T3 = (const float*)(tw23 + m);
     /* multiplying by -i (forward) / +i (inverse) = swap re/im, then flip the sign bit of the imag / real lanes.
        The flip is an integer xor on purpose: as a float constant (+-0.0) it gets folded away under
        -ffast-math (-fno-signed-zeros), which the default build uses. */
@@ -157,9 +158,9 @@ static void kf_bfly4_avx2(kiss_fft_cpx * Fout, const kiss_fft_cpx * tw, const si
     }
     for (; k < m; ++k) {   /* scalar tail, same math */
         kiss_fft_cpx s[6];
-        C_MUL(s[0], Fout[k+m],   tw[k]);
-        C_MUL(s[1], Fout[k+2*m], tw[m+k]);
-        C_MUL(s[2], Fout[k+3*m], tw[2*m+k]);
+        C_MUL(s[0], Fout[k+m],   tw1[k]);
+        C_MUL(s[1], Fout[k+2*m], tw23[k]);
+        C_MUL(s[2], Fout[k+3*m], tw23[m+k]);
         C_SUB(s[5], Fout[k], s[1]);
         C_ADDTO(Fout[k], s[1]);
         C_ADD(s[3], s[0], s[2]);
@@ -187,7 +188,11 @@ static void kf_bfly4(kiss_fft_cpx * Fout, const size_t fstride, const kiss_fft_c
     (void)stage;
 #ifdef KISS_FFT_AVX2
     if (KF_AVX2_OK && st->stage_tw[stage] && kf_have_avx2()) {
-        kf_bfly4_avx2(Fout, st->twiddles + st->stage_tw[stage], m, st->inverse);
+        const kiss_fft_cpx *t = st->twiddles + st->stage_tw[stage];
+        if (stage == 0)   /* fstride 1: W^k is the start of the twiddles, the table has W^2k, W^3k */
+            kf_bfly4_avx2(Fout, st->twiddles, t, m, st->inverse);
+        else
+            kf_bfly4_avx2(Fout, t, t + m, m, st->inverse);
         return;
     }
 #endif
@@ -438,6 +443,16 @@ void kf_work(
     }
 }
 
+/* twiddle W^i = e^(-+2*pi*i*I/nfft) */
+static void kf_twiddle(kiss_fft_cpx * x, size_t i, int nfft, int inverse)
+{
+    const double pi=3.141592653589793238462643383279502884197169399375105820974944;
+    double phase = -2*pi*(double)i / nfft;
+    if (inverse)
+        phase *= -1;
+    kf_cexp(x, phase );
+}
+
 /*  facbuf is populated by p1,m1,p2,m2, ...
     where
     p[i] * m[i] = m[i-1]
@@ -483,19 +498,26 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
         return NULL;
 
     size_t extra = 0; /* per-stage contiguous radix-4 twiddles for the AVX2 butterfly */
+    int ntw = nfft;   /* twiddles stored before the tables */
 #ifdef KISS_FFT_AVX2
     if (KF_AVX2_OK && nfft > 0 && kf_have_avx2()) {   /* tables are only used by the AVX2 butterfly */
         int fac[2*MAXFACTORS];
-        int i = 0;
+        int i = 0, tables_only = 1;
         kf_factor(nfft, fac);
         do {
-            if (fac[2*i] == 4 && fac[2*i+1] >= 4)
-                extra += 3 * (size_t)fac[2*i+1];
+            const int p = fac[2*i], m = fac[2*i+1];
+            if (p == 4 && m >= 4)
+                extra += (i ? 3 : 2) * (size_t)m;   /* stage 0 takes W^k from the twiddles */
+            else if (!(m == 1 && (p == 2 || p == 4)) && !(i == 0 && p == 2))
+                tables_only = 0;   /* a stage that indexes the full twiddle array */
         } while (fac[2*i++ + 1] > 1);
+        /* otherwise the only twiddles read directly are W^k, k < m, of the outermost stage */
+        if (extra && tables_only)
+            ntw = fac[1];
     }
 #endif
     size_t memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fft_state)
-        + sizeof(kiss_fft_cpx)*(nfft-1+extra)); /* twiddle factors*/
+        + sizeof(kiss_fft_cpx)*(ntw-1+extra)); /* twiddle factors*/
 
     if ( lenmem==NULL ) {
         st = ( kiss_fft_cfg)KISS_FFT_MALLOC( memneeded );
@@ -509,31 +531,24 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
         st->nfft=nfft;
         st->inverse = inverse_fft;
 
-        for (i=0;i<nfft;++i) {
-            const double pi=3.141592653589793238462643383279502884197169399375105820974944;
-            double phase = -2*pi*i / nfft;
-            if (st->inverse)
-                phase *= -1;
-            kf_cexp(st->twiddles+i, phase );
-        }
+        for (i=0;i<ntw;++i)
+            kf_twiddle(st->twiddles+i, (size_t)i, nfft, st->inverse);
 
         kf_factor(nfft,st->factors);
         memset(st->stage_tw, 0, sizeof(st->stage_tw));
 #ifdef KISS_FFT_AVX2
         if (extra) {
-            size_t off = (size_t)nfft, fstride = 1, k;
+            size_t off = (size_t)ntw, fstride = 1, k;
             int s = 0;
             do {
                 const int p = st->factors[2*s], m = st->factors[2*s+1];
                 if (p == 4 && m >= 4) {
                     kiss_fft_cpx *t = st->twiddles + off;
+                    int q;
                     st->stage_tw[s] = (unsigned)off;
-                    for (k = 0; k < (size_t)m; ++k) {
-                        t[k]       = st->twiddles[k*fstride];
-                        t[m+k]     = st->twiddles[2*k*fstride];
-                        t[2*m+k]   = st->twiddles[3*k*fstride];
-                    }
-                    off += 3 * (size_t)m;
+                    for (q = s ? 1 : 2; q <= 3; ++q, t += m, off += (size_t)m)  /* W^qk */
+                        for (k = 0; k < (size_t)m; ++k)
+                            kf_twiddle(t + k, q*k*fstride, nfft, st->inverse);
                 }
                 fstride *= (size_t)p;
             } while (st->factors[2*s++ + 1] > 1);
