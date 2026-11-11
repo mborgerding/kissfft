@@ -28,7 +28,7 @@
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
 
-static void kf_bfly2(
+static void kf_bfly2_scalar(
         kiss_fft_cpx * Fout,
         const size_t fstride,
         const kiss_fft_cfg st,
@@ -177,11 +177,45 @@ static void kf_bfly4_avx2(kiss_fft_cpx * Fout, const kiss_fft_cpx * tw1, const k
     }
 }
 
+/* radix-2 butterfly for the outermost stage, whose twiddles W^k (fstride 1) are contiguous */
+__attribute__((target("avx2,fma")))
+static void kf_bfly2_avx2(kiss_fft_cpx * Fout, const kiss_fft_cpx * tw, const size_t m)
+{
+    float *F0 = (float*)Fout, *F1 = (float*)(Fout + m);
+    const float *T = (const float*)tw;
+    const size_t mv = m & ~(size_t)3;
+    size_t k;
+    for (k = 0; k < mv; k += 4) {
+        const size_t o = 2*k;
+        __m256 a = _mm256_loadu_ps(F0 + o);
+        __m256 t = kf_cmul_avx2(_mm256_loadu_ps(F1 + o), _mm256_loadu_ps(T + o));
+        _mm256_storeu_ps(F1 + o, _mm256_sub_ps(a, t));
+        _mm256_storeu_ps(F0 + o, _mm256_add_ps(a, t));
+    }
+    for (; k < m; ++k) {   /* scalar tail, same math */
+        kiss_fft_cpx t;
+        C_MUL(t, Fout[k+m], tw[k]);
+        C_SUB(Fout[k+m], Fout[k], t);
+        C_ADDTO(Fout[k], t);
+    }
+}
+
 static int kf_have_avx2(void)
 {
     return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma");
 }
 #endif
+
+static void kf_bfly2(kiss_fft_cpx * Fout, const size_t fstride, const kiss_fft_cfg st, int m)
+{
+#ifdef KISS_FFT_AVX2
+    if (KF_AVX2_OK && fstride == 1 && kf_have_avx2()) {
+        kf_bfly2_avx2(Fout, st->twiddles, (size_t)m);
+        return;
+    }
+#endif
+    kf_bfly2_scalar(Fout, fstride, st, m);
+}
 
 static void kf_bfly4(kiss_fft_cpx * Fout, const size_t fstride, const kiss_fft_cfg st, const size_t m, const int stage)
 {
@@ -463,6 +497,19 @@ void kf_factor(int n,int * facbuf)
     int p=4;
     double floor_sqrt;
     floor_sqrt = floor( sqrt((double)n) );
+
+    /* an odd power of 2 leaves one radix-2 stage: make it the outermost one (fstride 1, long and
+       contiguous) rather than the leaf, so that no radix-4 stage gets stuck with a tiny m */
+    if (n > 0 && (n & 1) == 0) {
+        int v = 0;
+        while (((n >> v) & 1) == 0) ++v;
+        if (v & 1) {
+            n /= 2;
+            *facbuf++ = 2;
+            *facbuf++ = n;
+            if (n == 1) return;
+        }
+    }
 
     /*factor out powers of 4, powers of 2, then any remaining primes */
     do {
