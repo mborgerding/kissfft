@@ -339,8 +339,8 @@ kiss_fft_cfg kiss_fft_alloc(int nfft,int inverse_fft,void * mem,size_t * lenmem 
     KISS_FFT_ALIGN_CHECK(mem)
 
     kiss_fft_cfg st=NULL;
-    // check for overflow condition {memneeded > SIZE_MAX}.
-    if (nfft >= (SIZE_MAX - 2*sizeof(struct kiss_fft_state))/sizeof(kiss_fft_cpx))
+    // reject empty/negative sizes and the overflow condition {memneeded > SIZE_MAX}.
+    if (nfft <= 0 || (size_t)nfft >= (SIZE_MAX - 2*sizeof(struct kiss_fft_state))/sizeof(kiss_fft_cpx))
         return NULL;
 
     size_t memneeded = KISS_FFT_ALIGN_SIZE_UP(sizeof(struct kiss_fft_state)
@@ -413,6 +413,8 @@ int kiss_fft_next_fast_size(int n)
 {
     if (n <= 0) /* nothing to factor; avoid infinite loop for n<=0 */
         return 1;
+    if (n > 2125764000) /* 2^5 * 3^12 * 5^3 is the largest 2,3,5-smooth int; n++ would overflow */
+        return n;
     while(1) {
         int m=n;
         while ( (m%2) == 0 ) m/=2;

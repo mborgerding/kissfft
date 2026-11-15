@@ -23,7 +23,7 @@ static int ncached=0;
 
 static kiss_fft_cfg find_cached_fft(int nfft,int inverse)
 {
-    size_t len;
+    size_t len = 0;
     kfc_cfg  cur=cache_root;
     kfc_cfg  prev=NULL;
     while ( cur ) {
@@ -35,6 +35,8 @@ static kiss_fft_cfg find_cached_fft(int nfft,int inverse)
     if (cur== NULL) {
         /* no cached node found, need to create a new one*/
         kiss_fft_alloc(nfft,inverse,0,&len);
+        if (len == 0)
+            return NULL; /* invalid nfft */
 #ifdef USE_SIMD
         int padding = (16-sizeof(struct cached_fft)) & 15;
         // make sure the cfg aligns on a 16 byte boundary
