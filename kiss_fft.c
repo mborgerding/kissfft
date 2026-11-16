@@ -188,7 +188,12 @@ static void kf_bfly5(
     }
 }
 
-/* perform the butterfly for one stage of a mixed radix FFT */
+/* Butterfly for any other (odd prime) radix p. Pairing x[q] with x[p-q], q = 1..h, h = (p-1)/2,
+ * and with W = e^(-+2*pi*i/p):
+ *   X[k]   = x0 + sum_q (x[q]+x[p-q]) Re(W^qk) + i * sum_q (x[q]-x[p-q]) Im(W^qk)
+ *   X[p-k] = the same with -i,  for k = 1..h,
+ * which takes about a quarter of the multiplies of the direct p-point DFT. */
+#define KF_GENERIC_STACK 64   /* larger radices put their scratch on the heap */
 static void kf_bfly_generic(
         kiss_fft_cpx * Fout,
         const size_t fstride,
@@ -197,39 +202,65 @@ static void kf_bfly_generic(
         int p
         )
 {
-    int u,k,q1,q;
-    kiss_fft_cpx * twiddles = st->twiddles;
-    kiss_fft_cpx t;
-    int Norig = st->nfft;
+    const kiss_fft_cpx * twiddles = st->twiddles;
+    const int h = (p-1)/2;
+    kiss_fft_cpx stackbuf[3*KF_GENERIC_STACK];
+    kiss_fft_cpx *x, *w, *ab;   /* x: p inputs, w: W^0..W^(p-1), ab: a[q], b[q] interleaved */
+    int u, q, k;
 
-    kiss_fft_cpx * scratch = (kiss_fft_cpx*)KISS_FFT_TMP_ALLOC(sizeof(kiss_fft_cpx)*p);
-    if (scratch == NULL){
-        KISS_FFT_ERROR("Memory allocation failed.");
-        return;
+    if (p <= KF_GENERIC_STACK) {
+        x = stackbuf;
+    } else {
+        x = (kiss_fft_cpx*)KISS_FFT_TMP_ALLOC(sizeof(kiss_fft_cpx)*3*p);
+        if (x == NULL){
+            KISS_FFT_ERROR("Memory allocation failed.");
+            return;
+        }
     }
+    w = x + p;
+    ab = w + p;
+    for (q=0; q<p; ++q)
+        w[q] = twiddles[(size_t)q*fstride*m];
 
     for ( u=0; u<m; ++u ) {
-        k=u;
-        for ( q1=0 ; q1<p ; ++q1 ) {
-            scratch[q1] = Fout[ k  ];
-            C_FIXDIV(scratch[q1],p);
-            k += m;
+        kiss_fft_cpx sum;
+        for (q=0; q<p; ++q) {
+            kiss_fft_cpx t = Fout[u + q*m];
+            C_FIXDIV(t,p);
+            if (q && u)
+                C_MUL(x[q], t, twiddles[(size_t)q*u*fstride]);
+            else    /* twiddle 1 */
+                x[q] = t;
         }
-
-        k=u;
-        for ( q1=0 ; q1<p ; ++q1 ) {
-            int twidx=0;
-            Fout[ k ] = scratch[0];
-            for (q=1;q<p;++q ) {
-                twidx += fstride * k;
-                if (twidx>=Norig) twidx-=Norig;
-                C_MUL(t,scratch[q] , twiddles[twidx] );
-                C_ADDTO( Fout[ k ] ,t);
+        sum = x[0];
+        for (q=1; q<=h; ++q) {
+            C_ADD(ab[2*q-2], x[q], x[p-q]);
+            C_SUB(ab[2*q-1], x[q], x[p-q]);
+            C_ADDTO(sum, ab[2*q-2]);
+        }
+        for (k=1; k<=h; ++k) {
+            kiss_fft_cpx T, U;
+            int idx = k;    /* q*k mod p */
+            T.r = x[0].r + S_MUL(ab[0].r, w[k].r);
+            T.i = x[0].i + S_MUL(ab[0].i, w[k].r);
+            U.r = S_MUL(ab[1].r, w[k].i);
+            U.i = S_MUL(ab[1].i, w[k].i);
+            for (q=2; q<=h; ++q) {
+                idx += k;
+                if (idx >= p)
+                    idx -= p;
+                T.r += S_MUL(ab[2*q-2].r, w[idx].r);
+                T.i += S_MUL(ab[2*q-2].i, w[idx].r);
+                U.r += S_MUL(ab[2*q-1].r, w[idx].i);
+                U.i += S_MUL(ab[2*q-1].i, w[idx].i);
             }
-            k += m;
+            Fout[u + k*m].r     = T.r - U.i;  Fout[u + k*m].i     = T.i + U.r;
+            Fout[u + (p-k)*m].r = T.r + U.i;  Fout[u + (p-k)*m].i = T.i - U.r;
         }
+        Fout[u] = sum;
     }
-    KISS_FFT_TMP_FREE(scratch);
+    if (p > KF_GENERIC_STACK)
+        KISS_FFT_TMP_FREE(x);
 }
 
 static
