@@ -31,6 +31,13 @@ struct kiss_fft_state{
     kiss_fft_cpx twiddles[1];
 };
 
+/* Rounds up the size of each object that kiss_fftnd_alloc / kiss_fftndr_alloc
+ * pack into one block, so that the next object starts suitably aligned for
+ * pointers, ints and kiss_fft_cpx (including SIMD vectors). */
+union kiss_fft_pack_align { void *p; int i; kiss_fft_cpx c; };
+#define KISS_FFT_PACK_SIZE_UP(size) \
+    (((size) + sizeof(union kiss_fft_pack_align) - 1) / sizeof(union kiss_fft_pack_align) * sizeof(union kiss_fft_pack_align))
+
 /*
   Explanation of macros dealing with complex math:
 

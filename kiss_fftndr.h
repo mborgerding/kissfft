@@ -46,7 +46,7 @@ void KISS_FFT_API kiss_fftndri(
 */
 
 
-#define kiss_fftndr_free free
+#define kiss_fftndr_free KISS_FFT_FREE
 
 #ifdef __cplusplus
 }
