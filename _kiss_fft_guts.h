@@ -156,6 +156,16 @@ union kiss_fft_pack_align { void *p; int i; kiss_fft_cpx c; };
     (__m128)(__lsx_vldrepl_w(&__sin_val, 0)); \
 })
 #define HALF_OF(x) ((x) * (__m128)(__lsx_vreplgr2vr_w(0x3F000000))) // 0.5f
+#elif defined(HAVE_RVV)
+#define KISS_FFT_COS(phase) ({ \
+    float __cos_val = cosf(phase); \
+    (kiss_fft_scalar){__cos_val, __cos_val, __cos_val, __cos_val}; \
+})
+#define KISS_FFT_SIN(phase) ({ \
+    float __sin_val = sinf(phase); \
+    (kiss_fft_scalar){__sin_val, __sin_val, __sin_val, __sin_val}; \
+})
+#define HALF_OF(x) ((x) * (kiss_fft_scalar){0.5f, 0.5f, 0.5f, 0.5f})
 #else
 #  define KISS_FFT_COS(phase) _mm_set1_ps( cos(phase) )
 #  define KISS_FFT_SIN(phase) _mm_set1_ps( sin(phase) )

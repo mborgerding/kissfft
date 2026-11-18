@@ -44,6 +44,9 @@ double two_tone_test( int nfft, int bin1,int bin2)
 #elif defined(HAVE_LSX)
         float tmp = (maxrange>>1)*cos(f1*i) + (maxrange>>1)*cos(f2*i);
         tbuf[i] = (__m128)__lsx_vldrepl_w(&tmp, 0);
+#elif defined(HAVE_RVV)
+        float tmp = (maxrange>>1)*cos(f1*i) + (maxrange>>1)*cos(f2*i);
+        tbuf[i] = (kiss_fft_scalar){tmp, tmp, tmp, tmp};
 #else
         tbuf[i] = _mm_set1_ps( (maxrange>>1)*cos(f1*i)
                              + (maxrange>>1)*cos(f2*i) );
