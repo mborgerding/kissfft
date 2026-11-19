@@ -5,6 +5,38 @@
  *  SPDX-License-Identifier: BSD-3-Clause
  *  See COPYING file for more information.
  */
+// Fast FIR using FFT (overlap-save method)
+//
+// Input is processed in blocks of size nfft. Only the first ngood = nfft - n_imp_resp + 1
+// samples of each block are valid output. The remaining n_imp_resp-1 samples are the "tail"
+// or "scrap" and are carried over to the next block. This ensures continuity and avoids losing data.
+//
+// The impulse response is zero-padded and rotated during allocation so the tail aligns correctly
+// in the FFT buffer. Its FFT is computed once and stored in fir_freq_resp.
+//
+// So, to outline of the whole processing sequence:
+// 1. Take a block of input samples, including any leftover tail from the previous block.
+// 2. Compute the FFT of the input block.
+// 3. Multiply each frequency bin by the precomputed FFT of the impulse response.
+// 4. Compute the inverse FFT and copy the first ngood samples to the output buffer. Keep
+//    the remaining tail samples for the next block.
+//
+// Visual example:
+//
+//   Input block (nfft samples):
+//     [ x0 x1 x2 ... x_ngood-1 | x_ngood ... x_nfft-1 ]
+//       ^^^^^^^^^^^^^^^^^ valid output   ^^^^^ tail/scrap
+//
+//   After processing:
+//     Output: [ y0 y1 y2 ... y_ngood-1 ]   // this part is written to output
+//     Tail:   [ x_ngood ... x_nfft-1 ]      // this tail is saved for saved for next block
+//
+// kiss_fastfir() automatically manages leftover tail samples using the offset parameter.
+// This overlap-save approach is much faster than direct convolution for long filters while
+// producing the same result as naive sample-by-sample filtering. Think efficiency. 
+//
+// TL;DR: Precompute filter FFT, process input in FFT blocks, save leftover tail samples
+//       for next block. Fast convolution with correct continuity.
 
 #include "_kiss_fft_guts.h"
 
